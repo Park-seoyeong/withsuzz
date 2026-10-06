@@ -43,3 +43,6 @@
 @keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.2}}
 @media (prefers-reduced-motion:reduce){.chara *,.levelup *,.character:hover .chara-body{animation:none!important}}
+.stat-input{width:96px;padding:4px 6px;font-variant-numeric:tabular-nums}#stats-preview .table-wrap{margin-top:10px}
+.table-wrap{overflow-x:auto;max-width:100%}
+.research-box{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}

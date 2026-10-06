@@ -13,7 +13,7 @@ function notice(text) {
   bar.textContent = text;
 }
 
-function chunked(db) {
+function chunked(db, feed = () => null) {
   let cache = null; // {rev, doc, parts}
   let loading = null;
   let writing = Promise.resolve();
@@ -55,7 +55,14 @@ function chunked(db) {
       return {
         bind(...a) { args = a; return this; },
         async first() {
-          if (/^SELECT doc,rev FROM workspace/.test(query)) { const c = await current(); return c.doc === null ? null : { doc: c.doc, rev: c.rev }; }
+          if (/^SELECT doc,rev FROM workspace/.test(query)) {
+            const c = await current(); if (c.doc === null) return null;
+            const f = feed(); if (!f) return { doc: c.doc, rev: c.rev };
+            // 예약된 Claude 웹 검색이 저장한 여행 뉴스를 트렌드 자료로 끼워 넣는다.
+            const state = JSON.parse(c.doc);
+            state.trendSnapshot = { lastAttemptAt: f.checkedAt, sources: [{ id: 'claude-web-search', name: 'Claude 웹 검색 · 여행·축제·항공 뉴스', kind: 'news', url: '', status: '연결됨', checkedAt: f.checkedAt, lastAttemptAt: f.checkedAt, error: null, rows: f.rows }] };
+            return { doc: JSON.stringify(state), rev: c.rev };
+          }
           return null; // 세션·로그인 제한 표는 아티팩트에서 쓰지 않는다(claude.ai가 접근을 관리).
         },
         async run() {
@@ -125,6 +132,33 @@ async function readPdf(bytes, {maxPages = 40, maxImages = 3} = {}) {
   return { pages: doc.numPages, readPages: pages, text: texts.map((t, i) => t ? '[' + (i + 1) + '쪽]\n' + t : '').filter(Boolean).join('\n\n'), images: images.filter(Boolean) };
 }
 
+
+// Claude 클라우드 예약 작업이 쓰는 자료: feeds/trends(여행 뉴스), research/<글감 id>(최신 정보 조사).
+const ROUTINE_TRIGGER = 'trig_01UYFbcWM6A6JUG1JS6BE8B6';
+function feeds(db) {
+  let latest = null;
+  db.doc('feeds/trends').onSnapshot(s => {
+    const d = s.exists ? s.data() : null;
+    latest = d && Array.isArray(d.rows) && !Number.isNaN(Date.parse(d.checkedAt)) ? { checkedAt: d.checkedAt, rows: d.rows.filter(r => r && typeof r.title === 'string' && /^https:\/\//.test(r.url || '')).slice(0, 40).map(r => { const known = !Number.isNaN(Date.parse(r.publishedAt)); return ({ title: r.title.slice(0, 240), keyword: null, url: r.url, publisher: String(r.publisher || '').slice(0, 100), dateUnknown: !known, publishedAt: new Date(known ? r.publishedAt : d.checkedAt).toISOString(), sourceId: 'claude-web-search', sourceKind: 'news', sourceCheckedAt: d.checkedAt, trafficLabel: null, trafficLowerBound: null }); }) } : null;
+  }, () => {});
+  return () => latest;
+}
+function research(db, mcp) {
+  const ref = id => db.doc('research/' + String(id).replace(/[^A-Za-z0-9_.~:@+-]/g, '~'));
+  return {
+    async get(id) { const s = await ref(id).get(); return s.exists ? s.data() : null; },
+    async request(item) {
+      const now = new Date().toISOString();
+      await ref(item.id).set({ itemId: item.id, title: String(item.title || '').slice(0, 200), keyword: String(item.keyword || '').slice(0, 100), region: String(item.region || '').slice(0, 60), type: String(item.type || ''), links: String(item.links || '').slice(0, 2000), question: String(item.question || '').slice(0, 1000), status: '요청', requestedAt: now });
+      let started = false;
+      if (mcp && ROUTINE_TRIGGER.startsWith('trig_')) {
+        try { await mcp.callTool('Claude Code Remote', 'fire_trigger', { trigger_id: ROUTINE_TRIGGER, text: '지금 research 요청을 처리해 주세요: ' + item.id }); started = true; } catch {}
+      }
+      return { requestedAt: now, started };
+    },
+  };
+}
+
 const use = name => (window.claude?.use ? window.claude.use(name).catch(() => null) : Promise.resolve(null));
 const ready = (async () => {
   const [db, assets, sample, downloads] = await Promise.all(['db', 'assets', 'sample', 'downloads'].map(use));
@@ -132,7 +166,9 @@ const ready = (async () => {
   window.suzzSave = downloads ? async (filename, data) => {
     try { await downloads.save({ filename, data }); } catch (e) { if (e?.code !== 'declined' && e?.code !== 'cancelled') throw new Error('파일을 저장하지 못했어요.'); }
   } : null;
-  return { DB: chunked(db), BUCKET: bucket(db, assets), SAMPLE: sample || undefined, PDF: readPdf, ARTIFACT: true };
+  const mcp = await use('mcp');
+  window.suzzResearch = research(db, mcp);
+  return { DB: chunked(db, feeds(db)), BUCKET: bucket(db, assets), SAMPLE: sample || undefined, PDF: readPdf, RESEARCH: id => window.suzzResearch.get(id), ARTIFACT: true };
 })();
 
 const nativeFetch = window.fetch.bind(window);

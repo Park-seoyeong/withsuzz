@@ -27,5 +27,5 @@ test('협찬 정리 API는 원문이 없으면 거절하고, Claude API 결과�
  const prev=globalThis.fetch;let body;globalThis.fetch=async(u,init)=>{body=JSON.parse(init.body);return Response.json({id:'m',type:'message',role:'assistant',model:'claude-opus-5-5',stop_reason:'end_turn',usage:{input_tokens:1,output_tokens:1},content:[{type:'text',text:JSON.stringify(raw)}]});};
  let r;try{r=await worker.fetch(req('/api/ai/sponsor',{title:'라멘',requirements:'성수 라멘집 체험단'},cookie),env);}finally{globalThis.fetch=prev;}
  assert.equal(r.status,200);const d=await r.json();assert.equal(d.result.business,'성수 라멘집');assert.match(d.checklist,/필수 촬영/);
- assert.equal(body.output_config.format.type,'json_schema');assert.match(body.messages[0].content,/성수 라멘집 체험단/);
+ assert.equal(body.output_config.format.type,'json_schema');assert.match(body.messages[0].content.at(-1).text,/성수 라멘집 체험단/);
 });
