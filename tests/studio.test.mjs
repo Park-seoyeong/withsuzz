@@ -50,3 +50,20 @@ test('API: SNS 묶음·시리즈·비교 글·일괄 초안 자동 적용',async
  assert.equal(st.items.filter(i=>i.parentId===saved.id).map(i=>i.date).join(),'2026-10-11,2026-10-12');
  r=await call('/api/ai/write',{requestId:'req-'+'y'.repeat(24),itemId:saved.id,mode:'draft',autoApply:true});assert.equal(r.body.task.appliedAt,undefined,'원고가 있던 글은 자동으로 덮어쓰지 않는다');
 });
+
+test('API: 학습 자료는 Claude가 읽고 요약·적용점을 남기며, 링크는 읽지 않았다고 경고한다',async()=>{
+ const {call,prompts}=setup(()=>({summary:'요약입니다',points:'- 배울 점',apply:'- 적용할 것',warnings:[]}));
+ const l=(await call('/api/action',{action:'saveLesson',lesson:{title:'제목 짓는 법',source:'제목에는 키워드를 앞에 둔다.',url:'https://example.com/a',category:'글쓰기'}})).body.result;
+ const r=await call('/api/ai/lesson',{lessonId:l.id});assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.status,'자료 일부 확인');
+ const st=(await call('/api/state')).body.state,x=st.lessons.find(y=>y.id===l.id);assert.equal(x.summary,'요약입니다');assert.match(x.analysis.warnings.join(),/원본 링크/);assert.match(prompts[0],/키워드를 앞에/);
+ assert.equal((await call('/api/ai/lesson',{lessonId:'none'})).status,404);
+});
+
+test('API: SNS 게시 기록은 블로그 글을 거절하고 경험치를 한 번만 준다',async()=>{
+ const {call}=setup(()=>({}));
+ const blog=(await call('/api/action',{action:'saveItem',item:{title:'블로그 글',channel:'blog'}})).body.result;
+ const sns=(await call('/api/action',{action:'saveItem',item:{title:'인스타 글',channel:'instagram',type:'social'}})).body.result;
+ assert.equal((await call('/api/action',{action:'snsPosted',id:blog.id})).status,400);
+ await call('/api/action',{action:'snsPosted',id:sns.id});await call('/api/action',{action:'snsPosted',id:sns.id});
+ const st=(await call('/api/state')).body.state;assert.equal(st.items.find(i=>i.id===sns.id).status,'게시됨');assert.equal(st.xp,10);
+});
