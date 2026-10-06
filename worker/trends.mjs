@@ -58,7 +58,9 @@ export function trendRecommendations(state,now=new Date().toISOString(),limit=40
  const time=Date.parse(now),snapshot=state.trendSnapshot||{},candidates=new Map(),sources=snapshot.sources||[],day=new Date(time+9*3600000).toISOString().slice(0,10);
  for(const source of sources)for(const row of source.rows||[]){
   const age=time-Date.parse(row.publishedAt),observedAge=time-Date.parse(row.sourceCheckedAt);
-  if(!Number.isFinite(age)||age< -300000||age>48*3600000||!Number.isFinite(observedAge)||observedAge<0)continue;
+  // 예약된 Claude 웹 검색(주 1회 이상 갱신되는 뉴스 목록)은 7일, 실시간 RSS는 48시간까지만 쓴다.
+  const maxAge=row.sourceId==='claude-web-search'?7*24*3600000:48*3600000;
+  if(!Number.isFinite(age)||age< -300000||age>maxAge||!Number.isFinite(observedAge)||observedAge<0)continue;
   const keyword=row.keyword||trendNewsKeyword(row),key=trendCompact(keyword);if(!key)continue;
   let c=candidates.get(key);if(!c){c={id:'trend:'+encodeURIComponent(key),keyword,title:keyword,region:trendRegion(keyword),scope:trendScope(keyword+' '+row.title),search:null,evidence:[],newsMentions:0};candidates.set(key,c);}
   if(c.evidence.some(e=>e.url===row.url&&e.title===row.title))continue;
