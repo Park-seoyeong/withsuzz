@@ -102,3 +102,16 @@ test('블로그 RSS를 읽어 제목·주소·시각을 꺼내고, 사이트는 
   assert.equal(a.status, '게시됨'); assert.equal(a.url, 'https://blog.naver.com/withsuzz/224000000001'); assert.equal(st.items.find(i => i.title === '아직 안 올린 글').status, '아이디어');
   assert.equal((await call('/api/action', {action: 'applyBlogFeed', item: feed})).result.confirmed.length, 0, '같은 글은 다시 확인하지 않음');
 });
+
+test('쇼핑 화면 읽기는 화면 속 상품 목록에서 이름·가격·판매처·리뷰만 꺼내고, 자동입력 방지 화면을 알아챈다', async () => {
+  const {readShopping} = await import('../extension/shoppage.js');
+  const data = {props: {pageProps: {initialState: {products: {list: [{item: {id: '1', productTitle: '<b>가습기</b> 초음파', lowPrice: '39,000', mallName: '네이버', reviewCount: 1200, purchaseCnt: 300, crUrl: 'https://cr.shopping.naver.com/a', category1Name: '디지털'}}, {item: {id: '2', productName: '가습기 대용량', price: 59000, mallName: 'A몰', crUrl: 'javascript:alert(1)'}}, {item: {id: '3', title: '광고 배너'}}]}}}}};
+  globalThis.document = {getElementById: () => ({textContent: JSON.stringify(data)}), body: {innerText: '가습기 검색 결과'}}; globalThis.location = {href: 'https://search.shopping.naver.com/search/all?query=x'};
+  const r = readShopping();
+  assert.equal(r.blocked, false); assert.equal(r.items.length, 2);
+  assert.deepEqual([r.items[0].name, r.items[0].price, r.items[0].reviews, r.items[0].purchases, r.items[0].url], ['가습기 초음파', 39000, 1200, 300, 'https://cr.shopping.naver.com/a']);
+  assert.equal(r.items[1].url, '', 'https가 아닌 주소는 버림');
+  globalThis.document = {getElementById: () => null, body: {innerText: '자동입력 방지 문자를 입력해 주세요'}};
+  assert.equal(readShopping().blocked, true);
+  delete globalThis.document; delete globalThis.location;
+});

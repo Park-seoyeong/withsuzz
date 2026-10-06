@@ -217,7 +217,7 @@ export function saveApiData(state, item, at = new Date().toISOString()) {
     // 같은 키워드로 예전에 불러온 API 상품은 새 결과로 바꾼다(쇼핑 검색 순위는 매번 달라짐).
     state.products = state.products.filter(p => !(p.source === 'naverShop' && pc_compact(p.keyword) === m.key));
     for (const x of (Array.isArray(sh.items) ? sh.items : []).slice(0, 20)) {
-      const p = normalizeProduct({name: x.name, price: x.price, brand: x.brand, url: x.url, category: String(x.category || '').split(' > ')[0], note: '네이버 쇼핑 검색 ' + (Number(x.rank) || '') + '위(정확도순)' + (x.mall ? ' · ' + pc_text(x.mall, 40) : '') + (x.category ? ' · ' + pc_text(x.category, 80) : '')}, 'naverShop', m.keyword, capturedAt);
+      const p = normalizeProduct({name: x.name, price: x.price, brand: x.brand, url: x.url, reviews: x.reviews, category: String(x.category || '').split(' > ')[0], note: (sh.via === 'page' ? '네이버 쇼핑 화면 ' : '네이버 쇼핑 검색 ') + (Number(x.rank) || '') + '위(정확도순)' + (x.note ? ' · ' + pc_text(x.note, 40) : '') + (x.mall ? ' · ' + pc_text(x.mall, 40) : '') + (x.category ? ' · ' + pc_text(x.category, 80) : '')}, 'naverShop', m.keyword, capturedAt);
       if (p) { state.products.push({...p, keywords: [m.keyword]}); products++; }
     }
   }

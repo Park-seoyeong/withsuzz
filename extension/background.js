@@ -4,6 +4,7 @@
 // 결과는 보관함(queue)에 넣고, 사이트를 열면 deliver.js가 넘겨 준다.
 import {collect, cleanKeywords, blogFeed} from './naver-api.js';
 import {runAutoPages} from './autopages.js';
+import {shoppingPage} from './shoppage.js';
 const ALARM = 'suzz-naver-api', EVERY = 360, AUTO = 'suzz-auto-pages';
 
 async function run(reason) {
@@ -11,6 +12,11 @@ async function run(reason) {
   const list = cleanKeywords([...String(manualKeywords).split(/[\n,]/), ...watch]);
   const item = await collect(list, keys);
   item.reason = reason;
+  // 쇼핑 검색 API 키가 없고 '화면으로 읽기'를 켰으면, 키워드 앞 5개만 쇼핑 화면을 뒤쪽 탭으로 열어 최저가를 읽는다.
+  const {shopPages = false} = await chrome.storage.local.get('shopPages');
+  if (shopPages && !item.parts.search && item.data.keywords.length) {
+    for (const k of item.data.keywords.slice(0, 5)) { try { item.data.shopping.push(await shoppingPage(k)); } catch (e) { item.errors.push(e.message); if (/자동입력/.test(e.message)) break; } }
+  }
   const rest = queue.filter(i => i.kind !== 'api');
   // 내 블로그 RSS도 함께: 새로 올라간 글을 사이트가 자동으로 ‘게시 확인’에 쓴다(키 없이 공개 주소만 읽음).
   const {blogId = 'withsuzz'} = await chrome.storage.local.get('blogId');

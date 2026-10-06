@@ -56,7 +56,8 @@
     "https://openapi.naver.com/*",
     "https://api.searchad.naver.com/*",
     "https://blog.naver.com/*",
-    "https://rss.blog.naver.com/*"
+    "https://rss.blog.naver.com/*",
+    "https://search.shopping.naver.com/*"
   ],
   "options_ui": {
     "page": "options.html",

@@ -1,7 +1,8 @@
 const F = ['clientId', 'clientSecret', 'adKey', 'adSecret', 'adCustomer'], $ = id => document.getElementById(id);
 const status = t => { $('status').textContent = t; };
 async function load() {
-  const {keys = {}, manualKeywords = '', watch = [], lastApi, blogId = 'withsuzz'} = await chrome.storage.local.get(['keys', 'manualKeywords', 'watch', 'lastApi', 'blogId']);
+  const {keys = {}, manualKeywords = '', watch = [], lastApi, blogId = 'withsuzz', shopPages = false} = await chrome.storage.local.get(['keys', 'manualKeywords', 'watch', 'lastApi', 'blogId', 'shopPages']);
+  $('shopPages').checked = shopPages;
   $('blogId').value = blogId;
   for (const k of F) $(k).value = keys[k] || '';
   $('manualKeywords').value = manualKeywords;
@@ -10,7 +11,7 @@ async function load() {
 }
 async function save() {
   const keys = Object.fromEntries(F.map(k => [k, $(k).value.trim()]));
-  await chrome.storage.local.set({keys, manualKeywords: $('manualKeywords').value, blogId: $('blogId').value.trim() || 'withsuzz'});
+  await chrome.storage.local.set({keys, manualKeywords: $('manualKeywords').value, blogId: $('blogId').value.trim() || 'withsuzz', shopPages: $('shopPages').checked});
 }
 $('f').addEventListener('submit', async e => { e.preventDefault(); await save(); status('저장했어요. 6시간마다 자동으로 불러와요.'); });
 $('run').addEventListener('click', async () => {
