@@ -267,7 +267,7 @@ export function keywordOpportunities(state, day, limit = 12) {
     const w = {sold: 25, rising: 15, season: 15, gap: 15, revenue: 20, inflow: 10, volume: 15, competition: 10}, sum = Object.values(w).reduce((a, x) => a + x, 0), score = Math.round(Object.keys(w).reduce((a, x) => a + (parts[x] ?? 30) * w[x], 0) / sum);
     const best = [...products].sort((a, b) => (a.salesRank ?? 999) - (b.salesRank ?? 999))[0] || null;
     return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, metric: m ? {volume: m.volume ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, volumeChange: vc, lowPrice: m.shopping?.lowPrice ?? null, shopTotal: m.shopping?.total ?? null, updatedAt: m.updatedAt || null} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url} : null, golden: products.length > 0 && score >= 60};
-  }).filter(r => r.from.includes('담은 상품') || r.score >= 50);
+  }).filter(r => r.from.includes('담은 상품') || r.season || r.metric || r.score >= 50);
   return rows.sort((a, b) => Number(b.golden) - Number(a.golden) || b.score - a.score).slice(0, limit);
 }
 
