@@ -159,6 +159,25 @@ function research(db, mcp) {
   };
 }
 
+// 밤사이 초안: 사이트가 queue/drafts에 '원고가 빈 예정 글' 목록을 올려 두면, Claude 클라우드 예약 작업이 밤에 drafts/<글감 id>로 초안을 써 둔다.
+// 사이트는 다음에 열릴 때 원고가 아직 비어 있고 글감이 그대로인 경우에만 원고에 넣는다.
+function nightDrafts(db) {
+  let last = null;
+  const ref = id => db.doc('drafts/' + String(id).replace(/[^A-Za-z0-9_.~:@+-]/g, '~'));
+  return {
+    async sync(queue) {
+      const body = JSON.stringify(queue);
+      if (body === last) return false;
+      const cur = await db.doc('queue/drafts').get().catch(() => null);
+      if (cur?.exists && JSON.stringify({ enabled: cur.data().enabled, max: cur.data().max, items: cur.data().items }) === body) { last = body; return false; }
+      await db.doc('queue/drafts').set({ ...queue, updatedAt: new Date().toISOString() });
+      last = body; return true;
+    },
+    async list() { const q = await db.collection('drafts').get(); return q.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d && ['완료', '보류'].includes(d.status) && typeof d.itemId === 'string'); },
+    async mark(itemId, status, note = '') { await ref(itemId).update({ status, note: String(note).slice(0, 300), handledAt: new Date().toISOString() }); },
+  };
+}
+
 const use = name => (window.claude?.use ? window.claude.use(name).catch(() => null) : Promise.resolve(null));
 const ready = (async () => {
   const [db, assets, sample, downloads] = await Promise.all(['db', 'assets', 'sample', 'downloads'].map(use));
@@ -168,6 +187,7 @@ const ready = (async () => {
   } : null;
   const mcp = await use('mcp');
   window.suzzResearch = research(db, mcp);
+  window.suzzNightDrafts = nightDrafts(db);
   return { DB: chunked(db, feeds(db)), BUCKET: bucket(db, assets), SAMPLE: sample || undefined, PDF: readPdf, RESEARCH: id => window.suzzResearch.get(id), ARTIFACT: true };
 })();
 

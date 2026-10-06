@@ -74,3 +74,16 @@ test('API: 자동 초안 실행 기록은 하루 한 번만 통과한다',async(
  assert.equal((await call('/api/action',{action:'autoDraftRan',day:'2026-10-07'})).body.result.already,true);
  assert.equal((await call('/api/action',{action:'autoDraftRan',day:''})).status,400);
 });
+
+test('API: 글쓰기 지침서는 고친 AI 초안을 신호로 넣고 버전·기록을 남기며, 초안 프롬프트에 들어간다',async()=>{
+ const {call,prompts}=setup(input=>/글쓰기 코치/.test(input)?{guide:'[말투]\n- 짧게',changes:['짧게 쓰기'],warnings:['경험을 지어내라는 조언은 뺐어요']}:{kind:'draft',title:'t',disclosure:'',body:'b',questions:[],warnings:[],linkPositions:[],summary:''});
+ assert.equal((await call('/api/ai/style-guide',{})).status,400,'배울 자료가 없으면 거절');
+ const it=(await call('/api/action',{action:'saveItem',item:{title:'글',channel:'blog',notes:'n'}})).body.result;
+ await call('/api/ai/write',{requestId:'r-'+'a'.repeat(24),itemId:it.id,mode:'draft',autoApply:true});
+ let st=(await call('/api/state')).body.state;const cur=st.items.find(i=>i.id===it.id);assert.equal(cur.aiOriginal,'t\n\nb');
+ await call('/api/action',{action:'saveItem',item:{...cur,draft:'써즈가 고친 최종본',status:'예약됨',date:'2099-01-01'}});
+ const r=await call('/api/ai/style-guide',{});assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.guide.version,1);
+ assert.match(prompts.at(-1),/써즈가 고친 최종본/);assert.match(prompts.at(-1),/<AI 초안>/);
+ await call('/api/action',{action:'saveStyleGuide',text:'[말투]\n- 직접'});st=(await call('/api/state')).body;assert.equal(st.state.styleGuide.version,2);assert.equal(st.state.styleGuide.history[0].text,'[말투]\n- 짧게');assert.equal(st.style.fresh,0);
+ await call('/api/ai/write',{requestId:'r-'+'b'.repeat(24),itemId:(await call('/api/action',{action:'saveItem',item:{title:'둘',channel:'blog'}})).body.result.id,mode:'draft'});assert.match(prompts.at(-1),/직접/);
+});
