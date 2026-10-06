@@ -1,0 +1,20 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {readFileSync} from 'node:fs';
+import worker from '../dist/server/index.js';
+test('영상 원본을 채널별 글감으로 나누고 같은 채널은 다시 만들지 않는다',async()=>{
+ const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql',import.meta.url),'utf8'));
+ const env={ADMIN_PASSWORD:'pw',DB:{prepare(q){let a=[];return {bind(...x){a=x;return this;},async first(){return sql.prepare(q).get(...a)||null;},async run(){return {meta:{changes:sql.prepare(q).run(...a).changes}};}};}}};
+ const req=(b,c='')=>new Request('https://t.local'+(b?'/api/action':'/api/login'),{method:'POST',headers:{'Content-Type':'application/json','oai-authenticated-user-id':'owner',Cookie:c},body:JSON.stringify(b||{password:'pw'})});
+ const cookie=(await worker.fetch(req(null),env)).headers.get('Set-Cookie').split(';')[0],act=async b=>{const r=await worker.fetch(req(b,cookie),env);return {status:r.status,data:await r.json()};};
+ const blog=(await act({action:'saveItem',item:{title:'제주 억새 글',type:'info'}})).data.result;
+ assert.equal((await act({action:'repurposeVideo',itemId:blog.id,channels:['youtube']})).status,400);
+ const v=(await act({action:'saveItem',item:{title:'새별오름 억새 영상',type:'video',channel:'youtube',notes:'노을 컷'}})).data.result;
+ assert.equal((await act({action:'repurposeVideo',itemId:v.id,channels:[]})).status,400);
+ const r=(await act({action:'repurposeVideo',itemId:v.id,channels:['instagram','tiktok','nope'],startDate:'2099-10-10'})).data.result;assert.deepEqual(r,{made:2,skipped:0});
+ const again=(await act({action:'repurposeVideo',itemId:v.id,channels:['instagram','threads']})).data.result;assert.deepEqual(again,{made:1,skipped:1});
+ const st=await (await worker.fetch(new Request('https://t.local/api/state',{headers:{'oai-authenticated-user-id':'owner',Cookie:cookie}}),env)).json();
+ const kids=st.state.items.filter(i=>i.parentId===v.id);assert.equal(kids.length,3);
+ const tt=kids.find(i=>i.channel==='tiktok');assert.equal(tt.date,'2099-10-11');assert.match(tt.notes,/원본: 새별오름 억새 영상/);assert.match(tt.notes,/노을 컷/);assert.equal(kids.find(i=>i.channel==='threads').date,'');
+});
