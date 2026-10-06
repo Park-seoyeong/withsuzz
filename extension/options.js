@@ -1,7 +1,8 @@
 const F = ['clientId', 'clientSecret', 'adKey', 'adSecret', 'adCustomer'], $ = id => document.getElementById(id);
 const status = t => { $('status').textContent = t; };
 async function load() {
-  const {keys = {}, manualKeywords = '', watch = [], lastApi} = await chrome.storage.local.get(['keys', 'manualKeywords', 'watch', 'lastApi']);
+  const {keys = {}, manualKeywords = '', watch = [], lastApi, blogId = 'withsuzz'} = await chrome.storage.local.get(['keys', 'manualKeywords', 'watch', 'lastApi', 'blogId']);
+  $('blogId').value = blogId;
   for (const k of F) $(k).value = keys[k] || '';
   $('manualKeywords').value = manualKeywords;
   $('watch').firstChild.textContent = watch.length ? '사이트에서 받은 키워드 ' + watch.length + '개: ' + watch.join(', ') : '아직 사이트에서 받은 키워드가 없어요. 사이트를 한 번 열어 주세요.';
@@ -9,7 +10,7 @@ async function load() {
 }
 async function save() {
   const keys = Object.fromEntries(F.map(k => [k, $(k).value.trim()]));
-  await chrome.storage.local.set({keys, manualKeywords: $('manualKeywords').value});
+  await chrome.storage.local.set({keys, manualKeywords: $('manualKeywords').value, blogId: $('blogId').value.trim() || 'withsuzz'});
 }
 $('f').addEventListener('submit', async e => { e.preventDefault(); await save(); status('저장했어요. 6시간마다 자동으로 불러와요.'); });
 $('run').addEventListener('click', async () => {

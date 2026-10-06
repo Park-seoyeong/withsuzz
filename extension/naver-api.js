@@ -94,3 +94,19 @@ export async function collect(keywordList, keys, {fetchFn = fetch, now = new Dat
   if (keywords.length && ready.ad) { try { Object.assign(data, await volumes(keywords, keys, fetchFn, () => now.getTime())); } catch (e) { errors.push(e.message); } }
   return {id: crypto.randomUUID(), kind: 'api', title: '네이버 API · 키워드 ' + keywords.length + '개', url: '', capturedAt: now.toISOString(), data, errors: [...new Set(errors)].slice(0, 10), parts: ready};
 }
+
+// 내 블로그 RSS: 새로 올라간 글의 제목·주소·시각. 서비스 워커에는 DOMParser가 없어 정규식으로 읽는다.
+const unCdata = t => String(t || '').replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1').trim();
+export function parseRss(xml) {
+  return [...String(xml).matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 50).map(m => {
+    const tag = n => unCdata((m[1].match(new RegExp('<' + n + '>([\\s\\S]*?)</' + n + '>')) || [])[1]);
+    const link = tag('link').replace(/&amp;/g, '&'), date = Date.parse(tag('pubDate'));
+    return {title: plain(tag('title')), url: link.split('?')[0], publishedAt: Number.isNaN(date) ? '' : new Date(date).toISOString()};
+  }).filter(r => r.title && /^https:\/\/(m\.)?blog\.naver\.com\//.test(r.url));
+}
+export async function blogFeed(blogId, fetchFn = fetch, now = new Date()) {
+  const id = String(blogId || '').trim(); if (!/^[A-Za-z0-9_-]{2,40}$/.test(id)) return null;
+  const res = await fetchFn('https://rss.blog.naver.com/' + id + '.xml');
+  if (!res.ok) throw new Error('블로그 RSS ' + res.status);
+  return {id: crypto.randomUUID(), kind: 'rss', title: '내 블로그 새 글 (RSS)', url: '', capturedAt: now.toISOString(), data: {blogId: id, rows: parseRss(await res.text())}};
+}

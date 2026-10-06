@@ -2,7 +2,7 @@
 // 1) 네이버 API: 6시간마다 써즈님 키로 공식 API를 부른다(naver-api.js).
 // 2) 자동 수집: 등록한 화면을 하루 두 번(9시·21시 무렵) 뒤쪽 탭으로 열어 읽는다(autopages.js).
 // 결과는 보관함(queue)에 넣고, 사이트를 열면 deliver.js가 넘겨 준다.
-import {collect, cleanKeywords} from './naver-api.js';
+import {collect, cleanKeywords, blogFeed} from './naver-api.js';
 import {runAutoPages} from './autopages.js';
 const ALARM = 'suzz-naver-api', EVERY = 360, AUTO = 'suzz-auto-pages';
 
@@ -12,6 +12,10 @@ async function run(reason) {
   const item = await collect(list, keys);
   item.reason = reason;
   const rest = queue.filter(i => i.kind !== 'api');
+  // 내 블로그 RSS도 함께: 새로 올라간 글을 사이트가 자동으로 ‘게시 확인’에 쓴다(키 없이 공개 주소만 읽음).
+  const {blogId = 'withsuzz'} = await chrome.storage.local.get('blogId');
+  let feed = null; try { feed = await blogFeed(blogId); } catch (e) { item.errors = [...item.errors, e.message]; }
+  if (feed) rest.splice(0, rest.length, ...rest.filter(i => i.kind !== 'rss'), feed);
   await chrome.storage.local.set({queue: [...rest, item].slice(-20), lastApi: {at: item.capturedAt, keywords: item.data.keywords.length, shopping: item.data.shopping.length, trends: item.data.trends.length, volumes: item.data.volumes.length, errors: item.errors}});
   return item;
 }

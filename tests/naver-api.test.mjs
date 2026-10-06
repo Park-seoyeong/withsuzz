@@ -81,3 +81,24 @@ test('데이터랩이 없으면 검색량 기록이 14일 이상 쌓였을 때 �
   const k = keywordOpportunities(s, '2026-10-06').find(x => x.keyword === '제주 여행');
   assert.equal(k.metric.change, null); assert.equal(k.metric.volumeChange.days, 21); assert.equal(k.parts.rising, 100);
 });
+
+test('블로그 RSS를 읽어 제목·주소·시각을 꺼내고, 사이트는 제목이 같은 예정 글만 게시 확인한다', async () => {
+  const {parseRss, blogFeed} = await import('../extension/naver-api.js');
+  const xml = `<rss><channel><item><title><![CDATA[제주 억새 명소 5곳 &amp; 코스]]></title><link><![CDATA[https://blog.naver.com/withsuzz/224000000001?fromRss=true&amp;trackingCode=rss]]></link><pubDate>Tue, 06 Oct 2026 21:00:00 +0900</pubDate></item><item><title>다른 글</title><link>https://blog.naver.com/withsuzz/224000000002</link><pubDate>x</pubDate></item><item><title>외부</title><link>https://evil.example/1</link></item></channel></rss>`;
+  const rows = parseRss(xml);
+  assert.deepEqual(rows[0], {title: '제주 억새 명소 5곳 & 코스', url: 'https://blog.naver.com/withsuzz/224000000001', publishedAt: '2026-10-06T12:00:00.000Z'});
+  assert.equal(rows.length, 2); assert.equal(rows[1].publishedAt, '');
+  assert.equal(await blogFeed('bad id!'), null);
+  const feed = await blogFeed('withsuzz', async () => ({ok: true, text: async () => xml}));
+  const {DatabaseSync} = await import('node:sqlite'), {readFileSync} = await import('node:fs'), {default: worker} = await import('../dist/server/index.js');
+  const sql = new DatabaseSync(':memory:'); sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql', import.meta.url), 'utf8'));
+  const env = {ARTIFACT: '1', DB: {prepare(q) { let a = []; return {bind(...x) { a = x; return this; }, async first() { return sql.prepare(q).get(...a) || null; }, async run() { return {meta: {changes: sql.prepare(q).run(...a).changes}}; }}; }}};
+  const call = async (p, b) => { const r = await worker.fetch(new Request('https://t.local' + p, b ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)} : {}), env); return r.json(); };
+  await call('/api/action', {action: 'saveItem', item: {title: '제주 억새 명소 5곳', channel: 'blog'}});
+  await call('/api/action', {action: 'saveItem', item: {title: '아직 안 올린 글', channel: 'blog'}});
+  const r = (await call('/api/action', {action: 'applyBlogFeed', item: feed})).result;
+  assert.equal(r.confirmed.length, 1);
+  const st = (await call('/api/state')).state, a = st.items.find(i => i.title === '제주 억새 명소 5곳');
+  assert.equal(a.status, '게시됨'); assert.equal(a.url, 'https://blog.naver.com/withsuzz/224000000001'); assert.equal(st.items.find(i => i.title === '아직 안 올린 글').status, '아이디어');
+  assert.equal((await call('/api/action', {action: 'applyBlogFeed', item: feed})).result.confirmed.length, 0, '같은 글은 다시 확인하지 않음');
+});
