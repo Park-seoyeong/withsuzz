@@ -29,7 +29,8 @@ function mergeResults(rs) {
 function looksReady(m) {
   const body = (m.text + ' ' + m.tables.join(' ')).replace(BUSY, ' ');
   const digits = (body.match(/\d/g) || []).length;
-  return body.trim().length > 150 && digits >= 5;
+  // 표가 있거나 글자가 충분하고, 로딩 문구를 뺀 나머지에 숫자가 5개 이상이면 다 뜬 것으로 본다(짧은 통계 표도 통과).
+  return digits >= 5 && (m.tables.some(t => /\d/.test(t)) || body.trim().length > 150);
 }
 
 export async function capturePage(page, {timeout = 45000} = {}) {
@@ -42,7 +43,9 @@ export async function capturePage(page, {timeout = 45000} = {}) {
     while (Date.now() < end) {
       const now = await chrome.tabs.get(tab.id);
       if (LOGIN.test(now.url || '')) throw new Error('로그인이 풀려 있어요. 이 브라우저에서 다시 로그인해 주세요.');
-      const rs = await readAll(tab.id).catch(() => []);
+      let readError = null;
+      const rs = await readAll(tab.id).catch(e => { readError = e; return []; });
+      if (!rs.length && readError && /error page/i.test(readError.message)) throw readError;
       if (rs.length) {
         merged = mergeResults(rs);
         const len = merged.text.length + merged.tables.join('').length;
