@@ -13,16 +13,47 @@ function waitLoaded(tabId, timeout = 30000) {
   });
 }
 
-export async function capturePage(page, {settle = 5000} = {}) {
+// 로딩 문구가 사라지고 숫자가 보일 때까지 기다린다(최대 45초). 안쪽 프레임(iframe)도 함께 읽는다.
+const BUSY = /저장 중|잠시만 기다려|로딩 중|불러오는 중|loading/gi;
+async function readAll(tabId) {
+  const res = await chrome.scripting.executeScript({target: {tabId, allFrames: true}, files: ['collect.js']});
+  return res.map(r => r.result).filter(Boolean);
+}
+function mergeResults(rs) {
+  const base = rs[0];
+  const text = rs.map(r => r.text).filter(Boolean).join('\n\n----\n\n').slice(0, 60000);
+  const tables = rs.flatMap(r => r.tables || []).slice(0, 12);
+  const links = [...new Set(rs.flatMap(r => r.links || []))].slice(0, 80);
+  return {...base, text, tables, links};
+}
+function looksReady(m) {
+  const body = (m.text + ' ' + m.tables.join(' ')).replace(BUSY, ' ');
+  const digits = (body.match(/\d/g) || []).length;
+  return body.trim().length > 150 && digits >= 5;
+}
+
+export async function capturePage(page, {timeout = 45000} = {}) {
   const tab = await chrome.tabs.create({url: page.url, active: false});
   try {
     await waitLoaded(tab.id);
-    await new Promise(r => setTimeout(r, settle)); // 통계 화면은 불러온 뒤 숫자를 늦게 그린다.
-    const now = await chrome.tabs.get(tab.id);
-    if (LOGIN.test(now.url || '')) throw new Error('로그인이 풀려 있어요. 이 브라우저에서 다시 로그인해 주세요.');
-    const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['collect.js']});
-    if (!result || (!result.text && !result.tables.length)) throw new Error('화면에서 읽을 글자를 찾지 못했어요.');
-    return {...result, kind: page.kind || result.kind, auto: true, pageId: page.id};
+    await new Promise(r => setTimeout(r, 3000));
+    let merged = null, lastLen = -1, stable = 0;
+    const end = Date.now() + timeout;
+    while (Date.now() < end) {
+      const now = await chrome.tabs.get(tab.id);
+      if (LOGIN.test(now.url || '')) throw new Error('로그인이 풀려 있어요. 이 브라우저에서 다시 로그인해 주세요.');
+      const rs = await readAll(tab.id).catch(() => []);
+      if (rs.length) {
+        merged = mergeResults(rs);
+        const len = merged.text.length + merged.tables.join('').length;
+        stable = len === lastLen ? stable + 1 : 0; lastLen = len;
+        if (looksReady(merged) && stable >= 1) break; // 숫자가 보이고 두 번 연속 같으면 다 뜬 것
+      }
+      await new Promise(r => setTimeout(r, 2500));
+    }
+    if (!merged || (!merged.text && !merged.tables.length)) throw new Error('화면에서 읽을 글자를 찾지 못했어요.');
+    if (!looksReady(merged)) throw new Error('45초 안에 숫자가 뜨지 않았어요(로딩 중이거나 접근이 막힌 화면). 화면을 직접 열어 숫자가 보이는지 확인해 주세요.');
+    return {...merged, kind: page.kind || merged.kind, auto: true, pageId: page.id};
   } finally { chrome.tabs.remove(tab.id).catch(() => {}); }
 }
 
