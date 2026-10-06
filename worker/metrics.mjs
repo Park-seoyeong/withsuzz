@@ -1,4 +1,4 @@
-export const METRIC_FIELDS=['visits','views','clicks','conversions','revenue','impressions','searchClicks'];
+export const METRIC_FIELDS=['visits','views','clicks','conversions','revenue','impressions','searchClicks','likes','comments'];
 export function metricDate(date){return typeof date==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(date)&&Number.isFinite(Date.parse(date+'T12:00:00Z'))&&new Date(date+'T12:00:00Z').toISOString().slice(0,10)===date;}
 export function measuredMetric(row,field){
  const value=row[field];if(!Number.isFinite(value)||value<0||field!=='revenue'&&!Number.isSafeInteger(value))return null;
