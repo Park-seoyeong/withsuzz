@@ -1,6 +1,6 @@
 // 상품 찾기: 사용자가 캡처·붙여넣기로 담은 제휴·여행 상품을 키워드별로 모아 점수를 매긴다.
 // 화면에 보이던 값만 저장하고, 없는 값은 null로 둔다(0으로 채우지 않음). 수수료는 플랫폼이 보여 준 값만 쓴다.
-export const PRODUCT_SOURCES = {brand: '쇼핑커넥트', myrealtrip: '여행 · 마이리얼트립', naverTravel: '여행 · 네이버 여행 커넥트'};
+export const PRODUCT_SOURCES = {brand: '쇼핑커넥트', myrealtrip: '여행 · 마이리얼트립', naverTravel: '여행 · 네이버 여행 커넥트', naverShop: '네이버 쇼핑 (API)'};
 const productError = (message, status = 400) => { throw Object.assign(new Error(message), {status}); };
 const pc_text = (v, n = 200) => String(v ?? '').trim().slice(0, n);
 const pc_num = v => { if (v === null || v === undefined || String(v).trim() === '') return null; const x = Number(String(v).replace(/[,원₩%\s]/g, '')); return Number.isFinite(x) && x >= 0 ? x : null; };
@@ -188,27 +188,73 @@ export function platformCards(state, day) {
   return out;
 }
 
+// ───────── 네이버 API 결과(확장이 써즈님 키로 불러온 숫자) 저장 ─────────
+// 받은 값만 덮어쓰고, 오지 않은 값은 예전 값을 그대로 둔다. 실패한 API는 apiSync.errors로 남겨 화면에 그대로 보여 준다.
+const pc_count = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
+export function saveApiData(state, item, at = new Date().toISOString()) {
+  const d = item?.data; if (!d || typeof d !== 'object') productError('API 결과가 비어 있어요.');
+  const capturedAt = pc_text(item.capturedAt, 40) || at;
+  if (state.apiSync?.capturedAt && capturedAt <= state.apiSync.capturedAt) return {skipped: true, metrics: 0, products: 0};
+  if (!Array.isArray(state.keywordMetrics)) state.keywordMetrics = [];
+  const metric = kw => { const key = pc_compact(kw); if (key.length < 2) return null; let m = state.keywordMetrics.find(x => x.key === key); if (!m) { m = {key, keyword: pc_text(kw, 40)}; state.keywordMetrics.push(m); } m.updatedAt = capturedAt; return m; };
+  const touched = new Set();
+  for (const v of (Array.isArray(d.volumes) ? d.volumes : []).slice(0, 60)) { const m = metric(v.keyword); if (!m) continue; touched.add(m.key); Object.assign(m, {volume: pc_count(v.volume), monthlyPc: pc_count(v.monthlyPc), monthlyMobile: pc_count(v.monthlyMobile), clicks: pc_count(v.clicks), compIdx: ['낮음', '중간', '높음'].includes(v.compIdx) ? v.compIdx : null}); }
+  for (const t of (Array.isArray(d.trends) ? d.trends : []).slice(0, 60)) {
+    const m = metric(t.keyword); if (!m) continue; touched.add(m.key);
+    const points = (Array.isArray(t.points) ? t.points : []).slice(-12).map(x => ({period: pc_text(x.period, 10), ratio: Number(x.ratio) || 0}));
+    m.trend = {recent: pc_count(t.recent), prior: pc_count(t.prior), change: typeof t.change === 'number' && Number.isFinite(t.change) ? t.change : null, points};
+  }
+  let products = 0;
+  if (!Array.isArray(state.products)) state.products = [];
+  for (const sh of (Array.isArray(d.shopping) ? d.shopping : []).slice(0, 60)) {
+    const m = metric(sh.keyword); if (!m) continue; touched.add(m.key);
+    m.shopping = {total: pc_count(sh.total), lowPrice: pc_count(sh.lowPrice)};
+    // 같은 키워드로 예전에 불러온 API 상품은 새 결과로 바꾼다(쇼핑 검색 순위는 매번 달라짐).
+    state.products = state.products.filter(p => !(p.source === 'naverShop' && pc_compact(p.keyword) === m.key));
+    for (const x of (Array.isArray(sh.items) ? sh.items : []).slice(0, 20)) {
+      const p = normalizeProduct({name: x.name, price: x.price, brand: x.brand, url: x.url, category: String(x.category || '').split(' > ')[0], note: '네이버 쇼핑 검색 ' + (Number(x.rank) || '') + '위(정확도순)' + (x.mall ? ' · ' + pc_text(x.mall, 40) : '') + (x.category ? ' · ' + pc_text(x.category, 80) : '')}, 'naverShop', m.keyword, capturedAt);
+      if (p) { state.products.push({...p, keywords: [m.keyword]}); products++; }
+    }
+  }
+  if (state.products.length > 2000) state.products.splice(0, state.products.length - 2000);
+  if (state.keywordMetrics.length > 500) state.keywordMetrics.splice(0, state.keywordMetrics.length - 500);
+  state.relatedKeywords = (Array.isArray(d.related) ? d.related : []).slice(0, 20).map(r => ({keyword: pc_text(r.keyword, 40), volume: pc_count(r.volume), compIdx: ['낮음', '중간', '높음'].includes(r.compIdx) ? r.compIdx : null})).filter(r => r.keyword);
+  const errors = (Array.isArray(item.errors) ? item.errors : []).slice(0, 10).map(e => pc_text(e, 300));
+  state.apiSync = {capturedAt, savedAt: at, parts: {search: !!item.parts?.search, ad: !!item.parts?.ad}, metrics: touched.size, products, errors};
+  return {skipped: false, metrics: touched.size, products, errors};
+}
+const pc_metric = (state, key) => (state.keywordMetrics || []).find(m => m.key === key) || null;
+
 // ───────── 지금 팔기 좋은 키워드: 확인된 신호만으로 점수를 낸다(검색량·경쟁은 미연결이면 빼고 계산) ─────────
 export function keywordOpportunities(state, day, limit = 12) {
   const cands = new Map(), put = (kw, from) => { const k = pc_compact(kw); if (!k || k.length < 2) return; if (!cands.has(k)) cands.set(k, {keyword: String(kw).trim(), from: new Set()}); cands.get(k).from.add(from); };
-  for (const p of state.products || []) for (const kw of p.keywords || [p.keyword]) put(kw, '담은 상품');
+  const affiliate = (state.products || []).filter(p => p.source !== 'naverShop');
+  for (const p of affiliate) for (const kw of p.keywords || [p.keyword]) put(kw, '담은 상품');
+  for (const m of state.keywordMetrics || []) put(m.keyword, '네이버 API');
+  for (const r of state.relatedKeywords || []) put(r.keyword, '연관 검색어');
   for (const kw of state.naverStats?.keywords || []) put(kw.keyword, '내 블로그 유입');
   const seasons = seasonCalendar(day, 8); for (const s of seasons) for (const kw of s.keywords) put(kw, '시즌');
   const news = (state.trendSnapshot?.sources || []).flatMap(s => s.rows || []).map(r => pc_compact(r.title));
   const rows = [...cands.entries()].map(([k, c]) => {
-    const products = (state.products || []).filter(p => (p.keywords || [p.keyword]).some(x => pc_compact(x) === k) || pc_compact(p.name).includes(k));
+    const products = affiliate.filter(p => (p.keywords || [p.keyword]).some(x => pc_compact(x) === k) || pc_compact(p.name).includes(k));
     const ranks = products.map(p => p.salesRank).filter(v => v !== null), amounts = products.map(p => p.commissionAmount).filter(v => v !== null);
     const parts = {};
     if (ranks.length) parts.sold = Math.max(0, 100 - (Math.min(...ranks) - 1) * 5);
-    const mentions = news.filter(t => t.includes(k)).length; if (news.length) parts.rising = Math.min(100, mentions * 34);
+    const m = pc_metric(state, k) || (() => { const r = (state.relatedKeywords || []).find(x => pc_compact(x.keyword) === k); return r ? {volume: r.volume, compIdx: r.compIdx} : null; })();
+    const mentions = news.filter(t => t.includes(k)).length;
+    // 급등: 데이터랩 최근 4주 ÷ 그 전 8주가 있으면 그 값, 없으면 Claude 뉴스 언급 수.
+    if (m?.trend?.change !== null && m?.trend?.change !== undefined) parts.rising = Math.max(0, Math.min(100, Math.round(50 + m.trend.change * 100)));
+    else if (news.length) parts.rising = Math.min(100, mentions * 34);
+    if (m?.volume !== null && m?.volume !== undefined) parts.volume = Math.min(100, Math.round(Math.log10(m.volume + 1) * 20));
+    if (m?.compIdx) parts.competition = {낮음: 100, 중간: 60, 높음: 25}[m.compIdx];
     const season = seasons.find(s => s.keywords.some(x => pc_compact(x) === k)); if (season) parts.season = season.status === '한창' ? 90 : season.status === '지금 쓸 때' ? 100 : 40;
     const own = state.items.filter(i => pc_compact(i.keyword) === k || pc_compact(i.title).includes(k)); parts.gap = own.length === 0 ? 100 : own.length === 1 ? 60 : 25;
     if (amounts.length) parts.revenue = Math.min(100, Math.round(Math.sqrt(Math.max(...amounts) / 5000) * 100));
     const inflow = (state.naverStats?.keywords || []).find(x => pc_compact(x.keyword) === k); if (inflow) parts.inflow = Math.min(100, Math.round(inflow.percentage * 8));
     // 확인되지 않은 신호는 중립값 30으로 둔다(근거가 적은 키워드가 만점이 되지 않게).
-    const w = {sold: 25, rising: 15, season: 15, gap: 15, revenue: 20, inflow: 10}, score = Math.round(Object.keys(w).reduce((a, x) => a + (parts[x] ?? 30) * w[x], 0) / 100);
+    const w = {sold: 25, rising: 15, season: 15, gap: 15, revenue: 20, inflow: 10, volume: 15, competition: 10}, sum = Object.values(w).reduce((a, x) => a + x, 0), score = Math.round(Object.keys(w).reduce((a, x) => a + (parts[x] ?? 30) * w[x], 0) / sum);
     const best = [...products].sort((a, b) => (a.salesRank ?? 999) - (b.salesRank ?? 999))[0] || null;
-    return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url} : null, golden: products.length > 0 && score >= 60};
+    return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, metric: m ? {volume: m.volume ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, lowPrice: m.shopping?.lowPrice ?? null, shopTotal: m.shopping?.total ?? null, updatedAt: m.updatedAt || null} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url} : null, golden: products.length > 0 && score >= 60};
   }).filter(r => r.from.includes('담은 상품') || r.score >= 50);
   return rows.sort((a, b) => Number(b.golden) - Number(a.golden) || b.score - a.score).slice(0, limit);
 }

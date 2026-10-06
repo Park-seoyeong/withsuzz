@@ -74,3 +74,4 @@
 .bar-chart{max-height:240px}
 .stack{display:grid;gap:16px}
 .ext-inbox{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:70;border-radius:999px;padding:10px 16px;box-shadow:0 8px 24px rgba(30,60,90,.18)}
+.kw-main p.kw-metric{color:var(--ink,#2e465d);margin:0 0 6px}.kw-metric small{color:#8094a5}

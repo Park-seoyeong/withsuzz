@@ -1,0 +1,22 @@
+const F = ['clientId', 'clientSecret', 'adKey', 'adSecret', 'adCustomer'], $ = id => document.getElementById(id);
+const status = t => { $('status').textContent = t; };
+async function load() {
+  const {keys = {}, manualKeywords = '', watch = [], lastApi} = await chrome.storage.local.get(['keys', 'manualKeywords', 'watch', 'lastApi']);
+  for (const k of F) $(k).value = keys[k] || '';
+  $('manualKeywords').value = manualKeywords;
+  $('watch').firstChild.textContent = watch.length ? '사이트에서 받은 키워드 ' + watch.length + '개: ' + watch.join(', ') : '아직 사이트에서 받은 키워드가 없어요. 사이트를 한 번 열어 주세요.';
+  if (lastApi) status('마지막 불러오기 ' + new Date(lastApi.at).toLocaleString('ko-KR') + ' · 쇼핑 ' + lastApi.shopping + ' · 트렌드 ' + lastApi.trends + ' · 검색량 ' + lastApi.volumes + (lastApi.errors?.length ? '\n못 불러온 것: ' + lastApi.errors.join('\n') : ''));
+}
+async function save() {
+  const keys = Object.fromEntries(F.map(k => [k, $(k).value.trim()]));
+  await chrome.storage.local.set({keys, manualKeywords: $('manualKeywords').value});
+}
+$('f').addEventListener('submit', async e => { e.preventDefault(); await save(); status('저장했어요. 6시간마다 자동으로 불러와요.'); });
+$('run').addEventListener('click', async () => {
+  await save(); status('불러오는 중이에요… (키워드 30개면 30초쯤)');
+  const r = await chrome.runtime.sendMessage({type: 'suzz-api-run'});
+  if (!r?.ok) { status('불러오지 못했어요: ' + (r?.error || '알 수 없는 오류')); return; }
+  status('키워드 ' + r.data.keywords + '개 · 쇼핑 ' + r.data.shopping + ' · 트렌드 ' + r.data.trends + ' · 검색량 ' + r.data.volumes + '. 사이트를 열면 저장돼요.' + (r.errors.length ? '\n못 불러온 것:\n' + r.errors.join('\n') : ''));
+});
+$('clear').addEventListener('click', async () => { await chrome.storage.local.remove('keys'); for (const k of F) $(k).value = ''; status('키를 지웠어요.'); });
+load();

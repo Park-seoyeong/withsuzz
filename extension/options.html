@@ -1,0 +1,32 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>써즈 동네방네 수집기 · 네이버 API 설정</title><style>
+body{max-width:640px;margin:0 auto;padding:24px 16px;font:14px/1.6 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#2e465d;background:#f7fafc}
+h1{font-size:18px}h2{font-size:15px;margin:22px 0 4px}p,li{color:#62788a}label{display:block;margin:8px 0 2px;font-weight:600;color:#2e465d}
+input,textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #c9dbe8;border-radius:8px;font:inherit;background:#fff}textarea{min-height:90px}
+button{padding:9px 14px;border-radius:10px;border:1px solid #c9dbe8;background:#fff;font:inherit;cursor:pointer;margin:12px 8px 0 0}button.primary{background:#70afd5;border-color:#70afd5;color:#fff;font-weight:600}
+#status{min-height:22px;color:#3d7a52;white-space:pre-line}.box{background:#fff;border:1px solid #e3edf4;border-radius:12px;padding:12px 16px;margin-top:12px}small{color:#8094a5}
+</style></head><body>
+<h1>네이버 API 설정</h1>
+<p>여기 적은 키는 <strong>이 컴퓨터의 확장 안에만</strong> 저장돼요. 사이트·채팅·Claude로는 키를 보내지 않고, 불러온 숫자(검색량·트렌드·최저가)만 사이트로 넘겨요.</p>
+<form id="f">
+<div class="box"><h2>① 네이버 개발자센터 (쇼핑 검색 · 데이터랩)</h2>
+<p><small>developers.naver.com → Application 등록 → 사용 API에 <b>검색</b>과 <b>데이터랩(검색어트렌드)</b> 추가 → 발급된 Client ID/Secret.</small></p>
+<label for="clientId">Client ID</label><input id="clientId" autocomplete="off" spellcheck="false">
+<label for="clientSecret">Client Secret</label><input id="clientSecret" type="password" autocomplete="off"></div>
+<div class="box"><h2>② 네이버 검색광고 (월간 검색량 · 경쟁도)</h2>
+<p><small>searchad.naver.com → 도구 → API 사용 관리 → 엑세스라이선스·비밀키 발급. CUSTOMER_ID는 같은 화면에 있어요. 광고를 집행하지 않아도 발급돼요.</small></p>
+<label for="adKey">엑세스라이선스 (API Key)</label><input id="adKey" autocomplete="off" spellcheck="false">
+<label for="adSecret">비밀키 (Secret Key)</label><input id="adSecret" type="password" autocomplete="off">
+<label for="adCustomer">CUSTOMER_ID</label><input id="adCustomer" inputmode="numeric" autocomplete="off"></div>
+<div class="box"><h2>③ 더 볼 키워드 (선택)</h2>
+<p><small>사이트를 열면 상품·시즌·추천 키워드를 자동으로 받아 와요(최대 30개). 꼭 보고 싶은 키워드가 있으면 줄마다 하나씩 적어요.</small></p>
+<textarea id="manualKeywords" placeholder="다낭 여행&#10;가을 캠핑"></textarea>
+<p id="watch"><small></small></p></div>
+<button class="primary" type="submit">저장</button><button type="button" id="run">저장하고 지금 불러오기</button><button type="button" id="clear">키 모두 지우기</button>
+</form>
+<p id="status" role="status"></p>
+<div class="box"><h2>어떻게 동작하나요?</h2><ul>
+<li>6시간마다 한 번, 키워드마다 쇼핑 검색 1번 + 데이터랩 5개당 1번 + 검색광고 5개당 1번을 불러요. 하루 무료 한도(검색 25,000·데이터랩 1,000회) 안이에요.</li>
+<li>결과는 확장 보관함에 들어가고, 사이트를 열면 자동으로 저장돼요. 실패한 API는 사이트에 ‘불러오지 못함’으로 그대로 보여요.</li>
+<li>마이리얼트립·쇼핑커넥트·세시간전·애드포스트는 공개 API가 없어 지금처럼 ‘이 화면 보내기’로 담아요.</li></ul></div>
+<script src="options.js"></script>
+</body></html>
