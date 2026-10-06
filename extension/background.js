@@ -34,6 +34,11 @@ chrome.alarms.onAlarm.addListener(a => {
 });
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg?.type === 'suzz-api-run') { run('직접').then(i => reply({ok: true, errors: i.errors, data: {keywords: i.data.keywords.length, shopping: i.data.shopping.length, trends: i.data.trends.length, volumes: i.data.volumes.length}})).catch(e => reply({ok: false, error: e.message})); return true; }
+  if (msg?.type === 'suzz-naver-post') {
+    const p = msg.pkg || {}, pkg = {title: String(p.title || '').slice(0, 200), html: String(p.html || '').slice(0, 400000), text: String(p.text || '').slice(0, 200000), tags: String(p.tags || '').slice(0, 1000), when: String(p.when || '').slice(0, 40), photos: (Array.isArray(p.photos) ? p.photos : []).slice(0, 30).filter(x => /^data:image\//.test(x?.dataUrl || '')).map(x => ({name: String(x.name || 'photo.jpg').slice(0, 120), type: String(x.type || ''), dataUrl: x.dataUrl})), savedAt: new Date().toISOString()};
+    chrome.storage.local.set({naverPost: pkg}).then(() => chrome.tabs.create({url: 'https://blog.naver.com/GoBlogWrite.naver'})).then(() => reply({ok: true, photos: pkg.photos.length})).catch(e => reply({ok: false, error: e.message}));
+    return true;
+  }
   if (msg?.type === 'suzz-api-lookup') {
     chrome.storage.local.get('keys').then(({keys = {}}) => collect(msg.keywords, keys, {pause: () => Promise.resolve()}))
       .then(item => reply({ok: true, item: {...item, lookup: true}})).catch(e => reply({ok: false, error: e.message}));

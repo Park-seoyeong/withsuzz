@@ -18,6 +18,12 @@ window.addEventListener('message', async event => {
     try { reply = await chrome.runtime.sendMessage({type: 'suzz-api-lookup', keywords}); } catch (e) { reply = {ok: false, error: e?.message || '확장과 연결하지 못했어요.'}; }
     window.postMessage({type: 'suzz-ext-lookup-result', id: event.data.id, ...reply}, '*');
   }
+  // 예약 꾸러미를 받아 네이버 글쓰기 탭을 연다(올리기 버튼은 써즈님이 직접).
+  if (event.data.type === 'suzz-ext-naver-post' && event.data.pkg) {
+    let reply;
+    try { reply = await chrome.runtime.sendMessage({type: 'suzz-naver-post', pkg: event.data.pkg}); } catch (e) { reply = {ok: false, error: e?.message || '확장과 연결하지 못했어요.'}; }
+    window.postMessage({type: 'suzz-ext-naver-result', id: event.data.id, ...reply}, '*');
+  }
   if (event.data.type === 'suzz-ext-ack' && Array.isArray(event.data.ids)) {
     const {queue = []} = await chrome.storage.local.get('queue');
     await chrome.storage.local.set({queue: queue.filter(i => !event.data.ids.includes(i.id))});
