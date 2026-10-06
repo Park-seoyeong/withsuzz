@@ -1,0 +1,290 @@
+import {trendCacheFresh,fetchTrendSnapshot,trendRecommendations,chooseTrendRecommendation} from './trends.mjs';
+import {createAutomaticBrief,automaticContext,saveAutomaticDraft,automaticAssetPlan,attachAutomaticAsset,automaticPrepareInput,automaticOverview} from './automatic.mjs';
+import {saveFormattingStudy,saveItemFormatting,formattingDocument,formattingOverview} from './formatting.mjs';
+import {normalizeNaverPosts,saveNaverPosts,naverPostsOverview} from './naver-posts.mjs';
+import {importMetricRows} from './metrics.mjs';
+import {refreshRecommendations,chooseRefreshPlan} from './refresh.mjs';
+import {PUBLICATION_LANES,preparePublication,publicationOverview,publicationContext,claimPublication,recordPublication,cancelPublication,recordPublishingAccess} from './publishing.mjs';
+import {learningRequestList,learningContext,requestLearning,saveLearningAnalysis} from './learning-assistant.mjs';
+import {normalizeNaver} from './naver.mjs';
+import {keywordRecommendations,recommendationBasis} from './recommendations.mjs';
+import {buildManagerReview} from './reviews.mjs';
+import {initialState,today,schedule,award,dailyQuests,checks,brief,reporting,analyzeMetrics,inferRegion,inferTopic,CHANNELS,TYPES,validateDate} from './domain.mjs';
+import {generateAI} from './ai.mjs';
+import {savePrompt,deletePrompt,resolvePrompt,markPromptUsed} from './prompts.mjs';
+import {ASSISTANT_TOOLS,assistantWritingList,assistantWritingContext,saveAssistantProposal,requestAssistantWriting} from './assistant.mjs';
+const APP_HTML='__APP_HTML__',LOGIN_HTML='__LOGIN_HTML__',ASSETS={};
+const enc=new TextEncoder();
+const json=(data,status=200,extra={})=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',...extra}});
+const html=body=>new Response(body,{headers:{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"}});
+const hash=async v=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',enc.encode(v)))).map(x=>x.toString(16).padStart(2,'0')).join('');
+const cookie=r=>(r.headers.get('Cookie')||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('suzz_session='))?.slice(13)||'';
+const identity=r=>r.headers.get('oai-authenticated-user-id')||'';
+const cookieHeader=(r,t,off=false)=>'suzz_session='+t+'; HttpOnly; SameSite=Strict; Path=/'+(new URL(r.url).protocol==='https:'?'; Secure':'')+(off?'; Max-Age=0':'');
+const fail=(m,s=400)=>{const e=new Error(m);e.status=s;throw e;};
+const str=(v,n=10000)=>String(v??'').slice(0,n);
+const safeUrl=v=>{try{const u=new URL(v);return ['http:','https:'].includes(u.protocol)?u.href:'';}catch{return '';}};
+function event(s,kind,message,detail=null){s.events.unshift({id:crypto.randomUUID(),kind,message,detail,at:new Date().toISOString(),read:false});s.events=s.events.slice(0,250);}
+async function read(db){const r=await db.prepare('SELECT doc,rev FROM workspace WHERE id=?').bind('main').first();return r?{state:JSON.parse(r.doc),rev:r.rev}:{state:initialState(),rev:0};}
+async function mutate(db,fn){for(let n=0;n<4;n++){const {state,rev}=await read(db),result=await fn(state),doc=JSON.stringify(state);if(doc.length>4000000)fail('백업 후 오래된 자료를 정리해 주세요.',413);const q=rev===0?db.prepare('INSERT OR IGNORE INTO workspace(id,doc,rev) VALUES(?,?,1)').bind('main',doc):db.prepare('UPDATE workspace SET doc=?,rev=rev+1 WHERE id=? AND rev=?').bind(doc,'main',rev);if((await q.run()).meta?.changes)return {result,state,rev:rev+1};}fail('다른 화면에서 수정했어요. 다시 시도해 주세요.',409);}
+async function authorized(r,db){if(!identity(r)||!cookie(r))return false;const row=await db.prepare('SELECT user_id,expires FROM sessions WHERE token_hash=?').bind(await hash(cookie(r))).first();return !!row&&row.user_id===identity(r)&&row.expires>Date.now();}
+function content(input,old={}){const x={...old};for(const k of ['title','region','topic','status','type','channel','date','deadline','embargo','priority','notes','draft','keyword','guideline','photoNotes','links','provided','url','groupId','minWords','keywordCount','searchDemand','seasonalPriority'])if(Object.hasOwn(input,k))x[k]=str(input[k],['draft','notes','guideline'].includes(k)?80000:10000);x.title=str(x.title,200).trim();if(!x.title)fail('글감 제목을 입력해 주세요.');x.channel=CHANNELS[x.channel]?x.channel:'blog';x.type=TYPES[x.type]?x.type:'review';x.status=['아이디어','초안 작성','예약됨','게시됨'].includes(x.status)?x.status:'아이디어';for(const k of ['date','deadline'])if(!validateDate(x[k]))fail('날짜를 확인해 주세요.');if(x.embargo&&Number.isNaN(Date.parse(x.embargo)))fail('엠바고 시각을 확인해 주세요.');x.region=x.region||inferRegion(x.title);x.topic=x.topic||inferTopic(x.title);x.priority=['높음','보통','낮음'].includes(x.priority)?x.priority:'보통';x.url=safeUrl(x.url);x.prep={...old.prep};if(input.prep)for(const k of ['photos','outline','body'])x.prep[k]=!!input.prep[k];x.locked=Object.hasOwn(input,'locked')?!!input.locked:!!old.locked;x.id=old.id||crypto.randomUUID();x.automaticLane=Object.hasOwn(input,'automaticLane')?str(input.automaticLane,40):old.automaticLane||'manual';if(!Object.hasOwn(PUBLICATION_LANES,x.automaticLane)||x.automaticLane!=='manual'&&(x.channel!=='blog'||x.automaticLane==='asia-issue'&&x.type!=='issue'||x.automaticLane==='brand-shopping'&&x.type!=='affiliate'))fail('자동 글의 운영 구분과 콘텐츠 유형을 맞춰 주세요.');x.automatic=x.automaticLane!=='manual';x.createdAt=old.createdAt||new Date().toISOString();x.updatedAt=new Date().toISOString();if(x.status==='예약됨'&&!x.date)fail('발행 예정일을 입력해 주세요.');if(x.status==='게시됨'&&old.status!=='게시됨')x.publishedAt=today()+'T12:00:00+09:00';return x;}
+async function action(b,s){
+ if(b.action==='chooseTrendRecommendation'){
+  const result=chooseTrendRecommendation(s,b,content);
+  if(!result.duplicate)event(s,'recommendation','외부 트렌드의 확인 근거와 글감을 저장했어요.',{id:result.item.id,keyword:result.item.trendSource.keyword,snapshotAt:b.snapshotAt});
+  return result.item;
+ }
+ if(b.action==='savePrompt'){const p=savePrompt(s,b.prompt||{});event(s,'settings','작성 프롬프트 "'+p.name+'"를 저장했어요.',{promptId:p.id});return p;}
+ if(b.action==='deletePrompt'){const p=deletePrompt(s,b.id);event(s,'settings','작성 프롬프트 "'+p.name+'"를 삭제했어요.',{promptId:p.id});return {deleted:p.id};}
+ if(b.action==='saveFormatting'){const result=await saveItemFormatting(s,b,hash);event(s,'content','원고의 꾸미기 설정을 저장했어요.',{id:b.itemId});return result;}
+ if(b.action==='chooseRefresh'){const result=await chooseRefreshPlan(s,b,today(),hash,content);if(!result.duplicate)event(s,'refresh','유입 감소를 참고해 재작성 글감을 만들었어요.',{originalItemId:result.plan.originalItemId,itemId:result.item.id,planId:result.plan.id});return {item:result.item,duplicate:result.duplicate};}
+ if(b.action==='preparePublication'){const result=await preparePublication(s,b,hash);if(!result.duplicate)event(s,'publishing',result.job.title+' — '+result.job.status,{jobId:result.job.id});return {jobId:result.job.id,status:result.job.status,issues:result.job.checks.issues,duplicate:result.duplicate};}
+ if(b.action==='cancelPublication'){const job=cancelPublication(s,b.jobId);event(s,'publishing',job.title+' — 발행 준비 취소',{jobId:job.id});return {jobId:job.id};}
+ if(b.action==='requestLearning'){const task=requestLearning(s,b,new Date().toISOString());event(s,'learning',task.title+' — 분석 요청 저장',{taskId:task.id});return task;}
+ if(b.action==='requestAssistant'){const task=await requestAssistantWriting(s,b,new Date().toISOString(),today(),hash);event(s,'ai',task.title+' — 작성 요청 저장',{taskId:task.id});return task;}
+ if(b.action==='cancelAssistant'){const t=s.tasks.find(t=>t.id===b.taskId&&t.provider==='chatgpt'&&t.status==='작성 요청');if(!t)fail('취소할 작성 요청이 없어요.',404);t.status='취소';t.message='작성 요청을 취소했어요. 저장한 자료와 원고는 남아 있어요.';t.updatedAt=new Date().toISOString();event(s,'ai',t.title+' — 요청 취소',{taskId:t.id});return true;}
+ if(b.action==='managerReview'){const result=buildManagerReview(s,b.kind==='weekly'?'weekly':'daily',today(),new Date().toISOString(),false);if(!result.duplicate)event(s,'report',(result.report.kind==='weekly'?'주간 리포트·추천 기준 검토: ':'일일 리포트: ')+result.report.summary,{reportKey:result.report.key});return result;}
+ if(b.action==='chooseRecommendation'){
+  if(b.keywordDate!==s.naverStats?.keywordDate)fail('검색어 자료가 갱신됐어요. 새 추천을 확인해 주세요.',409);
+  const duplicate=s.items.find(i=>i.recommendationSource?.id===b.id&&i.recommendationSource?.keywordDate===b.keywordDate);
+  if(duplicate)return duplicate;
+  const recommendations=keywordRecommendations(s,today(),2000),row=[...recommendations.existing,...recommendations.ideas].find(r=>r.id===b.id);
+  if(!row)fail('글감이나 일정이 바뀌었어요. 새 추천을 확인해 주세요.',409);
+  const item=row.kind==='existing'?s.items.find(i=>i.id===row.itemId):content({title:row.title,keyword:row.keyword,type:'info',channel:'blog',date:'',notes:'유입 검색어를 참고해 등록한 기획 글감입니다. 최신 공식 정보와 실제 경험을 확인한 뒤 구성을 작성해 주세요.'});
+  item.recommendationSource=recommendationBasis(row,recommendations,new Date().toISOString());
+  if(row.kind!=='existing')s.items.unshift(item);
+  event(s,'recommendation',row.kind==='existing'?'유입 검색어 추천 글감을 선택했어요.':'유입 검색어로 새 글감을 등록했어요.',{id:item.id,keywordDate:b.keywordDate,keywords:row.evidence});
+  return item;
+ }
+ if(b.action==='importNaver'){const snapshot=normalizeNaver(b.snapshot);if(s.naverStats&&snapshot.observedAt<s.naverStats.observedAt)fail('더 오래된 조회 결과로 덮어쓸 수 없어요.');s.naverStats={...snapshot,importedAt:new Date().toISOString()};event(s,'metrics','네이버 방문자·검색어 통계를 저장했어요.',{runUrl:snapshot.runUrl});return {saved:true};}
+
+ if(b.action==='saveItem'){const old=s.items.find(x=>x.id===b.item?.id);if(b.item?.id&&!old)fail('글감이 없어요.',404);const i=content(b.item||{},old);if(Object.hasOwn(b.item||{},'attachmentIds')){if(!Array.isArray(b.item.attachmentIds))fail('첨부 자료 형식을 확인해 주세요.');i.attachmentIds=[...new Set(b.item.attachmentIds)].filter(id=>s.files.some(f=>f.id===id));}if(i.date&&i.embargo&&i.date<i.embargo.slice(0,10))fail('엠바고 해제일 이전에는 발행할 수 없어요.');if(i.date&&i.deadline&&i.date>i.deadline)fail('발행일이 협찬 마감보다 늦어요.');if(i.date&&i.channel==='blog'&&!i.automatic&&i.status!=='게시됨'&&s.items.filter(x=>x.id!==i.id&&x.channel==='blog'&&!x.automatic&&x.date===i.date).length>=4)fail('직접 작성하는 글은 하루 최대 4개예요.');if(old)s.items[s.items.indexOf(old)]=i;else s.items.unshift(i);if(old&&old.status!=='게시됨'&&i.status==='게시됨')award(s,'publish:'+i.id,30);if(i.prep.photos&&i.prep.outline)award(s,'prepare:'+i.id,15);event(s,'content',old?'글감을 수정했어요.':'글감을 추가했어요.',{id:i.id,title:i.title});return i;}
+ if(b.action==='deleteItem'){const n=s.items.findIndex(x=>x.id===b.id);if(n<0)fail('글감이 없어요.',404);if((s.publishJobs||[]).some(j=>j.itemId===b.id&&['실행 중','확인 필요','예약 확인됨'].includes(j.status)))fail('실행된 발행의 네이버 결과를 확인한 뒤 글감을 삭제해 주세요.',409);for(const j of s.publishJobs||[])if(j.itemId===b.id&&['준비 중','발행 대기'].includes(j.status)){j.status='취소';j.updatedAt=new Date().toISOString();j.message='글감 삭제로 발행 준비를 취소했어요.';}s.items.splice(n,1);event(s,'content','글감을 삭제했어요.');return true;}
+ if(b.action==='bulkAdd'){const lines=str(b.text,50000).split('\n').map(x=>x.replace(/^\s*\d+[.)]\s*/,'').trim()).filter(Boolean).slice(0,200);if(!lines.length)fail('한 줄에 글감 하나씩 입력해 주세요.');for(const title of lines)s.items.push(content({title,region:str(b.region,60),type:b.type||'review',channel:b.channel||'blog',status:'아이디어',date:''}));event(s,'content',lines.length+'개 글감을 등록했어요.');return {count:lines.length};}
+ if(b.action==='schedule'){const rec=keywordRecommendations({...s,items:s.items.map(i=>i.status==='게시됨'?i:{...i,date:''})},today(),2000),signals={};if(b.options?.useKeywords!==false&&!rec.stale)for(const row of rec.existing)signals[row.itemId]=Math.max(0,row.score)/3;const result=schedule(s.items,{...b.options,keywordSignals:signals,keywordDate:rec.keywordDate||''});s.items=result.items;event(s,'schedule',result.changes.length+'개 일정을 조정했어요.',result.changes);for(const n of result.notices.slice(0,20))event(s,'attention',n.message,n);return {changes:result.changes,notices:result.notices};}
+ if(b.action==='saveSponsor'){const i=b.sponsor||{},old=s.sponsors.find(x=>x.id===i.id);if(i.id&&!old)fail('협찬이 없어요.',404);const x={...old,id:old?.id||crypto.randomUUID(),createdAt:old?.createdAt||new Date().toISOString()};for(const k of ['title','visitDate','deadline','embargo','provided','fee','requirements','stage','region','checklist'])x[k]=str(i[k],k==='requirements'?20000:10000);if(!x.title.trim())fail('협찬 이름을 입력해 주세요.');for(const k of ['visitDate','deadline'])if(!validateDate(x[k]))fail('날짜를 확인해 주세요.');if(x.embargo&&Number.isNaN(Date.parse(x.embargo)))fail('엠바고 시각을 확인해 주세요.');if(!['기획','촬영','작성','발행','완료'].includes(x.stage))x.stage='기획';if(old)s.sponsors[s.sponsors.indexOf(old)]=x;else s.sponsors.unshift(x);if(x.checklist){x.preparedAt=today();award(s,'sponsor-plan:'+x.id,20);}event(s,'sponsor',x.title+' 협찬 정보를 저장했어요.');return x;}
+ if(b.action==='sponsorToContent'){const x=s.sponsors.find(x=>x.id===b.id);if(!x)fail('협찬이 없어요.',404);const old=s.items.find(i=>i.groupId===x.id);if(old)return old;const i=content({title:x.title+' 후기',type:'sponsor',channel:'blog',region:x.region,deadline:x.deadline,embargo:x.embargo,provided:x.provided,guideline:x.requirements,notes:x.checklist,groupId:x.id,priority:'높음'});s.items.unshift(i);event(s,'content','협찬 글감을 연결했어요.');return i;}
+ if(b.action==='saveLesson'){const i=b.lesson||{},old=s.lessons.find(x=>x.id===i.id);if(i.id&&!old)fail('학습 자료가 없어요.',404);const l={...old,id:old?.id||crypto.randomUUID(),createdAt:old?.createdAt||new Date().toISOString(),updatedAt:new Date().toISOString(),active:!!i.active,files:Array.isArray(i.files)?i.files.filter(id=>s.files.some(f=>f.id===id)):old?.files||[]};for(const k of ['title','category','source','summary','points','apply'])l[k]=str(i[k],k==='source'?100000:k==='title'?200:30000);l.url=safeUrl(i.url);if(!l.title.trim())fail('자료 제목을 입력해 주세요.');l.analysisStatus=l.summary&&l.points?'검토된 요약':'분석 대기';if(old)s.lessons[s.lessons.indexOf(old)]=l;else s.lessons.unshift(l);event(s,'learning',l.title+' 학습 자료를 저장했어요.');return l;}
+ if(b.action==='requestTask'){const t={id:crypto.randomUUID(),type:str(b.type,60),title:str(b.title,200),itemId:str(b.itemId,80),status:'확인 필요',message:'실행 서비스를 연결하면 진행할 수 있어요. 요청과 자료는 저장됐어요.',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};s.tasks.unshift(t);event(s,'attention',t.title+' — 실행 서비스 연결 필요',{taskId:t.id});return t;}
+ if(b.action==='completeQuest'){const q=dailyQuests(s).find(q=>q.key===b.key);if(!q||!q.done)fail('해당 작업을 먼저 완료해 주세요.');return {awarded:award(s,q.key,q.xp),xp:s.xp};}
+ if(b.action==='refreshChecked'){award(s,'refresh:'+today(),20);event(s,'quest','과거 글 정보 점검을 기록했어요.');return true;}
+ if(b.action==='readNotifications'){for(const e of s.events)e.read=true;return true;}
+ if(b.action==='saveSettings'){const i=b.settings||{};for(const k of ['characterName','editorRules'])if(Object.hasOwn(i,k))s.settings[k]=str(i[k],k==='editorRules'?60000:60);s.settings.dailyTarget=Math.min(3,Math.max(2,Number(i.dailyTarget)||s.settings.dailyTarget));s.settings.maxDaily=4;s.settings.weeklyVideos=Math.min(3,Math.max(2,Number(i.weeklyVideos)||s.settings.weeklyVideos));s.settings.visitorGoal=Math.max(1,Number(i.visitorGoal)||1000);if(Object.hasOwn(i,'motion'))s.settings.motion=!!i.motion;s.settings.automaticTime='01:00';s.settings.timezone='Asia/Seoul';event(s,'settings','운영 기준을 업데이트했어요.');return s.settings;}
+ if(b.action==='importMetrics'){const rows=Array.isArray(b.rows)?b.rows:[];if(rows.length>5000)fail('한 번에 5,000행까지 가져올 수 있어요.');const result=importMetricRows(s,rows,CHANNELS);event(s,'metrics',result.count+'행 추가 · '+result.updated+'행 갱신 · '+result.skipped+'행 제외',result);return result;}
+ if(b.action==='memoryReview'){const review=buildManagerReview(s,'weekly',today(),new Date().toISOString(),false);if(!review.duplicate)event(s,'report','주간 추천 기준 검토를 기록했어요.',{reportKey:review.report.key});return review.report.memory;}
+ if(b.action==='importNotion'){const data=b.data;if(!data||!Array.isArray(data.items))fail('이전 자료 형식을 확인해 주세요.');let count=0;for(const raw of data.items.slice(0,2000)){if(raw.sourceId&&s.items.some(i=>i.sourceId===raw.sourceId))continue;const i=content(raw);for(const k of ['sourceId','sourceUrl','sourceNotes','originalDate','needsRegionReview','migrationNote'])if(raw[k])i[k]=str(raw[k],100000);if(raw.publishedAt)i.publishedAt=str(raw.publishedAt,40);s.items.push(i);count++;}for(const l of data.lessons||[])if(!s.lessons.some(x=>x.sourceUrl&&x.sourceUrl===l.sourceUrl))s.lessons.push({...l,id:crypto.randomUUID(),createdAt:new Date().toISOString()});s.notionImport={status:'완료',count:s.items.filter(i=>i.sourceId).length,at:new Date().toISOString(),source:str(data.source,500)};event(s,'import',count+'개 노션 글감을 이전했어요. 원본은 유지됐어요.');return {count};}
+ fail('지원하지 않는 작업이에요.');
+}
+async function handoffDownload(state,env){
+ const entry=state.handoffExport;if(!entry||!env.BUCKET)return json({error:'인수인계 다운로드 파일을 준비하고 있어요.'},404);
+ const object=await env.BUCKET.get(entry.key);if(!object)return json({error:'다운로드 파일을 찾지 못했어요.'},404);
+ return new Response(object.body,{headers:{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="withsuzz-handoff-source.zip"','Content-Length':String(object.size||entry.size),'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+}
+export default {async fetch(r,env){try{
+ const u=new URL(r.url),db=env.DB;if(u.pathname==='/health')return json({ok:true,version:'0.1.0',storage:!!db});if(!db)return json({error:'저장소 연결이 필요해요.'},503);
+ if(['POST','PUT','DELETE','PATCH'].includes(r.method)&&r.headers.get('Origin')&&r.headers.get('Origin')!==u.origin)return json({error:'허용되지 않은 요청이에요.'},403);
+ if(u.pathname==='/mcp')return await assistantMCP(r,db,env);
+ if(u.pathname==='/api/handoff-agent'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);if(u.searchParams.get('download')==='1')return await handoffDownload(state,env);return json({export:state.handoffExport?{filename:state.handoffExport.filename,size:state.handoffExport.size,createdAt:state.handoffExport.createdAt,downloadPath:'/download/handoff'}:null});}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  if(!env.BUCKET)fail('파일 저장소 연결이 필요해요.',503);
+  if(Number(r.headers.get('Content-Length'))>9*1024*1024)fail('인수인계 파일은 8MB 이하로 올려 주세요.',413);
+  const form=await r.formData(),file=form.get('file');
+  if(!file||typeof file.arrayBuffer!=='function'||!file.size||file.size>8*1024*1024)fail('8MB 이하의 인수인계 ZIP 파일을 선택해 주세요.',413);
+  const bytes=new Uint8Array(await file.arrayBuffer());
+  if(!file.name.toLowerCase().endsWith('.zip')||bytes[0]!==0x50||bytes[1]!==0x4b||bytes[2]!==3||bytes[3]!==4)fail('실제 ZIP 파일만 보관할 수 있어요.');
+  const key='exports/handoff/'+crypto.randomUUID()+'.zip',entry={key,filename:'withsuzz-handoff-source.zip',size:bytes.length,createdAt:new Date().toISOString()};
+  await env.BUCKET.put(key,bytes,{httpMetadata:{contentType:'application/zip'}});
+  try{await mutate(db,s=>{s.handoffExport=entry;return true;});}catch(e){await env.BUCKET.delete(key);throw e;}
+  return json({saved:true,filename:entry.filename,size:entry.size,downloadPath:'/download/handoff'});
+ }
+ if(u.pathname==='/api/trends-agent'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  const {state}=await read(db);
+  if(r.method==='GET')return json(trendRecommendations(state));
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  const raw=await r.text();if(raw.length>1000)fail('요청 내용을 줄여 주세요.',413);
+  const b=JSON.parse(raw);if(b.op!=='refresh')fail('지원하지 않는 트렌드 작업이에요.');
+  if(trendCacheFresh(state))return json({cached:true,trends:trendRecommendations(state)});
+  const next=await fetchTrendSnapshot(state.trendSnapshot);
+  const saved=await mutate(db,s=>{
+   if(Date.parse(s.trendSnapshot?.lastAttemptAt)>Date.parse(next.lastAttemptAt))return {saved:false};
+   // Keep a concurrent successful source if this request failed for that source.
+   for(const source of next.sources)if(source.error){const latest=s.trendSnapshot?.sources?.find(x=>x.id===source.id);if(latest?.checkedAt&&(!source.checkedAt||latest.checkedAt>source.checkedAt)){source.checkedAt=latest.checkedAt;source.rows=latest.rows;}}
+   s.trendSnapshot=next;return {saved:true};
+  });
+  return json({cached:false,trends:trendRecommendations(saved.state)});
+ }
+ if(u.pathname==='/api/naver-post-sync'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);return json(naverPostsOverview(state));}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  const raw=await r.text();if(raw.length>250000)return json({error:'글별 통계 자료가 너무 커요.'},413);const b=JSON.parse(raw);
+  if(b.kind==='failure'){await mutate(db,s=>{s.naverPostSync={...s.naverPostSync,status:'확인 필요',lastAttemptAt:new Date().toISOString(),message:str(b.message,500)};event(s,'attention','글별 통계 수집: '+str(b.message,300));return true;});return json({ok:true});}
+  if(b.kind==='schedule'){if(typeof b.automationId!=='string'||!b.automationId||b.automationId.length>200)fail('예약 ID가 필요해요.');await mutate(db,s=>{s.naverPostSync={...s.naverPostSync,automationId:b.automationId,schedule:'매일 오전 9시 · 네이버 통계와 함께'};return true;});return json({ok:true});}
+  if(b.kind!=='snapshot')fail('글별 통계 갱신 요청을 확인해 주세요.');const snapshot=normalizeNaverPosts(b.snapshot,today());
+  const saved=await mutate(db,s=>{const result=saveNaverPosts(s,snapshot,content,CHANNELS);if(!result.duplicate)event(s,'metrics','네이버 글별 통계 '+snapshot.posts.length+'개 글 · '+(result.count+result.updated)+'일 자료 저장',{runUrl:snapshot.runUrl,...result});return result;});return json({ok:true,...saved.result});
+ }
+ if(u.pathname==='/api/automatic-agent'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);return json(u.searchParams.get('itemId')?await automaticContext(state,u.searchParams.get('itemId'),hash):automaticOverview(state));}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  if(u.searchParams.get('op')==='asset'){
+   if(!env.BUCKET)fail('사진 저장소 연결이 필요해요.',503);const form=await r.formData(),f=form.get('file');if(!f||typeof f.arrayBuffer!=='function'||f.size>8*1024*1024)fail('8MB 이하 실제 사진을 올려 주세요.',413);const b=Object.fromEntries([...form.entries()].filter(([k])=>k!=='file')),bytes=new Uint8Array(await f.arrayBuffer()),digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),x=>x.toString(16).padStart(2,'0')).join(''),{state}=await read(db),plan=automaticAssetPlan(state,b,bytes,digest);
+   if(plan.duplicate)return json({duplicate:true,fileId:plan.file.id});await env.BUCKET.put(plan.file.key,bytes,{httpMetadata:{contentType:plan.file.type}});
+   try{const saved=await mutate(db,s=>{const current=automaticAssetPlan(s,b,bytes,digest);if(current.duplicate)return {duplicate:true,fileId:current.file.id};const result=attachAutomaticAsset(s,b,plan.file);event(s,'content','자동 글 사진과 이용 권한을 저장했어요.',{itemId:b.itemId});return result;});if(saved.result.duplicate)await env.BUCKET.delete(plan.file.key);return json(saved.result);}catch(e){await env.BUCKET.delete(plan.file.key);throw e;}
+  }
+  const raw=await r.text();if(raw.length>100000)fail('자동 글 요청이 너무 커요.',413);const b=JSON.parse(raw);if(!['brief','draft','prepare'].includes(b.op))fail('자동 글의 조사·원고·발행 준비 작업만 지원해요.');const saved=await mutate(db,async s=>{const result=b.op==='brief'?createAutomaticBrief(s,b,content):b.op==='draft'?await saveAutomaticDraft(s,b,hash):await preparePublication(s,automaticPrepareInput(s,b),hash);if(!result.duplicate)event(s,'content',b.op==='brief'?'자동 글 조사 기획을 저장했어요.':b.op==='draft'?'자동 글 원고를 저장했어요.':'자동 글 발행 준비를 저장했어요.',{itemId:result.itemId||result.job?.itemId});return result;});return json(saved.result);
+ }
+ if(u.pathname==='/api/formatting-agent'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);const item=state.items.find(i=>i.id===u.searchParams.get('itemId'));if(u.searchParams.get('itemId')&&!item)fail('글감을 찾지 못했어요.',404);return json(item?await formattingDocument(state,item,hash):formattingOverview(state));}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  const raw=await r.text();if(raw.length>50000)return json({error:'서식 관측 자료가 너무 커요.'},413);const b=JSON.parse(raw);
+  if(b.op==='apply'){const saved=await mutate(db,async s=>{const result=await saveItemFormatting(s,b,hash);event(s,'content','원고의 꾸미기 설정을 저장했어요.',{id:b.itemId});return result;});return json(saved.result);}
+  if(b.op!=='study')fail('지원하지 않는 서식 관측 작업이에요.');const saved=await mutate(db,s=>{const result=saveFormattingStudy(s,b);if(!result.duplicate)event(s,'learning','기존 글의 꾸미기 규칙을 저장했어요.',{studyId:result.study.id});return result;});return json({duplicate:saved.result.duplicate,profiles:saved.result.profiles});
+ }
+ if(u.pathname==='/api/refresh-agent'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);return json(await refreshRecommendations(state,today(),hash));}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  const raw=await r.text();if(raw.length>1500)return json({error:'재작성 요청이 너무 커요.'},413);const b=JSON.parse(raw);if(b.op!=='choose')fail('지원하지 않는 재작성 작업이에요.');
+  const saved=await mutate(db,s=>action({action:'chooseRefresh',id:b.id,fingerprint:b.fingerprint},s));return json(saved.result);
+ }
+ // Owner-private Sites dispatch only; browser callers retain admin login.
+ // This route is a bounded queue/result transport, never a Naver API proxy.
+ if(u.pathname==='/api/publishing-agent'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);return json(u.searchParams.get('jobId')?await publicationContext(state,u.searchParams.get('jobId'),hash):await publicationOverview(state,hash));}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  const raw=await r.text();if(raw.length>30000)return json({error:'발행 요청이 너무 커요.'},413);const b=JSON.parse(raw);
+  if(b.op==='image'){const {state}=await read(db),ctx=await publicationContext(state,b.jobId,hash),image=ctx.job.images.find(x=>x.fileId===b.fileId),f=state.files.find(f=>f.id===image?.fileId);if(!f||!env.BUCKET)fail('발행 준비에 포함된 이미지만 읽을 수 있어요.',403);if(f.size>8*1024*1024)fail('발행 이미지 한 장은 8MB 이하로 준비해 주세요.',413);const object=await env.BUCKET.get(f.key);if(!object)fail('이미지 파일이 없어요.',404);return new Response(object.body,{headers:{'Content-Type':f.type,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});}
+  if(!['access','prepare','claim','result'].includes(b.op))fail('지원하지 않는 발행 작업이에요.');
+  const saved=await mutate(db,async s=>{const result=b.op==='access'?recordPublishingAccess(s,b):b.op==='prepare'?await preparePublication(s,b,hash):b.op==='claim'?await claimPublication(s,b,hash):await recordPublication(s,b,hash);if(!result.duplicate){const job=result.job;event(s,b.op==='access'&&!result.editorAccessible||job?.status==='확인 필요'?'attention':'publishing',b.op==='access'?result.message:job?job.title+' — '+job.status:'발행 실행권을 기록했어요.',{jobId:job?.id||result.jobId||null});}if(b.op==='result'&&result.job?.status==='게시 확인됨'&&!result.duplicate)award(s,'publish:'+result.job.itemId,30);return result;});
+  return json({ok:true,...saved.result});
+ }
+ // Bounded owner-agent access, relying on OWNER-PRIVATE Sites dispatch just as
+ // naver-sync does. It supplies no visitor identity or connected-app consent.
+ // Browser callers keep the administrator cookie. Proposals never auto-apply.
+ if(u.pathname==='/api/editor-assistant'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);return json(u.searchParams.get('lessonId')?await learningContext(state,{lessonId:u.searchParams.get('lessonId')},hash):u.searchParams.get('kind')==='learning'?learningRequestList(state):u.searchParams.get('itemId')?await assistantWritingContext(state,{itemId:u.searchParams.get('itemId'),requestId:u.searchParams.get('requestId')||undefined},today(),hash):assistantWritingList(state));}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  const raw=await r.text();if(raw.length>180000)return json({error:'작성 결과가 너무 커요.'},413);const b=JSON.parse(raw);
+  if(!['suzz_get_writing_attachment','suzz_save_writing_proposal','suzz_get_learning_attachment','suzz_save_learning_analysis'].includes(b.tool))fail('지원하지 않는 에디터 작업이에요.');
+  return json(await assistantToolCall(b.tool,b.arguments||{},db,env));
+ }
+ // Separate bounded reporting route for owner-private unattended tasks.
+ if(u.pathname==='/api/manager-review'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);return json({reports:(state.managerReports||[]).slice(0,2),schedules:state.managerSchedules||{},memory:state.memory?.find(m=>m.evidence)||null});}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  const raw=await r.text();if(raw.length>2000)return json({error:'요청이 너무 커요.'},413);const b=JSON.parse(raw);
+  if(b.kind==='schedule'){if(!['daily','weekly'].includes(b.reportKind)||typeof b.automationId!=='string'||!b.automationId||b.automationId.length>200)fail('리포트 예약을 확인해 주세요.');await mutate(db,s=>{s.managerSchedules={...s.managerSchedules,[b.reportKind]:{automationId:b.automationId,label:b.reportKind==='daily'?'매일 오후 6시 · 한국 시간':'매주 월요일 오후 6시 · 일일 예약에서 함께 실행'}};return true;});return json({ok:true});}
+  if(!['daily','weekly'].includes(b.kind))fail('리포트 종류를 확인해 주세요.');
+  const result=await mutate(db,s=>{const review=buildManagerReview(s,b.kind,today(),new Date().toISOString());if(!review.duplicate)event(s,'report',(b.kind==='weekly'?'주간 리포트·추천 기준 검토: ':'일일 리포트: ')+review.report.summary,{reportKey:review.report.key});return review;});return json({ok:true,...result.result});
+ }
+ // This narrow automation route relies on Sites' OWNER-PRIVATE dispatch boundary.
+ // Service callers use OAI-Sites-Authorization, validated/consumed by dispatch.
+ // Browser callers still require the administrator session. Never publish publicly.
+ if(u.pathname==='/api/naver-sync'){
+  if(identity(r)&&!await authorized(r,db))return json({error:'관리자 로그인이 필요해요.'},401);
+  if(r.method==='GET'){const {state}=await read(db);return json({snapshot:state.naverStats||null,sync:state.naverSync||null});}
+  if(r.method!=='POST')return json({error:'지원하지 않는 방식이에요.'},405);
+  const raw=await r.text();if(raw.length>100000)return json({error:'통계 자료가 너무 커요.'},413);const b=JSON.parse(raw);
+  if(b.kind==='failure'){await mutate(db,s=>{s.naverSync={...s.naverSync,status:'확인 필요',lastAttemptAt:new Date().toISOString(),message:str(b.message,500)};return true;});return json({ok:true});}
+  if(b.kind==='schedule'){if(typeof b.automationId!=='string'||!b.automationId||b.automationId.length>200)fail('예약 ID가 필요해요.');await mutate(db,s=>{s.naverSync={...s.naverSync,automationId:b.automationId,schedule:'매일 오전 9시 · 한국 시간',status:'예약됨'};return true;});return json({ok:true});}
+  if(b.kind!=='snapshot')fail('통계 갱신 요청을 확인해 주세요.');
+  const snapshot=normalizeNaver(b.snapshot);
+  const result=await mutate(db,async s=>{if(s.naverStats?.runUrl===snapshot.runUrl)return {saved:false,duplicate:true};await action({action:'importNaver',snapshot},s);s.naverSync={...s.naverSync,status:'갱신 완료',lastSuccessAt:new Date().toISOString(),lastAttemptAt:new Date().toISOString(),message:''};return {saved:true};});return json({ok:true,...result.result});
+ }
+ if(u.pathname==='/api/login'&&r.method==='POST'){const id=identity(r);if(!id)return json({error:'사이트 소유자 계정으로 로그인해 주세요.'},401);const k=await hash(id+':'+(r.headers.get('cf-connecting-ip')||'local')),rate=await db.prepare('SELECT attempts,expires FROM login_limits WHERE id=?').bind(k).first();if(rate&&rate.expires>Date.now()&&rate.attempts>=8)return json({error:'입력 횟수가 많아요. 15분 뒤 다시 시도해 주세요.'},429);if(!env.ADMIN_PASSWORD)return json({error:'관리자 비밀번호 설정이 필요해요.'},503);const b=await r.json(),h=await hash(str(b.password,200)),v=await hash(env.ADMIN_PASSWORD);let diff=0;for(let i=0;i<h.length;i++)diff|=h.charCodeAt(i)^v.charCodeAt(i);if(diff){await db.prepare('INSERT INTO login_limits(id,attempts,expires) VALUES(?,1,?) ON CONFLICT(id) DO UPDATE SET attempts=CASE WHEN expires<? THEN 1 ELSE attempts+1 END, expires=CASE WHEN expires<? THEN ? ELSE expires END').bind(k,Date.now()+900000,Date.now(),Date.now(),Date.now()+900000).run();return json({error:'비밀번호가 맞지 않아요.'},401);}await db.prepare('DELETE FROM login_limits WHERE id=?').bind(k).run();const token=crypto.randomUUID()+crypto.randomUUID();await db.prepare('INSERT INTO sessions(token_hash,user_id,expires) VALUES(?,?,?)').bind(await hash(token),id,Date.now()+30*86400000).run();return json({ok:true},200,{'Set-Cookie':cookieHeader(r,token)});}
+ if(u.pathname==='/api/logout'&&r.method==='POST'){if(cookie(r))await db.prepare('DELETE FROM sessions WHERE token_hash=?').bind(await hash(cookie(r))).run();return json({ok:true},200,{'Set-Cookie':cookieHeader(r,'',true)});}
+ const service=env.IMPORT_TOKEN&&r.headers.get('X-Import-Token')===env.IMPORT_TOKEN&&u.pathname==='/api/import';if(!service&&!await authorized(r,db)){if(u.pathname.startsWith('/api/'))return json({error:'관리자 로그인이 필요해요.'},401);return html(LOGIN_HTML);}
+ if(u.pathname==='/api/import'&&service&&r.method==='POST'){const data=await r.json();return json(await mutate(db,s=>action({action:'importNotion',data},s)));}
+ if(u.pathname==='/download/handoff')return await handoffDownload((await read(db)).state,env);
+ if(u.pathname==='/api/state') {const {state,rev}=await read(db);return json({state,rev,analytics:analyzeMetrics(state.metrics),naverPosts:naverPostsOverview(state),formatting:formattingOverview(state),automatic:automaticOverview(state),trends:trendRecommendations(state),day:today(),quests:dailyQuests(state),recommendations:keywordRecommendations(state,today()),publishing:await publicationOverview(state,hash),refresh:await refreshRecommendations(state,today(),hash),connections:{...state.connections,ai:!!env.OPENAI_API_KEY,chatgptReady:true}});}
+ if(u.pathname==='/api/action'&&r.method==='POST'){if(Number(r.headers.get('Content-Length'))>6000000)return json({error:'자료 크기를 줄여 주세요.'},413);const b=await r.json();return json(await mutate(db,s=>action(b,s)));}
+ if(u.pathname==='/api/checks'&&r.method==='POST')return json(checks((await r.json()).item||{}));
+ if(u.pathname==='/api/brief'&&r.method==='POST'){const b=await r.json(),{state}=await read(db);return json({text:brief(b.item||{},state.settings.editorRules,state.lessons,resolvePrompt(state,b.promptId))});}
+ if(u.pathname==='/api/report'){const {state}=await read(db);return json(reporting(state,u.searchParams.get('range')==='week'?'week':'day'));}
+ if(u.pathname==='/api/analytics'){const {state}=await read(db);return json({rows:analyzeMetrics(state.metrics)});}
+ if(u.pathname==='/api/export'){const {state}=await read(db);return json({exportedAt:new Date().toISOString(),app:'withsuzz-manager',state},200,{'Content-Disposition':'attachment; filename="withsuzz-backup-'+today()+'.json"'});}
+ if(u.pathname==='/api/upload'&&r.method==='POST'){if(!env.BUCKET)return json({error:'파일 저장소 연결이 필요해요.'},503);const form=await r.formData(),f=form.get('file');if(!f||typeof f.arrayBuffer!=='function')return json({error:'파일을 선택해 주세요.'},400);if(f.size>12*1024*1024)return json({error:'파일은 12MB 이하로 올려 주세요.'},413);if(!['application/pdf','text/plain','text/markdown','image/jpeg','image/png','image/webp'].includes(f.type))return json({error:'PDF·텍스트·JPG·PNG·WebP 파일을 지원해요.'},400);const id=crypto.randomUUID(),key='files/'+id;await env.BUCKET.put(key,await f.arrayBuffer(),{httpMetadata:{contentType:f.type}});const info={id,key,name:str(f.name,200),type:f.type,size:f.size,at:new Date().toISOString()};await mutate(db,s=>{s.files.push(info);return info;});return json(info);}
+ if(u.pathname.startsWith('/api/files/')){const {state}=await read(db),f=state.files.find(x=>x.id===u.pathname.split('/').pop());if(!f||!env.BUCKET)return json({error:'파일이 없어요.'},404);const o=await env.BUCKET.get(f.key);if(!o)return json({error:'파일이 없어요.'},404);return new Response(o.body,{headers:{'Content-Type':f.type,'Content-Disposition':'attachment; filename="'+encodeURIComponent(f.name)+'"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});}
+ if(u.pathname==='/api/ai/write'&&r.method==='POST')return await aiWrite(await r.json(),db,env);
+ if(u.pathname==='/api/ai/task'){const {state}=await read(db);const task=state.tasks.find(t=>t.id===u.searchParams.get('id')||t.requestId===u.searchParams.get('requestId'));if(!task||!task.ai)fail('AI 작업을 찾지 못했어요.',404);if(task.status==='실행 중'&&Date.now()-Date.parse(task.startedAt)>180000){const changed=await mutate(db,s=>{const t=s.tasks.find(t=>t.id===task.id);if(t.status==='실행 중'){t.status='실패';t.message='요청이 중단되었어요. 기존 원고는 유지됐어요. 다시 요청해 주세요.';t.updatedAt=new Date().toISOString();}return t;});return json({task:changed.result});}return json({task});}
+ if(u.pathname==='/api/ai/apply'&&r.method==='POST')return await aiApply(await r.json(),db);
+ if(u.pathname==='/api/ai/undo'&&r.method==='POST'){const b=await r.json();return json(await mutate(db,s=>{const t=s.tasks.find(t=>t.id===b.taskId),i=s.items.find(i=>i.id===t?.itemId);if(!t||!i||!t.appliedAt||typeof t.previousDraft!=='string')fail('되돌릴 AI 적용 기록이 없어요.');if(i.updatedAt!==t.appliedUpdatedAt)fail('적용 후 원고가 수정됐어요. 현재 원고를 보존하기 위해 자동으로 되돌릴 수 없어요.',409);i.draft=t.previousDraft;i.status=t.previousStatus;i.updatedAt=new Date().toISOString();delete t.previousDraft;t.undoneAt=i.updatedAt;event(s,'content','AI 적용 전 원고로 되돌렸어요.',{id:i.id});return i;}));}
+ if(ASSETS[u.pathname]){const a=ASSETS[u.pathname];return new Response(a.text,{headers:{'Content-Type':a.type,'Cache-Control':'no-store'}});}
+ if(u.pathname==='/'||u.pathname==='/login')return html(APP_HTML);return json({error:'페이지가 없어요.'},404);
+ }catch(e){return json({error:e.status?e.message:'작업을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.'},e.status||500);}}};
+
+async function aiWrite(b,db,env){
+ if(!env.OPENAI_API_KEY)fail('AI 글쓰기 연결이 필요해요. 원고와 자료는 저장됐어요.',503);
+ if(!/^[\w-]{20,80}$/.test(b.requestId||''))fail('요청 번호를 확인해 주세요.');
+ const existing=(await read(db)).state.tasks.find(t=>t.requestId===b.requestId&&t.ai);if(existing)return json({task:existing},existing.status==='실행 중'?202:200);
+ const mode=b.mode==='revision'?'revision':'draft',scope=mode==='revision'&&['selection','titles'].includes(b.scope)?b.scope:'whole';
+ let job;
+ const started=await mutate(db,async s=>{
+  const duplicate=s.tasks.find(t=>t.requestId===b.requestId&&t.ai);if(duplicate)return {task:duplicate,duplicate:true};
+  const item=s.items.find(i=>i.id===b.itemId);if(!item)fail('글감을 먼저 저장해 주세요.',404);
+  if(mode==='revision'&&!str(b.instruction).trim())fail('어떻게 수정할지 적어 주세요.');
+  if(mode==='revision'&&scope!=='titles'&&!item.draft?.trim())fail('수정할 원고를 먼저 작성해 주세요.');
+  const now=Date.now(),running=s.tasks.filter(t=>t.ai&&t.status==='실행 중');for(const t of running)if(now-Date.parse(t.startedAt)>180000){t.status='실패';t.message='이전 요청이 중단됐어요. 다시 요청할 수 있어요.';t.updatedAt=new Date().toISOString();}
+  if(s.tasks.some(t=>t.ai&&t.itemId===item.id&&t.status==='실행 중'))fail('이 글의 AI 작성이 진행 중이에요. 알림 센터에서 확인해 주세요.',409);
+  if(s.tasks.filter(t=>t.ai&&t.status==='실행 중').length>=2)fail('AI 작업 두 개가 진행 중이에요. 완료 후 다시 요청해 주세요.',429);
+  if(s.tasks.filter(t=>t.ai&&t.day===today()).length>=Math.max(1,Number(env.AI_DAILY_LIMIT)||20))fail('오늘 AI 요청 한도에 도달했어요. 내일 이어서 작성해 주세요.',429);
+  const range=scope==='selection'?{start:Number(b.range?.start),end:Number(b.range?.end)}:null;if(range&&(!Number.isInteger(range.start)||!Number.isInteger(range.end)||range.start<0||range.end<=range.start||range.end>item.draft.length))fail('수정할 문장을 원고에서 선택해 주세요.');
+  const task={ai:true,id:crypto.randomUUID(),requestId:b.requestId,itemId:item.id,type:mode,scope,title:(mode==='draft'?'초안 작성: ':'원고 수정: ')+item.title,status:'실행 중',message:'자료와 작성 원칙을 확인하고 있어요. 기존 원고는 유지돼요.',day:today(),createdAt:new Date().toISOString(),startedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),baseUpdatedAt:item.updatedAt,baseDraftHash:await hash(item.draft||''),verifyLatest:b.verifyLatest!==false,range};
+  const chosen=resolvePrompt(s,b.promptId);if(chosen){task.promptId=chosen.id;task.promptName=chosen.name;task.promptVersion=chosen.version;markPromptUsed(s,chosen.id,task.createdAt);}
+  job={...task,prompt:chosen,item:structuredClone(item),instruction:str(b.instruction,6000),selection:range?item.draft.slice(range.start,range.end):''};s.tasks.unshift(task);let retained=0;for(const old of s.tasks.filter(t=>t.ai&&t.status!=='실행 중'))if(++retained>12){delete old.result;delete old.previousDraft;old.message='이전 결과는 보관 기간이 끝났어요. 적용한 원고는 콘텐츠에 남아 있어요.';}s.tasks=s.tasks.slice(0,100);event(s,'ai',task.title+' — 작성 시작',{taskId:task.id});return {task};
+ });
+ if(started.result.duplicate)return json({task:started.result.task},202);
+ try{const result=await generateAI(job,started.state,env);if(job.scope==='selection'&&result.kind==='draft'||job.scope==='titles'&&result.kind!=='titles'&&result.kind!=='questions'||job.scope==='whole'&&result.kind==='partial')fail('AI가 요청한 수정 범위를 지키지 않았어요. 기존 원고는 유지됐어요.',502);
+  const finished=await mutate(db,s=>{const t=s.tasks.find(x=>x.id===job.id);if(!t)fail('작성 기록을 찾지 못했어요.',409);t.result={...result,checkedAt:new Date().toISOString()};t.status=result.kind==='questions'?'확인 필요':'완료';t.message=result.kind==='questions'?'작성에 필요한 질문을 확인해 주세요.':'결과가 준비됐어요. 미리보기에서 원고에 적용할 수 있어요.';t.updatedAt=new Date().toISOString();event(s,result.kind==='questions'?'attention':'ai',t.title+' — '+t.message,{taskId:t.id});return t;});return json({task:finished.result});
+ }catch(e){const failed=await mutate(db,s=>{const t=s.tasks.find(x=>x.id===job.id);t.status='실패';t.message=e.status?e.message:'AI 작성 중 오류가 발생했어요. 기존 원고는 유지됐어요.';t.updatedAt=new Date().toISOString();event(s,'attention',t.title+' — '+t.message,{taskId:t.id});return t;});return json({error:failed.result.message,task:failed.result},e.status||502);}
+}
+async function aiApply(b,db){return json(await mutate(db,async s=>{const t=s.tasks.find(t=>t.id===b.taskId&&t.ai),i=s.items.find(i=>i.id===t?.itemId);if(!t||!i||t.status!=='완료'||!t.result)fail('적용할 AI 결과가 없어요.');if(t.appliedAt)fail('이미 적용한 결과예요.');if(t.result.kind==='questions'||t.result.kind==='titles')fail('질문·제목 후보는 원고 전체에 적용할 수 없어요.');if(await hash(i.draft||'')!==t.baseDraftHash||i.updatedAt!==t.baseUpdatedAt)fail('AI 요청 후 원고나 자료가 바뀌었어요. 현재 내용을 보존하려면 결과를 복사해 필요한 부분만 넣어 주세요.',409);t.previousDraft=i.draft||'';t.previousStatus=i.status;i.draft=t.scope==='selection'?i.draft.slice(0,t.range.start)+t.result.body+i.draft.slice(t.range.end):t.result.manuscript;if(i.status==='아이디어')i.status='초안 작성';i.updatedAt=new Date().toISOString();i.aiSourceTaskId=t.id;t.appliedAt=i.updatedAt;t.appliedUpdatedAt=i.updatedAt;event(s,'content','확인한 AI 원고를 적용했어요.',{id:i.id,taskId:t.id});return i;}));}
+
+async function assistantToolCall(name,args,db,env){
+ if(name==='suzz_save_learning_analysis'){const updated=await mutate(db,async s=>{const out=await saveLearningAnalysis(s,args,hash,new Date().toISOString());if(!out.duplicate)event(s,'learning','학습 자료의 요약·포인트·적용점을 저장했어요.',{lessonId:out.lessonId});return out;});return updated.result;}
+ if(name==='suzz_save_writing_proposal'){const updated=await mutate(db,async s=>{const result=await saveAssistantProposal(s,args,hash,new Date().toISOString());if(!result.duplicate)event(s,'ai',result.task.title+' — '+result.task.message,{taskId:result.task.id});return result;});return {saved:true,duplicate:updated.result.duplicate,taskId:updated.result.task.id,status:updated.result.task.status,applied:false};}
+ const {state}=await read(db);
+ if(name==='suzz_list_learning_requests')return learningRequestList(state);
+ if(name==='suzz_get_learning_context')return learningContext(state,args,hash);
+ if(name==='suzz_list_writing_requests')return assistantWritingList(state);
+ if(name==='suzz_get_writing_context')return assistantWritingContext(state,args,today(),hash);
+ if(['suzz_get_writing_attachment','suzz_get_learning_attachment'].includes(name)){
+  const linked=name==='suzz_get_learning_attachment'?state.lessons.find(l=>l.id===args.lessonId)?.files:state.items.find(i=>i.id===args.itemId)?.attachmentIds;if(!linked?.includes(args.fileId))fail('이 글감·학습 페이지에 연결된 첨부만 읽을 수 있어요.',403);
+  const f=state.files.find(f=>f.id===args.fileId);if(!f||!env.BUCKET)fail('첨부 파일이 없어요.',404);if(f.size>8*1024*1024)fail('이 연결에서는 8MB 이하 첨부만 읽을 수 있어요.',413);
+  const o=await env.BUCKET.get(f.key);if(!o)fail('첨부를 읽지 못했어요.',404);const bytes=new Uint8Array(await o.arrayBuffer());if(bytes.length>8*1024*1024)fail('첨부가 너무 커요.',413);
+  if(['text/plain','text/markdown'].includes(f.type))return {name:f.name,type:f.type,text:new TextDecoder().decode(bytes)};
+  let data='';for(let n=0;n<bytes.length;n+=8192)data+=String.fromCharCode(...bytes.subarray(n,n+8192));return {name:f.name,type:f.type,data:btoa(data)};
+ }
+ fail('지원하지 않는 에디터 도구예요.',404);
+}
+
+async function assistantMCP(r,db,env){
+ if(r.method==='GET'||r.method==='DELETE')return new Response(null,{status:405,headers:{Allow:'POST'}});
+ if(r.method!=='POST')return json({error:'POST 요청을 사용해 주세요.'},405);
+ const raw=await r.text();if(raw.length>180000)return json({error:'요청이 너무 커요.'},413);let b;try{b=JSON.parse(raw);}catch{return json({jsonrpc:'2.0',id:null,error:{code:-32700,message:'Invalid JSON'}},400);}
+ if(b.jsonrpc!=='2.0'||typeof b.method!=='string')return json({jsonrpc:'2.0',id:b.id??null,error:{code:-32600,message:'Invalid request'}},400);
+ const reply=result=>json({jsonrpc:'2.0',id:b.id??null,result});
+ if(b.method.startsWith('notifications/'))return new Response(null,{status:202});
+ if(b.method==='initialize')return reply({protocolVersion:['2024-11-05','2025-03-26','2025-06-18'].includes(b.params?.protocolVersion)?b.params.protocolVersion:'2024-11-05',capabilities:{tools:{listChanged:false}},serverInfo:{name:'withsuzz-writing-manager',version:'1.0.0'},instructions:'써즈의 동네방네 전용 에디터입니다. 읽기 도구로 실제 메모와 자료를 확인하고 결과를 미리보기에 저장하세요. 원고 적용과 네이버 발행은 이 도구로 실행하지 않습니다.'});
+ if(b.method==='ping')return reply({});
+ if(b.method==='tools/list')return reply({tools:ASSISTANT_TOOLS});
+ if(b.method!=='tools/call')return json({jsonrpc:'2.0',id:b.id??null,error:{code:-32601,message:'Method not found'}});
+ if(!ASSISTANT_TOOLS.some(t=>t.name===b.params?.name))return json({jsonrpc:'2.0',id:b.id??null,error:{code:-32602,message:'Unknown tool'}});
+ const id=identity(r),session=id&&await db.prepare('SELECT user_id FROM sessions WHERE user_id=? AND expires>? LIMIT 1').bind(id,Date.now()).first();
+ if(!session)return json({error:'사이트에 소유자 계정과 관리자 비밀번호로 먼저 로그인해 주세요.'},401);
+ try{const result=await assistantToolCall(b.params.name,b.params.arguments||{},db,env);
+  let content;if(['suzz_get_writing_attachment','suzz_get_learning_attachment'].includes(b.params.name)&&result.data){content=result.type.startsWith('image/')?[{type:'image',data:result.data,mimeType:result.type}]:[{type:'resource',resource:{uri:'suzz://attachments/'+b.params.arguments.fileId,mimeType:result.type,blob:result.data}}];}
+  else content=[{type:'text',text:JSON.stringify(result)}];
+  if(['suzz_save_writing_proposal','suzz_save_learning_analysis'].includes(b.params.name))await mutate(db,s=>{s.assistantConnection={...s.assistantConnection,lastMCPAt:new Date().toISOString()};return true;});
+  return reply({content,...(!result.data?{structuredContent:result}:{}),isError:false});
+ }catch(e){return reply({content:[{type:'text',text:e.status?e.message:'에디터 요청을 완료하지 못했어요.'}],isError:true});}
+}

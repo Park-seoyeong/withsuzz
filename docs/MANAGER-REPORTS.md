@@ -1,0 +1,11 @@
+# Unattended manager reports
+
+Preserve owner-private access. `/api/manager-review` is an independent, bounded service route behind the Sites dispatch boundary; browser identities require the existing administrator session. It exposes only the latest two reports, reporting schedules and the latest reviewed memory, never full workspace records or uploads. `/api/naver-sync` remains unchanged.
+
+For each daily or weekly run, call Sites get_site for this project and verify sole-owner private access (no groups or external visitors). Send its service token only to the returned Site origin as `OAI-Sites-Authorization: Bearer <token>`. Keep the token in session memory and hidden stdin; do not print it, save it, send it to other hosts, or copy browser sessions.
+
+GET `/api/manager-review`, POST JSON `{ "kind": "daily" }` or `{ "kind": "weekly" }`, and GET again to verify the returned report key. The server calculates dates in Asia/Seoul. Repeated runs for a day or week are idempotent. Daily reports are as of execution; weekly reports cover the previous completed Monday–Sunday. Results are saved in the site's report page and notification center. The server does not fetch external data, invoke AI or publish posts. On failure preserve prior reports and notify the user; do not claim success. Normal completion should remain quiet.
+
+Weekly review uses recorded incoming keywords and real post-level metrics linked by item ID. Only a single metric source with at least three published posts can adjust topic preference, by at most four ranking points. Missing dates are not filled with zero. Unknown traffic causes and causal improvements are not inferred. The user's fixed editing rules remain unchanged. With insufficient metrics, the review explicitly preserves the current criteria; old profile weights expire after 35 days.
+
+Schedules: daily 18:00 Asia/Seoul; weekly Monday 18:00 Asia/Seoul, as a conditional second update in the same daily task (the account permits five scheduled tasks). Statistics retain the existing daily 09:00 job. Store each returned schedule ID via POST `{ "kind":"schedule", "reportKind":"daily" or "weekly", "automationId":"actual saved ID" }` only after the schedule is saved. This metadata is a registration record, not evidence of a scheduled run.

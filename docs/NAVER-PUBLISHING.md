@@ -1,0 +1,28 @@
+# Naver publication preparation and verified results
+
+The `발행 관리` page is a real persistent queue, not an external Naver scheduler. The deployed Site has no background 01:00 publication runner. `schedulerConnected` remains false until an actual runner and successful Naver editor workflow exist. Do not present registration, a statistics login, a dashboard write button, or this queue as working auto-publication.
+
+The owner can save one of three lanes: manual travel posts, `asia-issue` (issue type) and `brand-shopping` (affiliate type). The automatic lanes are distinct from the manual four-post daily limit, run at 01:00 Asia/Seoul, and allow one post per lane per date, including already completed slots. Set the item's operating lane in its details or the writer's optional settings. Preparing a publication records a separate title/body snapshot and does not change draft, publication status, schedule or XP.
+
+Images must be actual image attachments linked to the item. Store explicit rights (`own`, `licensed`, `seller-authorized`, `generated`), a license/permission URL where required, caption and insertion position. Position zero is the cover, subsequent positions are after paragraphs split on blank lines; equal-position images retain their input order. Automatic posts require at least one image. Photos may be selected and arranged here; image generation, product-page cropping and browser uploads are not implemented by this module.
+
+Readiness requires an unchanged item/file revision, complete draft, reviewed experience and guidelines, keyword/count/length conditions, correct top-of-body advertising disclosure, no sponsored forbidden wording, appropriate dates, exact embargo time and deadline, usable photo rights/positions/size, and fresh real Naver editor verification. Datetime-local input is interpreted in Asia/Seoul. Access verification expires after 24 hours and must include actually observed title/body/image/publish controls for withsuzz, not guessed controls.
+
+## Bounded owner-agent transport
+
+Before using `/api/publishing-agent`, obtain current native Sites metadata for the retained project. Require the sole owner with no other viewers, groups or external visitors. Keep the fresh Sites service token in memory and send it only to this Site as `OAI-Sites-Authorization`, through hidden stdin. Never send that token to TinyFish, Naver, logs or files. Browser callers require the existing administrator session; every mutation retains same-origin checks. The endpoint cannot change arbitrary workspace settings.
+
+* GET returns at most 100 job summaries and access state; `?jobId=...` returns one stored payload and current checks.
+* POST `{op:'access',blogId:'withsuzz',editorAccessible,loginRequired,accountMismatch,entryUrl,observedControls,runUrl,message}` records an actual TinyFish inspection. Statistics access is separate. Use exact observed controls and a real run URL. A login page must record `editorAccessible:false`.
+* POST `{op:'prepare',itemId,requestId,title,scheduledAt,lane,reviewed,images}` performs the same preparation as the owner UI. Only mark `reviewed` after actually reading and validating supplied materials. Missing facts or permissions remain unready.
+* POST `{op:'claim',jobId,mode:'publish'|'reserve'}` checks everything again and records a single execution lease before any external mutation. Publish mode requires the planned time to have arrived; reserve mode requires future time and actually observed reservation controls. It returns the exact payload and lease ID. One job cannot be claimed twice. Immediately before submitting externally, re-read context and stop if material changed.
+* POST `{op:'image',jobId,fileId}` returns only an image in this job, at most 8MB. This is a private response for the owner agent. It is not a public image URL or evidence that TinyFish can upload the file. Use an actual supported file-transfer capability before attempting image publication; do not expose private files by changing Site audience.
+* POST `{op:'result',jobId,leaseId,outcome,runUrl,...}` records independently checked results. Failed/unknown browser responses become `확인 필요` and never retry automatically. Re-query the Naver reservation list or actual post before resolving an uncertain result.
+
+Published evidence requires matching `verifiedTitle`, `bodyVerified:true`, `imagesVerified:true` when photos are included, a nonempty actual `verification` description, the withsuzz `postUrl` and observed `publishedAt`. The URL accepts only this owner's HTTPS Naver post paths. Reservations additionally require the exact future `scheduledAt`, actual `reservationId` and reservation-list URL. Do not fabricate IDs, URL, title, body checks or image checks. Only then does the item change to 예약됨/게시됨. The server awards publication XP once after an observed post; preparation and reservations award none.
+
+An expired execution response is uncertain, not proof of failure. Its lease remains locked, and users cannot cancel/delete or replace it until real results are reconciled. A repeated verified outcome is idempotent. Changing material during external execution causes result application to fail rather than overwrite the new draft. Reconcile the actual Naver state separately.
+
+## Verified access limit
+
+On 2026-10-06 the new saved profile `prof_a489202b56da4c6b` read withsuzz statistics, but both `?Redirect=Write` and `PostWriteForm.naver?blogId=withsuzz` redirected to Naver login. Direct-editor inspection `9f4b4472-24d1-4671-a05e-3da4529435c7` reported no observed controls. Preserve statistics and the 09:00 refresh job. Blog editor login and file transfer still need verification before an actual publication or a new publication schedule.

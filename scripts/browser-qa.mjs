@@ -1,0 +1,17 @@
+import {chromium} from '/opt/codex/runtimes/cua/lib/node_modules/playwright/index.mjs';
+import assert from 'node:assert/strict';
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
+const page=await browser.newPage({viewport:{width:1440,height:1060},deviceScaleFactor:1});
+const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.goto('http://127.0.0.1:4173');await page.locator('#password').fill('local-test-only');await page.locator('#submit').click();await page.waitForSelector('.hero');
+await page.screenshot({path:'.sites-runtime/home-desktop.png',fullPage:true});
+await page.getByRole('button',{name:'콘텐츠',exact:true}).click();await page.locator('#search').fill('상하이');await page.waitForTimeout(350);assert.ok(await page.locator('tbody tr').count()>0);
+await page.getByRole('button',{name:'글쓰기 작업실',exact:true}).click();await page.locator('#writer-title').fill('QA 임시 글감');await page.locator('#writer-notes').fill('확인된 경험만 사용');await page.locator('#draft').fill('QA 임시 원고');await page.getByRole('button',{name:'자료·원고 저장',exact:true}).click();await page.waitForFunction(()=>Boolean(document.querySelector('[name="id"]')?.value));
+await page.getByRole('button',{name:'원고 검수',exact:true}).click();await page.waitForSelector('#check-results .panel');await page.screenshot({path:'.sites-runtime/writer-desktop.png',fullPage:true});
+await page.getByRole('button',{name:'홈',exact:true}).click();await page.getByRole('button',{name:'알림 센터',exact:true}).click();await page.waitForSelector('.drawer');await page.getByRole('button',{name:'닫기',exact:true}).click();
+await page.setViewportSize({width:820,height:1180});await page.screenshot({path:'.sites-runtime/home-ipad.png',fullPage:true});
+await page.setViewportSize({width:390,height:844});await page.screenshot({path:'.sites-runtime/home-mobile.png',fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);
+await page.setViewportSize({width:1440,height:1060});await page.getByRole('button',{name:'협찬',exact:true}).click();await page.getByRole('button',{name:'첫 협찬 등록',exact:true}).click();await page.locator('#f-title').fill('QA 협찬');await page.locator('#f-visitDate').fill('2026-10-12');await page.locator('#f-deadline').fill('2026-10-18');await page.locator('#modal-form button[type="submit"]').click();await page.waitForSelector('.card');
+await page.getByRole('button',{name:'학습 자료실',exact:true}).click();await page.getByRole('button',{name:'+ 자료 추가',exact:true}).click();await page.locator('#f-title').fill('QA 학습');await page.locator('#f-source').fill('실제 경험을 지어내지 않는다.');await page.locator('#f-summary').fill('확인된 경험 중심');await page.locator('#f-points').fill('추측하지 않기');await page.locator('#modal-form button[type="submit"]').click();await page.waitForSelector('.card');
+assert.deepEqual(errors,[]);console.log('Browser QA passed: login, home, search, writing/save/checks, alerts, tablet/mobile, sponsorship, learning');
+await browser.close();
