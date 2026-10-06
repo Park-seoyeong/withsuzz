@@ -73,3 +73,4 @@
 @media (max-width:640px){.kw-list li{grid-template-columns:24px 44px 1fr}.kw-actions{grid-column:1/-1;justify-content:flex-start}.pbars{grid-template-columns:repeat(2,1fr)}.best-row{grid-template-columns:24px 1fr auto}.best-row a{display:none}}
 .bar-chart{max-height:240px}
 .stack{display:grid;gap:16px}
+.ext-inbox{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:70;border-radius:999px;padding:10px 16px;box-shadow:0 8px 24px rgba(30,60,90,.18)}

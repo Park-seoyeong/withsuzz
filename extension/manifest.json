@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "써즈 동네방네 수집기",
+  "version": "1.0.0",
+  "description": "로그인한 내 브라우저에서 네이버 블로그 통계·쇼핑커넥트·여행 제휴 화면을 읽어 써즈의 동네방네 사이트로 보내요.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "webNavigation"
+  ],
+  "action": {
+    "default_title": "써즈 동네방네로 보내기",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.claudeusercontent.com/*",
+        "https://claude.ai/*",
+        "https://*.claude.ai/*",
+        "https://*.workers.dev/*",
+        "https://*.chatgpt.site/*",
+        "http://127.0.0.1/*",
+        "http://localhost/*"
+      ],
+      "js": [
+        "deliver.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ]
+}
