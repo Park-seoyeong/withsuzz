@@ -97,6 +97,34 @@ function bucket(db, assets) {
   };
 }
 
+// PDF 읽기: 처음 PDF를 만났을 때만 pdf.js를 불러온다(아티팩트가 허용하는 cdnjs).
+// 별도 작업 스레드를 만들 수 없는 환경이라 worker 스크립트를 함께 불러 화면 스레드에서 처리한다.
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+let pdfLib = null;
+function loadScript(src) { return new Promise((resolve, reject) => { const el = document.createElement('script'); el.src = src; el.onload = resolve; el.onerror = () => reject(new Error('PDF 읽기 도구를 불러오지 못했어요.')); document.head.append(el); }); }
+async function pdfjs() {
+  if (!pdfLib) pdfLib = (async () => { await loadScript(PDFJS + 'pdf.worker.min.js'); await loadScript(PDFJS + 'pdf.min.js'); return window.pdfjsLib; })().catch(e => { pdfLib = null; throw e; });
+  return pdfLib;
+}
+async function readPdf(bytes, {maxPages = 40, maxImages = 3} = {}) {
+  const lib = await pdfjs();
+  const doc = await lib.getDocument({ data: bytes, isEvalSupported: false, disableFontFace: true }).promise;
+  const pages = Math.min(doc.numPages, maxPages), texts = [], images = [];
+  for (let n = 1; n <= pages; n++) {
+    const page = await doc.getPage(n), content = await page.getTextContent();
+    const text = content.items.map(i => i.str + (i.hasEOL ? '\n' : '')).join(' ').replace(/[ \t]+/g, ' ').trim();
+    texts.push(text);
+    // 글자가 거의 없는 쪽(스캔·사진 PDF)은 그림으로 바꿔 Claude가 보게 한다.
+    if (text.length < 40 && images.length < maxImages) {
+      const view = page.getViewport({ scale: 1.6 }), canvas = document.createElement('canvas');
+      canvas.width = Math.ceil(view.width); canvas.height = Math.ceil(view.height);
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport: view }).promise;
+      images.push(await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85)));
+    }
+  }
+  return { pages: doc.numPages, readPages: pages, text: texts.map((t, i) => t ? '[' + (i + 1) + '쪽]\n' + t : '').filter(Boolean).join('\n\n'), images: images.filter(Boolean) };
+}
+
 const use = name => (window.claude?.use ? window.claude.use(name).catch(() => null) : Promise.resolve(null));
 const ready = (async () => {
   const [db, assets, sample, downloads] = await Promise.all(['db', 'assets', 'sample', 'downloads'].map(use));
@@ -104,7 +132,7 @@ const ready = (async () => {
   window.suzzSave = downloads ? async (filename, data) => {
     try { await downloads.save({ filename, data }); } catch (e) { if (e?.code !== 'declined' && e?.code !== 'cancelled') throw new Error('파일을 저장하지 못했어요.'); }
   } : null;
-  return { DB: chunked(db), BUCKET: bucket(db, assets), SAMPLE: sample || undefined, ARTIFACT: true };
+  return { DB: chunked(db), BUCKET: bucket(db, assets), SAMPLE: sample || undefined, PDF: readPdf, ARTIFACT: true };
 })();
 
 const nativeFetch = window.fetch.bind(window);

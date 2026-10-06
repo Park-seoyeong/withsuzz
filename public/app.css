@@ -11,3 +11,35 @@
 .formatting-controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px;margin:14px 0}.formatting-controls label{display:grid;gap:5px;font-size:12px;color:var(--muted)}.formatting-controls select{width:100%;min-width:0}.formatting-controls input[type=color]{width:100%;height:34px;cursor:pointer}.formatting-controls span{display:flex;align-items:center;gap:5px}.formatting-preview{background:white;border:1px solid var(--line);padding:24px;border-radius:10px;overflow-wrap:anywhere;max-height:600px;overflow:auto;color:#334155}.formatting-preview p,.formatting-preview h3,.formatting-preview blockquote{white-space:pre-wrap;margin:0 0 22px;line-height:1.8}.formatting-preview blockquote{border-left:3px solid #9cc8e3;padding:10px 16px;background:#f2f8fc}.formatting-preview h3{font-size:1.15em}.formatting-tools{margin-top:14px}
 .prompt-preview{white-space:pre-wrap;word-break:break-word;max-height:240px;overflow:auto;margin:8px 0 0;padding:10px 12px;border-radius:10px;background:var(--blue-soft);border:1px solid var(--line);font:inherit;font-size:13px;line-height:1.6}.prompt-row{align-items:flex-start;gap:12px}.prompt-row>div:first-child{min-width:0;flex:1}
 .ask-backdrop{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:16px;background:rgba(24,48,72,.32)}.ask-dialog{width:min(420px,100%);padding:20px;border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 50px rgba(30,60,90,.18);display:grid;gap:14px}.ask-dialog p{margin:0;line-height:1.6;color:var(--ink)}.ask-dialog .writing-actions{justify-content:flex-end}
+/* 성장 퀘스트·캐릭터 */
+.quest-info{flex:1;min-width:0}.quest.claimed .quest-info strong{color:var(--muted)}
+.progress.thin{height:5px;margin-top:6px;flex:none}
+.achievement-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-top:12px}
+.achievement{display:grid;gap:6px;align-content:start;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fbfdff}
+.achievement.done{border-color:#e4d4a6;background:#fffaf0}.achievement.claimed{background:var(--blue-soft)}
+.achievement p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}.achievement small{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.achv-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.achv-top strong{font-size:13px}
+.stage-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(118px,1fr));gap:12px}
+.stage{display:grid;justify-items:center;gap:4px;padding:12px 8px;border:1px solid var(--line);border-radius:12px;text-align:center;background:#fbfdff}
+.stage strong{font-size:12px}.stage small{font-size:11px;color:var(--muted)}.stage:not(.open){opacity:.6}
+.stage-art{height:96px;display:grid;place-items:center}.stage-art svg{height:92px;width:auto}
+.stage-art .lock{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;border:1px dashed #b9cfde;color:var(--muted);font-size:12px}
+.chara .eyes{transform-box:fill-box;transform-origin:center;animation:blink 5.5s infinite}
+.chara .float{animation:floaty 3.2s ease-in-out infinite}
+.chara .cape{transform-box:fill-box;transform-origin:top center;animation:sway 4s ease-in-out infinite}
+.chara .flash{animation:flash 6s infinite}.chara .aura{animation:twinkle 2.6s ease-in-out infinite}
+.character:hover .chara-body{transform-box:fill-box;transform-origin:bottom center;animation:hop .6s ease}
+@keyframes blink{0%,94%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes sway{0%,100%{transform:skewX(0)}50%{transform:skewX(-3deg)}}
+@keyframes flash{0%,88%,100%{opacity:0}92%{opacity:1}}
+@keyframes twinkle{0%,100%{opacity:.55}50%{opacity:1}}
+@keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}
+.levelup{position:fixed;inset:0;z-index:95;display:grid;place-items:center;padding:16px;background:rgba(24,48,72,.28);overflow:hidden}
+.levelup-card{position:relative;z-index:1;display:grid;justify-items:center;gap:8px;width:min(340px,100%);padding:24px 20px;border-radius:18px;background:#fff;border:1px solid #e4d4a6;box-shadow:0 20px 60px rgba(30,60,90,.2);text-align:center;animation:pop .45s cubic-bezier(.2,1.4,.4,1)}
+.levelup-card h2{margin:0;font-size:20px}.levelup-card p{margin:0;color:var(--muted)}
+.levelup-chara svg{height:130px;animation:hop .9s ease .2s 2}
+.levelup i{position:absolute;top:-12px;left:calc(var(--i)*7% + 4%);width:8px;height:8px;border-radius:2px;background:hsl(calc(var(--i)*25 + 190) 60% 72%);animation:fall 2.4s ease-in calc(var(--i)*.08s) forwards}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes fall{to{transform:translateY(105vh) rotate(540deg);opacity:.2}}
+@media (prefers-reduced-motion:reduce){.chara *,.levelup *,.character:hover .chara-body{animation:none!important}}
