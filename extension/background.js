@@ -34,5 +34,10 @@ chrome.alarms.onAlarm.addListener(a => {
 });
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg?.type === 'suzz-api-run') { run('직접').then(i => reply({ok: true, errors: i.errors, data: {keywords: i.data.keywords.length, shopping: i.data.shopping.length, trends: i.data.trends.length, volumes: i.data.volumes.length}})).catch(e => reply({ok: false, error: e.message})); return true; }
+  if (msg?.type === 'suzz-api-lookup') {
+    chrome.storage.local.get('keys').then(({keys = {}}) => collect(msg.keywords, keys, {pause: () => Promise.resolve()}))
+      .then(item => reply({ok: true, item: {...item, lookup: true}})).catch(e => reply({ok: false, error: e.message}));
+    return true;
+  }
   if (msg?.type === 'suzz-auto-run') { runAutoPages('직접').then(log => reply({ok: true, log})).catch(e => reply({ok: false, error: e.message})); return true; }
 });

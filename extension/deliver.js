@@ -11,6 +11,13 @@ window.addEventListener('message', async event => {
     const {queue = []} = await chrome.storage.local.get('queue');
     window.postMessage({type: 'suzz-ext-payload', version: 2, items: queue}, '*');
   }
+  // 사이트에서 키워드 검색량을 바로 물어보면, 확장 백그라운드가 써즈님 키로 API를 불러 답한다(키는 넘기지 않음).
+  if (event.data.type === 'suzz-ext-lookup' && Array.isArray(event.data.keywords)) {
+    const keywords = event.data.keywords.map(k => String(k || '').trim().slice(0, 40)).filter(Boolean).slice(0, 5);
+    let reply;
+    try { reply = await chrome.runtime.sendMessage({type: 'suzz-api-lookup', keywords}); } catch (e) { reply = {ok: false, error: e?.message || '확장과 연결하지 못했어요.'}; }
+    window.postMessage({type: 'suzz-ext-lookup-result', id: event.data.id, ...reply}, '*');
+  }
   if (event.data.type === 'suzz-ext-ack' && Array.isArray(event.data.ids)) {
     const {queue = []} = await chrome.storage.local.get('queue');
     await chrome.storage.local.set({queue: queue.filter(i => !event.data.ids.includes(i.id))});

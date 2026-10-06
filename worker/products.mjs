@@ -194,7 +194,9 @@ const pc_count = v => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v
 export function saveApiData(state, item, at = new Date().toISOString()) {
   const d = item?.data; if (!d || typeof d !== 'object') productError('API 결과가 비어 있어요.');
   const capturedAt = pc_text(item.capturedAt, 40) || at;
-  if (state.apiSync?.capturedAt && capturedAt <= state.apiSync.capturedAt) return {skipped: true, metrics: 0, products: 0};
+  // 바로 조회(lookup)는 정기 불러오기 순서와 상관없이 저장하고, 정기 결과의 기준 시각(apiSync)은 건드리지 않는다.
+  const lookup = item.lookup === true;
+  if (!lookup && state.apiSync?.capturedAt && capturedAt <= state.apiSync.capturedAt) return {skipped: true, metrics: 0, products: 0};
   if (!Array.isArray(state.keywordMetrics)) state.keywordMetrics = [];
   const metric = kw => { const key = pc_compact(kw); if (key.length < 2) return null; let m = state.keywordMetrics.find(x => x.key === key); if (!m) { m = {key, keyword: pc_text(kw, 40)}; state.keywordMetrics.push(m); } m.updatedAt = capturedAt; return m; };
   const touched = new Set();
@@ -221,8 +223,10 @@ export function saveApiData(state, item, at = new Date().toISOString()) {
   }
   if (state.products.length > 2000) state.products.splice(0, state.products.length - 2000);
   if (state.keywordMetrics.length > 500) state.keywordMetrics.splice(0, state.keywordMetrics.length - 500);
-  state.relatedKeywords = (Array.isArray(d.related) ? d.related : []).slice(0, 20).map(r => ({keyword: pc_text(r.keyword, 40), volume: pc_count(r.volume), compIdx: ['낮음', '중간', '높음'].includes(r.compIdx) ? r.compIdx : null})).filter(r => r.keyword);
+  const related = (Array.isArray(d.related) ? d.related : []).slice(0, 20).map(r => ({keyword: pc_text(r.keyword, 40), volume: pc_count(r.volume), compIdx: ['낮음', '중간', '높음'].includes(r.compIdx) ? r.compIdx : null})).filter(r => r.keyword);
   const errors = (Array.isArray(item.errors) ? item.errors : []).slice(0, 10).map(e => pc_text(e, 300));
+  if (lookup) return {skipped: false, lookup: true, metrics: touched.size, products, errors, related, keywords: [...touched].map(k => { const m = pc_metric(state, k); return {keyword: m.keyword, volume: m.volume ?? null, monthlyPc: m.monthlyPc ?? null, monthlyMobile: m.monthlyMobile ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, lowPrice: m.shopping?.lowPrice ?? null}; })};
+  state.relatedKeywords = related;
   state.apiSync = {capturedAt, savedAt: at, parts: {search: !!item.parts?.search, ad: !!item.parts?.ad}, metrics: touched.size, products, errors};
   return {skipped: false, metrics: touched.size, products, errors};
 }
