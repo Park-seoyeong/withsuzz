@@ -8,7 +8,7 @@ import {normalizeSns,snsItems,snsPrompt,normalizeSeries,seriesItems,compareDraft
 function setup(answer){
  const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql',import.meta.url),'utf8'));
  const prompts=[];
- const env={ARTIFACT:'1',SAMPLE:{json:async input=>{prompts.push(input);return answer(input);},limits:async()=>({})},DB:{prepare(q){let a=[];return {bind(...x){a=x;return this;},async first(){return sql.prepare(q).get(...a)||null;},async run(){return {meta:{changes:sql.prepare(q).run(...a).changes}};}};}}};
+ const env={ARTIFACT:'1',SAMPLE:{json:async (input,opts)=>{prompts.push(input);prompts.images=(opts?.images||[]).length;return answer(input);},limits:async()=>({images:{maxCount:5}})},DB:{prepare(q){let a=[];return {bind(...x){a=x;return this;},async first(){return sql.prepare(q).get(...a)||null;},async run(){return {meta:{changes:sql.prepare(q).run(...a).changes}};}};}}};
  const call=async(p,b)=>{const r=await worker.fetch(new Request('https://t.local'+p,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}),env);return {status:r.status,body:await r.json()};};
  return {call,prompts};
 }
@@ -86,4 +86,13 @@ test('API: 글쓰기 지침서는 고친 AI 초안을 신호로 넣고 버전·�
  assert.match(prompts.at(-1),/써즈가 고친 최종본/);assert.match(prompts.at(-1),/<AI 초안>/);
  await call('/api/action',{action:'saveStyleGuide',text:'[말투]\n- 직접'});st=(await call('/api/state')).body;assert.equal(st.state.styleGuide.version,2);assert.equal(st.state.styleGuide.history[0].text,'[말투]\n- 짧게');assert.equal(st.style.fresh,0);
  await call('/api/ai/write',{requestId:'r-'+'b'.repeat(24),itemId:(await call('/api/action',{action:'saveItem',item:{title:'둘',channel:'blog'}})).body.result.id,mode:'draft'});assert.match(prompts.at(-1),/직접/);
+});
+
+test('API: 사진으로 캐릭터 맞추기는 보기 안의 값만 쓰고 사진은 저장하지 않는다',async()=>{
+ const {call,prompts}=setup(()=>({hair:'흑발',skin:'중간 톤',glasses:true,outfit:'보라색',note:'안경을 쓴 인물이에요.'}));
+ const png=readFileSync(new URL('./fixture-tiny.png',import.meta.url),{encoding:'base64'});
+ const r=await call('/api/ai/look',{image:{type:'image/png',data:png}});assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.deepEqual(r.body.look,{hair:'흑발',skin:'중간 톤',glasses:true,outfit:'하늘색'});assert.equal(prompts.images,1);assert.match(prompts[0],/식별하거나/);
+ assert.equal((await call('/api/state')).body.state.files.length,0);
+ assert.equal((await call('/api/ai/look',{image:{type:'image/gif',data:'x'}})).status,400);
 });
