@@ -1,4 +1,5 @@
 import {EDITOR_POLICY} from './editor-policy.mjs';
+import Anthropic from '@anthropic-ai/sdk';
 const aiError=(message,status=502)=>Object.assign(new Error(message),{status});
 const textLimit=(v,n=80000)=>String(v??'').slice(0,n);
 export const cleanCitations=s=>String(s||'').replace(/cite[^]*|【[^】]*(?:†|turn\d)[^】]*】/g,'').trim();
@@ -29,16 +30,110 @@ export function parseAIResponse(response){
  return out;
 }
 function base64(bytes){let s='';for(let n=0;n<bytes.length;n+=8192)s+=String.fromCharCode(...bytes.subarray(n,n+8192));return btoa(s);}
-export async function generateAI(job,state,env,fetcher=fetch){
- if(!env.OPENAI_API_KEY)throw aiError('AI 글쓰기 연결이 필요해요. 관리자 설정에서 연결 상태를 확인해 주세요.',503);
- const p=aiPrompt(job,state),input=[{type:'input_text',text:p.input}];let bytes=0;
+// 서버에 저장된 키로 사용할 AI 서비스를 고른다. AI_PROVIDER가 있으면 그 값을 따르고, 없으면 기존 OpenAI 키를 먼저 사용한다.
+export function aiProvider(env={}){
+ const want=String(env.AI_PROVIDER||'').toLowerCase();
+ if(want==='anthropic'||want==='claude')return env.ANTHROPIC_API_KEY?'anthropic':null;
+ if(want==='openai')return env.OPENAI_API_KEY?'openai':null;
+ return env.OPENAI_API_KEY?'openai':env.ANTHROPIC_API_KEY?'anthropic':null;
+}
+export const AI_PROVIDER_NAMES={openai:'OpenAI',anthropic:'Claude'};
+async function readAttachments(job,state,env){
+ const out=[];let bytes=0;
  const fileIds=[...new Set(job.item.attachmentIds||[])];if(fileIds.length>6)throw aiError('한 번에 첨부 자료 6개까지 읽을 수 있어요. 자료를 나눠 주세요.',413);
- for(const id of fileIds){const f=state.files.find(x=>x.id===id);if(!f||!env.BUCKET)throw aiError('첨부 자료를 찾지 못했어요. 파일을 다시 확인해 주세요.',400);const object=await env.BUCKET.get(f.key);if(!object)throw aiError('첨부 파일을 읽지 못했어요.',400);const buffer=new Uint8Array(await object.arrayBuffer());bytes+=buffer.length;if(bytes>16*1024*1024)throw aiError('AI가 한 번에 읽을 자료는 합계 16MB 이하로 올려 주세요.',413);if(f.type.startsWith('image/')){input.push({type:'input_text',text:'사용자 첨부 사진: '+f.name},{type:'input_image',image_url:'data:'+f.type+';base64,'+base64(buffer),detail:'auto'});}else if(f.type==='application/pdf')input.push({type:'input_file',filename:f.name,file_data:'data:application/pdf;base64,'+base64(buffer)});else input.push({type:'input_text',text:'사용자 첨부 문서 '+f.name+':\n'+new TextDecoder().decode(buffer)});}
+ for(const id of fileIds){const f=state.files.find(x=>x.id===id);if(!f||!env.BUCKET)throw aiError('첨부 자료를 찾지 못했어요. 파일을 다시 확인해 주세요.',400);const object=await env.BUCKET.get(f.key);if(!object)throw aiError('첨부 파일을 읽지 못했어요.',400);const buffer=new Uint8Array(await object.arrayBuffer());bytes+=buffer.length;if(bytes>16*1024*1024)throw aiError('AI가 한 번에 읽을 자료는 합계 16MB 이하로 올려 주세요.',413);
+  if(f.type.startsWith('image/'))out.push({kind:'image',name:f.name,type:f.type,data:base64(buffer)});else if(f.type==='application/pdf')out.push({kind:'pdf',name:f.name,type:f.type,data:base64(buffer)});else out.push({kind:'text',name:f.name,type:f.type,text:new TextDecoder().decode(buffer)});}
+ return out;
+}
+function finishWarnings(out,job){
+ if(job.verifyLatest&&!out.searchUsed){out.warnings.unshift('웹 검색이 실행되지 않아 최신 정보 확인은 완료되지 않았어요.');}
+ if(job.verifyLatest&&out.searchUsed&&!out.sources.length)out.warnings.unshift('검색은 실행됐지만 인용 가능한 출처가 반환되지 않았어요. 현재 정보는 직접 확인해 주세요.');
+ return out;
+}
+export async function generateAI(job,state,env,fetcher=fetch){
+ const provider=aiProvider(env);
+ if(!provider)throw aiError('AI 글쓰기 연결이 필요해요. 관리자 설정에서 연결 상태를 확인해 주세요.',503);
+ const out=provider==='anthropic'?await generateClaude(job,state,env,fetcher):await generateOpenAI(job,state,env,fetcher);
+ out.provider=provider;return finishWarnings(out,job);
+}
+async function generateOpenAI(job,state,env,fetcher){
+ const p=aiPrompt(job,state),input=[{type:'input_text',text:p.input}];
+ for(const a of await readAttachments(job,state,env)){if(a.kind==='image')input.push({type:'input_text',text:'사용자 첨부 사진: '+a.name},{type:'input_image',image_url:'data:'+a.type+';base64,'+a.data,detail:'auto'});else if(a.kind==='pdf')input.push({type:'input_file',filename:a.name,file_data:'data:application/pdf;base64,'+a.data});else input.push({type:'input_text',text:'사용자 첨부 문서 '+a.name+':\n'+a.text});}
  const payload={model:env.OPENAI_MODEL||'gpt-5-mini',store:false,instructions:p.instructions,input:[{role:'user',content:input}],max_output_tokens:12000,text:{format:{type:'json_schema',name:'suzz_editor_result',strict:true,schema:RESULT_SCHEMA}}};
  if(job.verifyLatest){payload.tools=[{type:'web_search'}];payload.tool_choice='required';}
  let response;try{response=await fetcher('https://api.openai.com/v1/responses',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+env.OPENAI_API_KEY},body:JSON.stringify(payload),signal:AbortSignal.timeout(100000)});}catch(e){throw aiError(e.name==='TimeoutError'||e.name==='AbortError'?'AI 작성 시간이 길어져 중단했어요. 기존 원고는 유지됐어요.':'AI 서비스에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.',504);}
  if(!response.ok)throw aiError(response.status===401?'AI 연결 키를 확인해야 해요.':response.status===429?'AI 사용 한도에 도달했어요. 결제·사용 한도를 확인하거나 잠시 뒤 다시 시도해 주세요.':response.status===400?'AI 모델 또는 요청 설정을 확인해야 해요.':'AI 서비스에서 오류가 발생했어요. 기존 원고는 유지됐어요.',response.status===429?429:502);
- const out=parseAIResponse(await response.json());if(job.verifyLatest&&!out.searchUsed){out.warnings.unshift('웹 검색이 실행되지 않아 최신 정보 확인은 완료되지 않았어요.');}
- if(job.verifyLatest&&out.searchUsed&&!out.sources.length)out.warnings.unshift('검색은 실행됐지만 인용 가능한 출처가 반환되지 않았어요. 현재 정보는 직접 확인해 주세요.');
- return out;
+ return parseAIResponse(await response.json());
+}
+
+// Claude(Anthropic) 경로: 공식 SDK로 Messages API를 호출한다. 고정 정책은 system에 두어 캐시하고, 결과는 같은 JSON 구조로 받는다.
+export const CLAUDE_DEFAULT_MODEL='claude-opus-5-5';
+const CLAUDE_JSON_NOTE='\n\n출력은 지정된 JSON 객체 하나뿐이다. 코드 블록·설명 문장 없이 JSON만 출력한다.';
+export function claudeRequest(job,state,attachments,env={},{structured=true}={}){
+ const p=aiPrompt(job,state),content=[];
+ for(const a of attachments){
+  if(a.kind==='image')content.push({type:'text',text:'사용자 첨부 사진: '+a.name},{type:'image',source:{type:'base64',media_type:a.type,data:a.data}});
+  else if(a.kind==='pdf')content.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:a.data},title:a.name});
+  else content.push({type:'text',text:'사용자 첨부 문서 '+a.name+':\n'+a.text});
+ }
+ content.push({type:'text',text:p.input});
+ const effort=['low','medium','high','xhigh','max'].includes(env.ANTHROPIC_EFFORT)?env.ANTHROPIC_EFFORT:'medium';
+ const body={model:env.ANTHROPIC_MODEL||CLAUDE_DEFAULT_MODEL,max_tokens:16000,system:[{type:'text',text:p.instructions+(structured?'':CLAUDE_JSON_NOTE),cache_control:{type:'ephemeral'}}],messages:[{role:'user',content}],output_config:{effort},betas:['server-side-fallback-2026-07-01'],fallbacks:'default'};
+ if(structured)body.output_config.format={type:'json_schema',schema:RESULT_SCHEMA};
+ if(job.verifyLatest)body.tools=[{type:'web_search_20260209',name:'web_search',max_uses:5}];
+ return body;
+}
+function claudeJSON(text){
+ const t=String(text||'').trim(),fenced=t.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/);
+ try{return JSON.parse(fenced?fenced[1]:t);}catch{}
+ const a=t.indexOf('{'),b=t.lastIndexOf('}');if(a>=0&&b>a){try{return JSON.parse(t.slice(a,b+1));}catch{}}
+ return null;
+}
+export function parseClaudeMessage(message){
+ if(message.stop_reason==='refusal')throw aiError('AI가 이번 요청을 처리하지 못했어요. 요청 내용을 조정해 주세요.',422);
+ if(message.stop_reason==='max_tokens')throw aiError('원고가 분량 제한으로 끝나지 않았어요. 분량을 줄여 다시 요청해 주세요.');
+ if(message.stop_reason==='pause_turn')throw aiError('웹 검색이 길어져 작성을 끝내지 못했어요. 기존 원고는 유지됐어요. 다시 요청해 주세요.',504);
+ const blocks=message.content||[];
+ // 검색 도구 결과 뒤에 나온 마지막 text 묶음이 최종 답변이다.
+ let last=-1;blocks.forEach((b,n)=>{if(b.type!=='text')last=n;});
+ const finalText=blocks.slice(last+1).filter(b=>b.type==='text').map(b=>b.text).join('');
+ let result=claudeJSON(finalText);if(!result)result=claudeJSON(blocks.filter(b=>b.type==='text').map(b=>b.text).join(''));
+ if(!result)throw aiError('AI 결과 형식을 읽지 못했어요. 기존 원고는 유지됐어요.');
+ const out=normalizeEditorResult(result),sources=[];
+ const add=(url,title)=>{try{const u=new URL(url);if(['http:','https:'].includes(u.protocol)&&!sources.some(s=>s.url===u.href)&&sources.length<12)sources.push({url:u.href,title:textLimit(title||u.hostname,200)});}catch{}};
+ for(const b of blocks)if(b.type==='text')for(const c of b.citations||[])if(c.url)add(c.url,c.title);
+ const cited=sources.length;
+ for(const b of blocks)if(b.type==='web_search_tool_result'&&Array.isArray(b.content))for(const r of b.content)if(r.type==='web_search_result')add(r.url,r.title);
+ const searchUsed=blocks.some(b=>b.type==='web_search_tool_result'&&Array.isArray(b.content));
+ if(searchUsed&&!cited&&sources.length)out.warnings.push('출처 목록은 AI가 검색한 페이지예요. 본문 문장과 1:1로 연결된 인용은 아니니 중요한 사실은 링크에서 다시 확인해 주세요.');
+ const fellBack=(message.usage?.iterations||[]).some(x=>x.type==='fallback_message');
+ if(fellBack)out.warnings.push('요청한 Claude 모델 대신 '+(message.model||'다른 Claude 모델')+'이 작성했어요.');
+ return {...out,sources,searchUsed,model:message.model||null,usage:message.usage?{inputTokens:message.usage.input_tokens,outputTokens:message.usage.output_tokens}:null};
+}
+function claudeError(e){
+ if(e?.status&&!(e instanceof Anthropic.APIError))return e;
+ if(e instanceof Anthropic.APIConnectionTimeoutError||e instanceof Anthropic.APIUserAbortError)return aiError('AI 작성 시간이 길어져 중단했어요. 기존 원고는 유지됐어요.',504);
+ if(e instanceof Anthropic.APIConnectionError)return aiError('AI 서비스에 연결하지 못했어요. 잠시 뒤 다시 시도해 주세요.',504);
+ if(e instanceof Anthropic.AuthenticationError||e instanceof Anthropic.PermissionDeniedError)return aiError('Claude 연결 키 또는 권한을 확인해야 해요.',502);
+ if(e instanceof Anthropic.RateLimitError)return aiError('AI 사용 한도에 도달했어요. 결제·사용 한도를 확인하거나 잠시 뒤 다시 시도해 주세요.',429);
+ if(e instanceof Anthropic.BadRequestError||e instanceof Anthropic.NotFoundError)return aiError('AI 모델 또는 요청 설정을 확인해야 해요.',502);
+ if(e instanceof Anthropic.APIError)return aiError('AI 서비스에서 오류가 발생했어요. 기존 원고는 유지됐어요.',502);
+ return aiError('AI 작성 중 오류가 발생했어요. 기존 원고는 유지됐어요.',502);
+}
+async function generateClaude(job,state,env,fetcher){
+ const attachments=await readAttachments(job,state,env);
+ const client=new Anthropic({apiKey:env.ANTHROPIC_API_KEY,fetch:fetcher,timeout:100000,maxRetries:1});
+ const deadline=Date.now()+150000;
+ const run=async structured=>{
+  const body=claudeRequest(job,state,attachments,env,{structured});let message=await client.beta.messages.create(body);
+  // 웹 검색이 길어지면 pause_turn으로 멈춘다. 같은 대화를 이어 보내 끝까지 받는다.
+  for(let n=0;message.stop_reason==='pause_turn'&&n<3&&Date.now()<deadline;n++){body.messages=[...body.messages,{role:'assistant',content:message.content}];message=await client.beta.messages.create(body);}
+  return message;
+ };
+ try{return parseClaudeMessage(await run(true));}
+ catch(e){
+  // 웹 검색과 JSON 출력 형식을 함께 거절하면 형식 지정 없이 한 번만 다시 요청한다(같은 JSON 구조를 지시문으로 요구).
+  if(job.verifyLatest&&e instanceof Anthropic.BadRequestError&&Date.now()<deadline-60000){try{return parseClaudeMessage(await run(false));}catch(retry){throw claudeError(retry);}}
+  throw claudeError(e);
+ }
 }

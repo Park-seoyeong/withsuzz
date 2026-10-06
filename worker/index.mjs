@@ -10,7 +10,7 @@ import {normalizeNaver} from './naver.mjs';
 import {keywordRecommendations,recommendationBasis} from './recommendations.mjs';
 import {buildManagerReview} from './reviews.mjs';
 import {initialState,today,schedule,award,dailyQuests,checks,brief,reporting,analyzeMetrics,inferRegion,inferTopic,CHANNELS,TYPES,validateDate} from './domain.mjs';
-import {generateAI} from './ai.mjs';
+import {generateAI,aiProvider,AI_PROVIDER_NAMES} from './ai.mjs';
 import {savePrompt,deletePrompt,resolvePrompt,markPromptUsed} from './prompts.mjs';
 import {ASSISTANT_TOOLS,assistantWritingList,assistantWritingContext,saveAssistantProposal,requestAssistantWriting} from './assistant.mjs';
 const APP_HTML='__APP_HTML__',LOGIN_HTML='__LOGIN_HTML__',ASSETS={};
@@ -205,7 +205,7 @@ export default {async fetch(r,env){try{
  const service=env.IMPORT_TOKEN&&r.headers.get('X-Import-Token')===env.IMPORT_TOKEN&&u.pathname==='/api/import';if(!service&&!await authorized(r,db)){if(u.pathname.startsWith('/api/'))return json({error:'관리자 로그인이 필요해요.'},401);return html(LOGIN_HTML);}
  if(u.pathname==='/api/import'&&service&&r.method==='POST'){const data=await r.json();return json(await mutate(db,s=>action({action:'importNotion',data},s)));}
  if(u.pathname==='/download/handoff')return await handoffDownload((await read(db)).state,env);
- if(u.pathname==='/api/state') {const {state,rev}=await read(db);return json({state,rev,analytics:analyzeMetrics(state.metrics),naverPosts:naverPostsOverview(state),formatting:formattingOverview(state),automatic:automaticOverview(state),trends:trendRecommendations(state),day:today(),quests:dailyQuests(state),recommendations:keywordRecommendations(state,today()),publishing:await publicationOverview(state,hash),refresh:await refreshRecommendations(state,today(),hash),connections:{...state.connections,ai:!!env.OPENAI_API_KEY,chatgptReady:true}});}
+ if(u.pathname==='/api/state') {const {state,rev}=await read(db);return json({state,rev,analytics:analyzeMetrics(state.metrics),naverPosts:naverPostsOverview(state),formatting:formattingOverview(state),automatic:automaticOverview(state),trends:trendRecommendations(state),day:today(),quests:dailyQuests(state),recommendations:keywordRecommendations(state,today()),publishing:await publicationOverview(state,hash),refresh:await refreshRecommendations(state,today(),hash),connections:{...state.connections,ai:!!aiProvider(env),aiProvider:aiProvider(env),aiProviderName:AI_PROVIDER_NAMES[aiProvider(env)]||null,chatgptReady:true}});}
  if(u.pathname==='/api/action'&&r.method==='POST'){if(Number(r.headers.get('Content-Length'))>6000000)return json({error:'자료 크기를 줄여 주세요.'},413);const b=await r.json();return json(await mutate(db,s=>action(b,s)));}
  if(u.pathname==='/api/checks'&&r.method==='POST')return json(checks((await r.json()).item||{}));
  if(u.pathname==='/api/brief'&&r.method==='POST'){const b=await r.json(),{state}=await read(db);return json({text:brief(b.item||{},state.settings.editorRules,state.lessons,resolvePrompt(state,b.promptId))});}
@@ -223,7 +223,7 @@ export default {async fetch(r,env){try{
  }catch(e){return json({error:e.status?e.message:'작업을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.'},e.status||500);}}};
 
 async function aiWrite(b,db,env){
- if(!env.OPENAI_API_KEY)fail('AI 글쓰기 연결이 필요해요. 원고와 자료는 저장됐어요.',503);
+ if(!aiProvider(env))fail('AI 글쓰기 연결이 필요해요. 원고와 자료는 저장됐어요.',503);
  if(!/^[\w-]{20,80}$/.test(b.requestId||''))fail('요청 번호를 확인해 주세요.');
  const existing=(await read(db)).state.tasks.find(t=>t.requestId===b.requestId&&t.ai);if(existing)return json({task:existing},existing.status==='실행 중'?202:200);
  const mode=b.mode==='revision'?'revision':'draft',scope=mode==='revision'&&['selection','titles'].includes(b.scope)?b.scope:'whole';
@@ -238,7 +238,7 @@ async function aiWrite(b,db,env){
   if(s.tasks.filter(t=>t.ai&&t.status==='실행 중').length>=2)fail('AI 작업 두 개가 진행 중이에요. 완료 후 다시 요청해 주세요.',429);
   if(s.tasks.filter(t=>t.ai&&t.day===today()).length>=Math.max(1,Number(env.AI_DAILY_LIMIT)||20))fail('오늘 AI 요청 한도에 도달했어요. 내일 이어서 작성해 주세요.',429);
   const range=scope==='selection'?{start:Number(b.range?.start),end:Number(b.range?.end)}:null;if(range&&(!Number.isInteger(range.start)||!Number.isInteger(range.end)||range.start<0||range.end<=range.start||range.end>item.draft.length))fail('수정할 문장을 원고에서 선택해 주세요.');
-  const task={ai:true,id:crypto.randomUUID(),requestId:b.requestId,itemId:item.id,type:mode,scope,title:(mode==='draft'?'초안 작성: ':'원고 수정: ')+item.title,status:'실행 중',message:'자료와 작성 원칙을 확인하고 있어요. 기존 원고는 유지돼요.',day:today(),createdAt:new Date().toISOString(),startedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),baseUpdatedAt:item.updatedAt,baseDraftHash:await hash(item.draft||''),verifyLatest:b.verifyLatest!==false,range};
+  const task={ai:true,id:crypto.randomUUID(),requestId:b.requestId,itemId:item.id,type:mode,scope,title:(mode==='draft'?'초안 작성: ':'원고 수정: ')+item.title,status:'실행 중',message:'자료와 작성 원칙을 확인하고 있어요. 기존 원고는 유지돼요.',day:today(),createdAt:new Date().toISOString(),startedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),baseUpdatedAt:item.updatedAt,baseDraftHash:await hash(item.draft||''),verifyLatest:b.verifyLatest!==false,range,provider:aiProvider(env)};
   const chosen=resolvePrompt(s,b.promptId);if(chosen){task.promptId=chosen.id;task.promptName=chosen.name;task.promptVersion=chosen.version;markPromptUsed(s,chosen.id,task.createdAt);}
   job={...task,prompt:chosen,item:structuredClone(item),instruction:str(b.instruction,6000),selection:range?item.draft.slice(range.start,range.end):''};s.tasks.unshift(task);let retained=0;for(const old of s.tasks.filter(t=>t.ai&&t.status!=='실행 중'))if(++retained>12){delete old.result;delete old.previousDraft;old.message='이전 결과는 보관 기간이 끝났어요. 적용한 원고는 콘텐츠에 남아 있어요.';}s.tasks=s.tasks.slice(0,100);event(s,'ai',task.title+' — 작성 시작',{taskId:task.id});return {task};
  });

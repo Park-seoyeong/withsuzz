@@ -4,7 +4,7 @@
 
 ## 실행과 검증
 
-Node.js 24 이상에서 `npm run build`, `npm test`로 검증합니다. 로컬 실행은 `ADMIN_PASSWORD` 환경 변수를 설정한 뒤 `npm start`를 사용합니다. 로컬 서버의 사용자 신원 주입은 개발 전용이며 배포 코드에는 포함되지 않습니다.
+Node.js 22 이상에서 `npm ci` 후 `npm run build`, `npm test`로 검증합니다. 빌드는 Claude SDK를 포함해 `dist/server/index.js` 한 파일로 묶습니다. 로컬 실행은 `ADMIN_PASSWORD` 환경 변수를 설정한 뒤 `npm start`를 사용합니다. 로컬 서버의 사용자 신원 주입은 개발 전용이며 배포 코드에는 포함되지 않습니다.
 
 ## 현재 구현
 
@@ -29,6 +29,10 @@ AI 원고 생성·수정은 서버의 OpenAI Responses API를 사용합니다. �
 배포는 Cloudflare Worker ES 모듈과 D1, R2를 사용합니다. 제공되는 Sites 서버 템플릿 소스에 접근할 수 없어 의존성이 없는 Worker 구현을 사용했습니다. `.openai/hosting.json`의 기존 project_id를 유지합니다. 관리자 비밀번호와 가져오기 토큰은 Sites 런타임 비밀로 설정하며 소스·백업에 포함하지 않습니다. 인증은 Sites 사용자 신원과 서버 세션을 함께 검증합니다.
 
 전체 기획 및 제약은 `docs/IMPLEMENTATION.md`에 있습니다. `.sites-runtime/`과 `data/`는 Git과 배포에서 제외되는 로컬 자료입니다.
+## Claude로 사이트 즉시 생성
+
+OpenAI 키가 없어도 런타임 비밀값 `ANTHROPIC_API_KEY`를 저장하면 `사이트에서 바로 생성`이 Claude로 동작합니다. 설정·동작·검증 범위는 [docs/CLAUDE-API.md](docs/CLAUDE-API.md)에 있습니다.
+
 ## 내 프롬프트 라이브러리
 
 관리자 설정에서 자주 쓰는 프롬프트를 저장하고 글쓰기 작업실에서 골라 초안·수정 요청에 함께 보냅니다. 사이트 즉시 생성, ChatGPT 대화 작성, 작성 프롬프트 복사가 모두 같은 프롬프트를 사용하며 고정 편집 원칙이 우선합니다. 자세한 내용은 [docs/PROMPT-LIBRARY.md](docs/PROMPT-LIBRARY.md)에 있습니다.
