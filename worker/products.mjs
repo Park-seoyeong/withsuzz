@@ -198,7 +198,10 @@ export function saveApiData(state, item, at = new Date().toISOString()) {
   if (!Array.isArray(state.keywordMetrics)) state.keywordMetrics = [];
   const metric = kw => { const key = pc_compact(kw); if (key.length < 2) return null; let m = state.keywordMetrics.find(x => x.key === key); if (!m) { m = {key, keyword: pc_text(kw, 40)}; state.keywordMetrics.push(m); } m.updatedAt = capturedAt; return m; };
   const touched = new Set();
-  for (const v of (Array.isArray(d.volumes) ? d.volumes : []).slice(0, 60)) { const m = metric(v.keyword); if (!m) continue; touched.add(m.key); Object.assign(m, {volume: pc_count(v.volume), monthlyPc: pc_count(v.monthlyPc), monthlyMobile: pc_count(v.monthlyMobile), clicks: pc_count(v.clicks), compIdx: ['낮음', '중간', '높음'].includes(v.compIdx) ? v.compIdx : null}); }
+  for (const v of (Array.isArray(d.volumes) ? d.volumes : []).slice(0, 60)) { const m = metric(v.keyword); if (!m) continue; touched.add(m.key); Object.assign(m, {volume: pc_count(v.volume), monthlyPc: pc_count(v.monthlyPc), monthlyMobile: pc_count(v.monthlyMobile), clicks: pc_count(v.clicks), compIdx: ['낮음', '중간', '높음'].includes(v.compIdx) ? v.compIdx : null});
+    // 데이터랩 대신: 하루 한 번 월간 검색량을 남겨 두고, 2주 이상 쌓이면 그 변화로 급등을 본다.
+    if (m.volume !== null) { const day = new Date((Date.parse(capturedAt) || Date.now()) + 9 * 3600000).toISOString().slice(0, 10), h = (m.history ||= []).filter(x => x.date !== day); h.push({date: day, volume: m.volume}); m.history = h.sort((a, b) => a.date.localeCompare(b.date)).slice(-90); }
+  }
   for (const t of (Array.isArray(d.trends) ? d.trends : []).slice(0, 60)) {
     const m = metric(t.keyword); if (!m) continue; touched.add(m.key);
     const points = (Array.isArray(t.points) ? t.points : []).slice(-12).map(x => ({period: pc_text(x.period, 10), ratio: Number(x.ratio) || 0}));
@@ -224,6 +227,13 @@ export function saveApiData(state, item, at = new Date().toISOString()) {
   return {skipped: false, metrics: touched.size, products, errors};
 }
 const pc_metric = (state, key) => (state.keywordMetrics || []).find(m => m.key === key) || null;
+const pc_dayGap = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
+// 검색량 기록 변화: 가장 최근 값과, 그보다 14일 이상 앞선 값 중 가장 가까운 값을 비교한다(월간 검색량은 30일 합계라 하루 차이는 의미가 작음).
+export function volumeChange(history = []) {
+  const last = history.at(-1); if (!last) return null;
+  const base = [...history].reverse().find(x => pc_dayGap(x.date, last.date) >= 14);
+  return base && base.volume > 0 ? {change: (last.volume - base.volume) / base.volume, days: pc_dayGap(base.date, last.date)} : null;
+}
 
 // ───────── 지금 팔기 좋은 키워드: 확인된 신호만으로 점수를 낸다(검색량·경쟁은 미연결이면 빼고 계산) ─────────
 export function keywordOpportunities(state, day, limit = 12) {
@@ -242,8 +252,10 @@ export function keywordOpportunities(state, day, limit = 12) {
     if (ranks.length) parts.sold = Math.max(0, 100 - (Math.min(...ranks) - 1) * 5);
     const m = pc_metric(state, k) || (() => { const r = (state.relatedKeywords || []).find(x => pc_compact(x.keyword) === k); return r ? {volume: r.volume, compIdx: r.compIdx} : null; })();
     const mentions = news.filter(t => t.includes(k)).length;
-    // 급등: 데이터랩 최근 4주 ÷ 그 전 8주가 있으면 그 값, 없으면 Claude 뉴스 언급 수.
+    // 급등: 데이터랩 최근 4주 ÷ 그 전 8주 → 없으면 검색광고 검색량 기록 변화(14일 이상) → 없으면 Claude 뉴스 언급 수.
+    const vc = volumeChange(m?.history);
     if (m?.trend?.change !== null && m?.trend?.change !== undefined) parts.rising = Math.max(0, Math.min(100, Math.round(50 + m.trend.change * 100)));
+    else if (vc) parts.rising = Math.max(0, Math.min(100, Math.round(50 + vc.change * 100)));
     else if (news.length) parts.rising = Math.min(100, mentions * 34);
     if (m?.volume !== null && m?.volume !== undefined) parts.volume = Math.min(100, Math.round(Math.log10(m.volume + 1) * 20));
     if (m?.compIdx) parts.competition = {낮음: 100, 중간: 60, 높음: 25}[m.compIdx];
@@ -254,7 +266,7 @@ export function keywordOpportunities(state, day, limit = 12) {
     // 확인되지 않은 신호는 중립값 30으로 둔다(근거가 적은 키워드가 만점이 되지 않게).
     const w = {sold: 25, rising: 15, season: 15, gap: 15, revenue: 20, inflow: 10, volume: 15, competition: 10}, sum = Object.values(w).reduce((a, x) => a + x, 0), score = Math.round(Object.keys(w).reduce((a, x) => a + (parts[x] ?? 30) * w[x], 0) / sum);
     const best = [...products].sort((a, b) => (a.salesRank ?? 999) - (b.salesRank ?? 999))[0] || null;
-    return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, metric: m ? {volume: m.volume ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, lowPrice: m.shopping?.lowPrice ?? null, shopTotal: m.shopping?.total ?? null, updatedAt: m.updatedAt || null} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url} : null, golden: products.length > 0 && score >= 60};
+    return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, metric: m ? {volume: m.volume ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, volumeChange: vc, lowPrice: m.shopping?.lowPrice ?? null, shopTotal: m.shopping?.total ?? null, updatedAt: m.updatedAt || null} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url} : null, golden: products.length > 0 && score >= 60};
   }).filter(r => r.from.includes('담은 상품') || r.score >= 50);
   return rows.sort((a, b) => Number(b.golden) - Number(a.golden) || b.score - a.score).slice(0, limit);
 }

@@ -68,3 +68,16 @@ test('사이트는 API 숫자를 저장해 키워드 점수(규모·경쟁·급�
   saveApiData(s, again);
   assert.equal(s.products.filter(p => p.source === 'naverShop').length, 2, '같은 키워드의 이전 API 상품은 새 결과로 바뀐다');
 });
+
+test('데이터랩이 없으면 검색량 기록이 14일 이상 쌓였을 때 그 변화로 급등을 계산한다', async () => {
+  const {volumeChange} = await import('../worker/products.mjs');
+  assert.equal(volumeChange([{date: '2026-10-01', volume: 100}, {date: '2026-10-10', volume: 200}]), null, '14일 미만은 계산하지 않음');
+  assert.deepEqual(volumeChange([{date: '2026-09-01', volume: 100}, {date: '2026-09-20', volume: 120}, {date: '2026-10-06', volume: 150}]), {change: 0.25, days: 16});
+  const s = initialState();
+  const item = (at, volume) => ({kind: 'api', capturedAt: at, parts: {search: false, ad: true}, errors: [], data: {volumes: [{keyword: '제주 여행', volume, compIdx: '높음'}]}});
+  saveApiData(s, item('2026-09-15T01:00:00Z', 40000)); saveApiData(s, item('2026-09-15T05:00:00Z', 41000));
+  assert.equal(s.keywordMetrics[0].history.length, 1, '하루에 한 번만 남김');
+  saveApiData(s, item('2026-10-06T01:00:00Z', 61500));
+  const k = keywordOpportunities(s, '2026-10-06').find(x => x.keyword === '제주 여행');
+  assert.equal(k.metric.change, null); assert.equal(k.metric.volumeChange.days, 21); assert.equal(k.parts.rising, 100);
+});

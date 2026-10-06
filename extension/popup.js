@@ -50,5 +50,19 @@ document.getElementById('api-run').addEventListener('click', async e => {
     status(!r?.ok ? '불러오지 못했어요: ' + (r?.error || '') : '키워드 ' + r.data.keywords + '개를 불러왔어요' + (r.errors.length ? ' · 못 불러온 것: ' + r.errors[0] : '. 사이트를 열면 저장돼요.'));
   } finally { e.target.disabled = false; show(); }
 });
+// 지금 보고 있는 화면을 자동 수집 목록에 넣는다. 그 사이트를 뒤쪽 탭으로 열어 읽을 권한을 이때 한 번 묻는다.
+document.getElementById('auto-add').addEventListener('click', async () => {
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true}), u = new URL(tab.url);
+    if (u.protocol !== 'https:') { status('https 화면만 자동으로 읽을 수 있어요.'); return; }
+    const ok = await chrome.permissions.request({origins: [u.origin + '/*']});
+    if (!ok) { status('권한을 허락하지 않아 등록하지 않았어요.'); return; }
+    const {autoPages = []} = await chrome.storage.local.get('autoPages');
+    if (autoPages.some(p => p.url === tab.url)) { status('이미 등록된 화면이에요.'); return; }
+    if (autoPages.length >= 10) { status('자동 수집은 10개까지예요. API 설정 화면에서 하나를 빼 주세요.'); return; }
+    await chrome.storage.local.set({autoPages: [...autoPages, {id: crypto.randomUUID(), url: tab.url, title: tab.title.slice(0, 120), addedAt: new Date().toISOString()}]});
+    status('등록했어요. 매일 9시·21시 무렵 이 화면을 뒤쪽 탭으로 열어 읽어 둬요.');
+  } catch (e) { status('등록하지 못했어요: ' + (e?.message || '')); }
+});
 document.getElementById('api-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 show();

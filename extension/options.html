@@ -1,11 +1,11 @@
-<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>써즈 동네방네 수집기 · 네이버 API 설정</title><style>
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>써즈 동네방네 수집기 · 설정</title><style>
 body{max-width:640px;margin:0 auto;padding:24px 16px;font:14px/1.6 -apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;color:#2e465d;background:#f7fafc}
 h1{font-size:18px}h2{font-size:15px;margin:22px 0 4px}p,li{color:#62788a}label{display:block;margin:8px 0 2px;font-weight:600;color:#2e465d}
 input,textarea{width:100%;box-sizing:border-box;padding:8px 10px;border:1px solid #c9dbe8;border-radius:8px;font:inherit;background:#fff}textarea{min-height:90px}
 button{padding:9px 14px;border-radius:10px;border:1px solid #c9dbe8;background:#fff;font:inherit;cursor:pointer;margin:12px 8px 0 0}button.primary{background:#70afd5;border-color:#70afd5;color:#fff;font-weight:600}
 #status{min-height:22px;color:#3d7a52;white-space:pre-line}.box{background:#fff;border:1px solid #e3edf4;border-radius:12px;padding:12px 16px;margin-top:12px}small{color:#8094a5}
 </style></head><body>
-<h1>네이버 API 설정</h1>
+<h1>수집기 설정 (네이버 API · 자동 수집)</h1>
 <p>여기 적은 키는 <strong>이 컴퓨터의 확장 안에만</strong> 저장돼요. 사이트·채팅·Claude로는 키를 보내지 않고, 불러온 숫자(검색량·트렌드·최저가)만 사이트로 넘겨요.</p>
 <form id="f">
 <div class="box"><h2>① 네이버 개발자센터 (쇼핑 검색 · 데이터랩)</h2>
@@ -21,6 +21,9 @@ button{padding:9px 14px;border-radius:10px;border:1px solid #c9dbe8;background:#
 <p><small>사이트를 열면 상품·시즌·추천 키워드를 자동으로 받아 와요(최대 30개). 꼭 보고 싶은 키워드가 있으면 줄마다 하나씩 적어요.</small></p>
 <textarea id="manualKeywords" placeholder="다낭 여행&#10;가을 캠핑"></textarea>
 <p id="watch"><small></small></p></div>
+<div class="box"><h2>④ 자동 수집 화면</h2>
+<p><small>블로그 통계·쇼핑커넥트 성과처럼 자주 보는 화면을 열고 확장 아이콘 → <b>이 화면 매일 자동으로 읽기</b>로 등록해요. 매일 9시·21시 무렵 뒤쪽 탭으로 잠깐 열어 읽고 닫아요. 사이트에서 ‘읽어서 담기’로 확인한 뒤 저장돼요.</small></p>
+<ul id="auto-list"></ul><button type="button" id="auto-run">지금 한 번 읽기</button></div>
 <button class="primary" type="submit">저장</button><button type="button" id="run">저장하고 지금 불러오기</button><button type="button" id="clear">키 모두 지우기</button>
 </form>
 <p id="status" role="status"></p>
