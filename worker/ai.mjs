@@ -32,12 +32,13 @@ export function parseAIResponse(response){
 function base64(bytes){let s='';for(let n=0;n<bytes.length;n+=8192)s+=String.fromCharCode(...bytes.subarray(n,n+8192));return btoa(s);}
 // 서버에 저장된 키로 사용할 AI 서비스를 고른다. AI_PROVIDER가 있으면 그 값을 따르고, 없으면 기존 OpenAI 키를 먼저 사용한다.
 export function aiProvider(env={}){
+ if(env.SAMPLE)return 'artifact';
  const want=String(env.AI_PROVIDER||'').toLowerCase();
  if(want==='anthropic'||want==='claude')return env.ANTHROPIC_API_KEY?'anthropic':null;
  if(want==='openai')return env.OPENAI_API_KEY?'openai':null;
  return env.OPENAI_API_KEY?'openai':env.ANTHROPIC_API_KEY?'anthropic':null;
 }
-export const AI_PROVIDER_NAMES={openai:'OpenAI',anthropic:'Claude'};
+export const AI_PROVIDER_NAMES={openai:'OpenAI',anthropic:'Claude',artifact:'Claude · 내 계정'};
 async function readAttachments(job,state,env){
  const out=[];let bytes=0;
  const fileIds=[...new Set(job.item.attachmentIds||[])];if(fileIds.length>6)throw aiError('한 번에 첨부 자료 6개까지 읽을 수 있어요. 자료를 나눠 주세요.',413);
@@ -53,7 +54,7 @@ function finishWarnings(out,job){
 export async function generateAI(job,state,env,fetcher=fetch){
  const provider=aiProvider(env);
  if(!provider)throw aiError('AI 글쓰기 연결이 필요해요. 관리자 설정에서 연결 상태를 확인해 주세요.',503);
- const out=provider==='anthropic'?await generateClaude(job,state,env,fetcher):await generateOpenAI(job,state,env,fetcher);
+ const out=provider==='artifact'?await generateInClaude(job,state,env):provider==='anthropic'?await generateClaude(job,state,env,fetcher):await generateOpenAI(job,state,env,fetcher);
  out.provider=provider;return finishWarnings(out,job);
 }
 async function generateOpenAI(job,state,env,fetcher){
@@ -136,4 +137,26 @@ async function generateClaude(job,state,env,fetcher){
   if(job.verifyLatest&&e instanceof Anthropic.BadRequestError&&Date.now()<deadline-60000){try{return parseClaudeMessage(await run(false));}catch(retry){throw claudeError(retry);}}
   throw claudeError(e);
  }
+}
+
+// Claude 아티팩트로 열었을 때: 페이지의 sample 기능으로 보는 사람의 Claude 계정에서 바로 작성한다(API 키 없음).
+// 웹 검색 도구는 없으므로 최신 정보 확인은 '미완료'로 표시되고, PDF는 직접 읽지 못한다고 알린다.
+const SAMPLE_ERRORS={not_granted:['Claude 사용을 허락해야 작성할 수 있어요. 다시 요청하면 허락 창이 떠요.',403],sampling_disabled:['이 계정에서는 Claude 작성 기능을 쓸 수 없어요.',503],rate_limited:['Claude 사용 한도에 잠시 걸렸어요. 조금 뒤 다시 요청해 주세요.',429],session_expired:['Claude에 다시 로그인해 주세요.',401],refused:['Claude가 이번 요청을 처리하지 않았어요. 요청 내용을 조정해 주세요.',422],prompt_too_large:['자료가 너무 길어요. 메모나 첨부를 줄여 다시 요청해 주세요.',413],image_rejected:['첨부 사진 중 읽을 수 없는 파일이 있어요. 다른 사진으로 바꿔 주세요.',400],invalid_json:['AI 결과 형식을 읽지 못했어요. 기존 원고는 유지됐어요. 다시 요청해 주세요.',502],empty_completion:['작성 결과가 비어 있어요. 자료를 확인해 다시 요청해 주세요.',502],cancelled:['작성을 멈췄어요. 기존 원고는 유지됐어요.',499]};
+export function inClaudePrompt(job,state,attachments){
+ const p=aiPrompt(job,state),docs=attachments.filter(a=>a.kind==='text').map(a=>'사용자 첨부 문서 '+a.name+':\n'+a.text.slice(0,40000)).join('\n\n');
+ const photos=attachments.filter(a=>a.kind==='image').map((a,n)=>(n+1)+'. '+a.name).join('\n');
+ return p.instructions+'\n\n이번 작성에는 웹 검색 도구가 없다. 검색했다고 말하지 말고, 현재 가격·일정·운영 정보처럼 최신 확인이 필요한 내용은 본문에 단정하지 말고 warnings에 "공식 출처 확인 필요"로 적는다.'
+  +(photos?'\n\n함께 보낸 사진(순서대로):\n'+photos:'')
+  +'\n\n[작성 자료 JSON]\n'+p.input+(docs?'\n\n[첨부 문서]\n'+docs:'')
+  +'\n\n[출력 형식] 아래 키를 모두 가진 JSON 객체 하나만 출력한다. 다른 문장은 쓰지 않는다.\n{"kind":"draft|questions|partial|titles","title":"","disclosure":"","body":"","questions":[],"warnings":[],"linkPositions":[],"summary":""}';
+}
+async function generateInClaude(job,state,env){
+ const attachments=await readAttachments(job,state,env),extra=[];
+ const pdfs=attachments.filter(a=>a.kind==='pdf');if(pdfs.length)extra.push('PDF '+pdfs.map(a=>a.name).join(', ')+'는 Claude 안 버전에서 직접 읽지 못했어요. 필요한 내용은 메모에 옮기거나 사진으로 올려 주세요.');
+ let images=attachments.filter(a=>a.kind==='image').map(a=>new Blob([Uint8Array.from(atob(a.data),c=>c.charCodeAt(0))],{type:a.type}));
+ if(images.length){const limits=await env.SAMPLE.limits?.().catch(()=>null);const max=limits?.images?.maxCount||0;if(images.length>max){extra.push(max?'사진 '+images.length+'장 중 앞의 '+max+'장만 Claude가 봤어요.':'이 화면에서는 Claude가 사진을 볼 수 없어 사진은 읽지 않았어요.');images=images.slice(0,max);}}
+ let result;try{result=await env.SAMPLE.json(inClaudePrompt(job,state,attachments),{cache:false,modelTier:'default',...(images.length?{images}:{})});}
+ catch(e){const [message,status]=SAMPLE_ERRORS[e?.code]||['Claude 작성 중 오류가 발생했어요. 기존 원고는 유지됐어요. 잠시 뒤 다시 요청해 주세요.',502];throw aiError(message,status);}
+ const out=normalizeEditorResult(result||{});out.warnings.push(...extra);
+ return {...out,sources:[],searchUsed:false,model:'Claude (내 계정)',usage:null};
 }

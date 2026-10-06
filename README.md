@@ -29,6 +29,10 @@ AI 원고 생성·수정은 서버의 OpenAI Responses API를 사용합니다. �
 배포는 Cloudflare Worker ES 모듈과 D1, R2를 사용합니다. 제공되는 Sites 서버 템플릿 소스에 접근할 수 없어 의존성이 없는 Worker 구현을 사용했습니다. `.openai/hosting.json`의 기존 project_id를 유지합니다. 관리자 비밀번호와 가져오기 토큰은 Sites 런타임 비밀로 설정하며 소스·백업에 포함하지 않습니다. 인증은 Sites 사용자 신원과 서버 세션을 함께 검증합니다.
 
 전체 기획 및 제약은 `docs/IMPLEMENTATION.md`에 있습니다. `.sites-runtime/`과 `data/`는 Git과 배포에서 제외되는 로컬 자료입니다.
+## Claude 아티팩트로 열기
+
+API 키·서버 없이 Claude 안에서 같은 화면을 엽니다. AI 글쓰기는 내 Claude 계정으로 동작해요. [docs/CLAUDE-ARTIFACT.md](docs/CLAUDE-ARTIFACT.md)
+
 ## 내 Cloudflare 계정으로 배포
 
 `wrangler.toml`이 포함되어 있어 Cloudflare Workers(무료)에 바로 올릴 수 있어요. 단계별 방법·비밀값·자료 옮기기는 [docs/CLOUDFLARE-DEPLOY.md](docs/CLOUDFLARE-DEPLOY.md)에 있어요.
