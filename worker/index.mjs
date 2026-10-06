@@ -81,7 +81,7 @@ async function handoffDownload(state,env){
  const object=await env.BUCKET.get(entry.key);if(!object)return json({error:'다운로드 파일을 찾지 못했어요.'},404);
  return new Response(object.body,{headers:{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="withsuzz-handoff-source.zip"','Content-Length':String(object.size||entry.size),'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 }
-export default {async fetch(r,env){try{
+async function handle(r,env){try{
  const u=new URL(r.url),db=env.DB;if(u.pathname==='/health')return json({ok:true,version:'0.1.0',storage:!!db});if(!db)return json({error:'저장소 연결이 필요해요.'},503);
  if(['POST','PUT','DELETE','PATCH'].includes(r.method)&&r.headers.get('Origin')&&r.headers.get('Origin')!==u.origin)return json({error:'허용되지 않은 요청이에요.'},403);
  if(u.pathname==='/mcp')return await assistantMCP(r,db,env);
@@ -211,6 +211,7 @@ export default {async fetch(r,env){try{
  if(u.pathname==='/api/brief'&&r.method==='POST'){const b=await r.json(),{state}=await read(db);return json({text:brief(b.item||{},state.settings.editorRules,state.lessons,resolvePrompt(state,b.promptId))});}
  if(u.pathname==='/api/report'){const {state}=await read(db);return json(reporting(state,u.searchParams.get('range')==='week'?'week':'day'));}
  if(u.pathname==='/api/analytics'){const {state}=await read(db);return json({rows:analyzeMetrics(state.metrics)});}
+ if(u.pathname==='/api/restore'&&r.method==='POST'){if(Number(r.headers.get('Content-Length'))>5000000)return json({error:'백업 파일이 너무 커요.'},413);const raw=await r.text();if(raw.length>5000000)return json({error:'백업 파일이 너무 커요.'},413);let b;try{b=JSON.parse(raw);}catch{fail('백업 JSON 파일을 읽지 못했어요.');}return json(await mutate(db,s=>restoreBackup(s,b)));}
  if(u.pathname==='/api/export'){const {state}=await read(db);return json({exportedAt:new Date().toISOString(),app:'withsuzz-manager',state},200,{'Content-Disposition':'attachment; filename="withsuzz-backup-'+today()+'.json"'});}
  if(u.pathname==='/api/upload'&&r.method==='POST'){if(!env.BUCKET)return json({error:'파일 저장소 연결이 필요해요.'},503);const form=await r.formData(),f=form.get('file');if(!f||typeof f.arrayBuffer!=='function')return json({error:'파일을 선택해 주세요.'},400);if(f.size>12*1024*1024)return json({error:'파일은 12MB 이하로 올려 주세요.'},413);if(!['application/pdf','text/plain','text/markdown','image/jpeg','image/png','image/webp'].includes(f.type))return json({error:'PDF·텍스트·JPG·PNG·WebP 파일을 지원해요.'},400);const id=crypto.randomUUID(),key='files/'+id;await env.BUCKET.put(key,await f.arrayBuffer(),{httpMetadata:{contentType:f.type}});const info={id,key,name:str(f.name,200),type:f.type,size:f.size,at:new Date().toISOString()};await mutate(db,s=>{s.files.push(info);return info;});return json(info);}
  if(u.pathname.startsWith('/api/files/')){const {state}=await read(db),f=state.files.find(x=>x.id===u.pathname.split('/').pop());if(!f||!env.BUCKET)return json({error:'파일이 없어요.'},404);const o=await env.BUCKET.get(f.key);if(!o)return json({error:'파일이 없어요.'},404);return new Response(o.body,{headers:{'Content-Type':f.type,'Content-Disposition':'attachment; filename="'+encodeURIComponent(f.name)+'"','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});}
@@ -220,7 +221,29 @@ export default {async fetch(r,env){try{
  if(u.pathname==='/api/ai/undo'&&r.method==='POST'){const b=await r.json();return json(await mutate(db,s=>{const t=s.tasks.find(t=>t.id===b.taskId),i=s.items.find(i=>i.id===t?.itemId);if(!t||!i||!t.appliedAt||typeof t.previousDraft!=='string')fail('되돌릴 AI 적용 기록이 없어요.');if(i.updatedAt!==t.appliedUpdatedAt)fail('적용 후 원고가 수정됐어요. 현재 원고를 보존하기 위해 자동으로 되돌릴 수 없어요.',409);i.draft=t.previousDraft;i.status=t.previousStatus;i.updatedAt=new Date().toISOString();delete t.previousDraft;t.undoneAt=i.updatedAt;event(s,'content','AI 적용 전 원고로 되돌렸어요.',{id:i.id});return i;}));}
  if(ASSETS[u.pathname]){const a=ASSETS[u.pathname];return new Response(a.text,{headers:{'Content-Type':a.type,'Cache-Control':'no-store'}});}
  if(u.pathname==='/'||u.pathname==='/login')return html(APP_HTML);return json({error:'페이지가 없어요.'},404);
- }catch(e){return json({error:e.status?e.message:'작업을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.'},e.status||500);}}};
+ }catch(e){return json({error:e.status?e.message:'작업을 완료하지 못했어요. 잠시 후 다시 시도해 주세요.'},e.status||500);}}
+
+// 독립 배포(Cloudflare 등) 모드. ChatGPT Sites의 소유자 확인 경계가 없으므로 이 Worker가 직접 지킨다.
+// - 브라우저: 외부에서 보낸 신원 헤더는 버리고 단일 소유자 'owner'로 고정한 뒤 관리자 비밀번호·세션을 그대로 요구한다.
+// - 자동화 전용 경로와 /mcp: 관리자 세션이 없으면 AGENT_TOKEN Bearer 토큰이 있어야 한다. 토큰을 설정하지 않으면 막힌다.
+export const AGENT_PATHS=['/mcp','/api/handoff-agent','/api/trends-agent','/api/naver-post-sync','/api/automatic-agent','/api/formatting-agent','/api/refresh-agent','/api/publishing-agent','/api/editor-assistant','/api/manager-review','/api/naver-sync'];
+const SCHEMA=['CREATE TABLE IF NOT EXISTS workspace (id TEXT PRIMARY KEY, doc TEXT NOT NULL, rev INTEGER NOT NULL DEFAULT 1)','CREATE TABLE IF NOT EXISTS sessions (token_hash TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires INTEGER NOT NULL)','CREATE TABLE IF NOT EXISTS login_limits (id TEXT PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, expires INTEGER NOT NULL)'];
+const schemaReady=new WeakMap();
+async function sameSecret(a,b){const x=await hash('agent:'+a),y=await hash('agent:'+b);let diff=0;for(let i=0;i<x.length;i++)diff|=x.charCodeAt(i)^y.charCodeAt(i);return !diff;}
+async function standalone(r,env){
+ if(env.DB){if(!schemaReady.has(env.DB))schemaReady.set(env.DB,(async()=>{for(const q of SCHEMA)await env.DB.prepare(q).run();})().catch(e=>{schemaReady.delete(env.DB);throw e;}));await schemaReady.get(env.DB);}
+ const u=new URL(r.url),headers=new Headers(r.headers);headers.delete('oai-authenticated-user-id');headers.delete('oai-sites-authorization');
+ const bearer=(headers.get('Authorization')||'').match(/^Bearer\s+(\S+)$/)?.[1],agent=!!(env.AGENT_TOKEN&&bearer&&await sameSecret(bearer,env.AGENT_TOKEN));
+ headers.delete('Authorization');
+ if(AGENT_PATHS.includes(u.pathname)){
+  if(u.pathname==='/mcp'&&!agent)return json({error:'자동화 연결 토큰이 필요해요.'},401);
+  // 토큰이 맞으면 서비스 호출로 처리하고, 아니면 소유자 브라우저로 보고 관리자 세션을 요구한다.
+  if(!agent||u.pathname==='/mcp')headers.set('oai-authenticated-user-id','owner');
+ }else headers.set('oai-authenticated-user-id','owner');
+ const init={method:r.method,headers,redirect:r.redirect};if(!['GET','HEAD'].includes(r.method)){init.body=await r.arrayBuffer();}
+ return handle(new Request(r.url,init),env);
+}
+export default {async fetch(r,env){return env.STANDALONE==='1'||env.STANDALONE===true?standalone(r,env):handle(r,env);}};
 
 async function aiWrite(b,db,env){
  if(!aiProvider(env))fail('AI 글쓰기 연결이 필요해요. 원고와 자료는 저장됐어요.',503);
@@ -267,6 +290,20 @@ async function assistantToolCall(name,args,db,env){
  fail('지원하지 않는 에디터 도구예요.',404);
 }
 
+// 다른 호스트로 옮길 때 '전체 자료 백업' JSON으로 원고·글감·설정·통계를 되살린다. 로그인 세션과 첨부 원본 파일은 포함되지 않는다.
+function restoreBackup(s,b){
+ const next=b?.state;
+ if(b?.app!=='withsuzz-manager'||!next||typeof next!=='object'||!Array.isArray(next.items)||typeof next.settings!=='object')fail('써즈의 동네방네 전체 자료 백업 파일이 아니에요.');
+ const existing=s.items.length+s.sponsors.length+s.lessons.length;
+ if(existing&&b.replace!==true)fail('이미 저장된 자료가 있어요. 현재 자료를 백업 내용으로 바꾸려면 덮어쓰기를 확인해 주세요.',409);
+ const base=initialState();for(const k of Object.keys(s))delete s[k];
+ Object.assign(s,base,next,{settings:{...base.settings,...next.settings}});
+ for(const k of ['items','sponsors','lessons','tasks','metrics','events','rewards','memory','files'])if(!Array.isArray(s[k]))s[k]=[];
+ const missingFiles=s.files.length;
+ s.restoredAt=new Date().toISOString();s.restoredFrom=String(b.exportedAt||'').slice(0,40);
+ event(s,'settings','백업 파일에서 자료를 복원했어요.'+(missingFiles?' 첨부 원본 파일 '+missingFiles+'개는 백업에 포함되지 않아 다시 올려야 해요.':''),{exportedAt:s.restoredFrom});
+ return {restored:true,items:s.items.length,lessons:s.lessons.length,sponsors:s.sponsors.length,attachmentsToReupload:missingFiles};
+}
 async function assistantMCP(r,db,env){
  if(r.method==='GET'||r.method==='DELETE')return new Response(null,{status:405,headers:{Allow:'POST'}});
  if(r.method!=='POST')return json({error:'POST 요청을 사용해 주세요.'},405);

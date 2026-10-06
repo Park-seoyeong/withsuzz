@@ -7,3 +7,5 @@ data/
 *.tar.gz
 
 research-assets/
+.wrangler/
+.dev.vars*
