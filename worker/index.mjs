@@ -4,7 +4,7 @@ import {saveFormattingStudy,saveItemFormatting,formattingDocument,formattingOver
 import {normalizeNaverPosts,saveNaverPosts,naverPostsOverview} from './naver-posts.mjs';
 import {importMetricRows} from './metrics.mjs';
 import {refreshRecommendations,chooseRefreshPlan} from './refresh.mjs';
-import {PUBLICATION_LANES,preparePublication,publicationOverview,publicationContext,claimPublication,recordPublication,cancelPublication,recordPublishingAccess} from './publishing.mjs';
+import {PUBLICATION_LANES,recordManualReservation,recordManualPublished,preparePublication,publicationOverview,publicationContext,claimPublication,recordPublication,cancelPublication,recordPublishingAccess} from './publishing.mjs';
 import {learningRequestList,learningContext,requestLearning,saveLearningAnalysis} from './learning-assistant.mjs';
 import {normalizeNaver} from './naver.mjs';
 import {keywordRecommendations,recommendationBasis} from './recommendations.mjs';
@@ -41,6 +41,8 @@ async function action(b,s){
  if(b.action==='saveFormatting'){const result=await saveItemFormatting(s,b,hash);event(s,'content','원고의 꾸미기 설정을 저장했어요.',{id:b.itemId});return result;}
  if(b.action==='chooseRefresh'){const result=await chooseRefreshPlan(s,b,today(),hash,content);if(!result.duplicate)event(s,'refresh','유입 감소를 참고해 재작성 글감을 만들었어요.',{originalItemId:result.plan.originalItemId,itemId:result.item.id,planId:result.plan.id});return {item:result.item,duplicate:result.duplicate};}
  if(b.action==='preparePublication'){const result=await preparePublication(s,b,hash);if(!result.duplicate)event(s,'publishing',result.job.title+' — '+result.job.status,{jobId:result.job.id});return {jobId:result.job.id,status:result.job.status,issues:result.job.checks.issues,duplicate:result.duplicate};}
+ if(b.action==='reserveManual'){const {job}=await recordManualReservation(s,b,hash);event(s,'publishing',job.title+' — 네이버 예약 직접 기록 · '+job.scheduledAt.slice(0,16).replace('T',' '),{jobId:job.id});return {jobId:job.id,status:job.status};}
+ if(b.action==='publishedManual'){const {job}=await recordManualPublished(s,b,hash);award(s,'publish:'+job.itemId,30);event(s,'publishing',job.title+' — 게시 확인 (직접 기록)',{jobId:job.id,postUrl:job.receipt.postUrl});return {jobId:job.id,status:job.status,postUrl:job.receipt.postUrl};}
  if(b.action==='cancelPublication'){const job=cancelPublication(s,b.jobId);event(s,'publishing',job.title+' — 발행 준비 취소',{jobId:job.id});return {jobId:job.id};}
  if(b.action==='requestLearning'){const task=requestLearning(s,b,new Date().toISOString());event(s,'learning',task.title+' — 분석 요청 저장',{taskId:task.id});return task;}
  if(b.action==='requestAssistant'){const task=await requestAssistantWriting(s,b,new Date().toISOString(),today(),hash);event(s,'ai',task.title+' — 작성 요청 저장',{taskId:task.id});return task;}

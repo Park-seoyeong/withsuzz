@@ -173,3 +173,28 @@ export function cancelPublication(state,id,now=new Date().toISOString()){
  const job=publicationJob(state,id);if(!['준비 중','발행 대기'].includes(job.status))publishingError('실행된 발행은 네이버 결과 확인 전에는 취소·재실행할 수 없어요.',409);
  job.status='취소';job.updatedAt=now;job.message='사이트 발행 준비를 취소했어요. 원고와 일정은 유지돼요.';return job;
 }
+
+// 네이버 글쓰기 API가 없어 예약은 네이버 편집기에서 직접(또는 Claude 데스크톱의 브라우저 조작으로) 한다.
+// 사이트는 사용자가 예약·게시를 마쳤다고 확인한 사실만 '직접 기록'으로 남긴다. 원격 재조회 확인과는 구분한다.
+export async function recordManualReservation(state,input,hash,now=new Date().toISOString()){
+ const job=publicationJob(state,input.jobId);
+ if(!['준비 중','발행 대기'].includes(job.status))publishingError('이미 예약·게시 기록이 있거나 취소된 준비예요.',409);
+ if(input.confirmed!==true)publishingError('네이버에서 예약을 마쳤는지 확인해 주세요.');
+ if(new Date(job.scheduledAt)<=new Date(now))publishingError('예약 시각이 이미 지났어요. 게시를 마쳤다면 ‘게시 확인’으로 기록해 주세요.');
+ const item=publicationItem(state,job.itemId),checks=await publicationChecks(state,job,hash,now);
+ job.status='예약 확인됨';job.updatedAt=now;job.message='써즈님이 네이버에서 직접 예약했다고 기록했어요. 예약 시각이 지나면 게시글 링크로 확인해 주세요.';
+ job.receipt={outcome:'reserved',method:'manual',scheduledAt:job.scheduledAt,confirmedAt:now,note:publicationText(input.note||'',500),openIssues:(checks.issues||[]).slice(0,10)};
+ item.status='예약됨';item.date=publishingDay(job.scheduledAt);item.updatedAt=now;job.revision=await publicationRevision(item,state,hash);
+ return {job};
+}
+export async function recordManualPublished(state,input,hash,now=new Date().toISOString()){
+ const job=publicationJob(state,input.jobId);
+ if(!['준비 중','발행 대기','예약 확인됨'].includes(job.status)||job.status==='예약 확인됨'&&job.receipt?.method!=='manual')publishingError('이 준비는 직접 게시 기록을 남길 수 없어요.',409);
+ const postUrl=ownPost(input.postUrl);
+ if((state.publishJobs||[]).some(j=>j.id!==job.id&&j.receipt?.postUrl===postUrl))publishingError('이 게시글은 다른 발행 기록에 이미 연결돼 있어요.',409);
+ const item=publicationItem(state,job.itemId),due=new Date(job.scheduledAt)<=new Date(now).getTime()+300000,publishedAt=due?job.scheduledAt:now;
+ job.status='게시 확인됨';job.updatedAt=now;job.message='써즈님이 게시글 링크를 확인해 기록했어요.';
+ job.receipt={...(job.receipt||{}),outcome:'published',method:'manual',postUrl,publishedAt,confirmedAt:now};
+ item.status='게시됨';item.url=postUrl;item.publishedAt=publishedAt;item.date=publishingDay(publishedAt);item.updatedAt=now;job.revision=await publicationRevision(item,state,hash);
+ return {job};
+}
