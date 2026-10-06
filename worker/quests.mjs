@@ -61,10 +61,12 @@ export function weeklyQuestList(state, day = today()) {
   const videos = state.items.filter(i => i.type === 'video' && inWeek(kst(i.updatedAt)) && String(i.draft || i.notes || '').trim());
   const goal = (state.settings.dailyTarget || 2) * 5, videoGoal = state.settings.weeklyVideos || 2;
   const refreshed = (state.refreshPlans || []).filter(p => inWeek(kst(p.selectedAt)));
+  const snsPosted = state.items.filter(i => i.channel !== 'blog' && i.status === '게시됨' && inWeek(kst(i.publishedAt)));
   return [
     {key: 'weekly-publish:' + start, kind: 'weekly', title: '이번 주 여행 일지', description: '이번 주 여행 글 ' + goal + '개 발행', current: weekPublished.length, target: goal, done: weekPublished.length >= goal, xp: 60},
     {key: 'weekly-regions:' + start, kind: 'weekly', title: '세 갈래 길', description: '서로 다른 지역 3곳의 글 발행', current: regions.size, target: 3, done: regions.size >= 3, xp: 30},
     {key: 'weekly-video:' + start, kind: 'weekly', title: '숏폼 원본 모으기', description: '짧은 영상 원본 ' + videoGoal + '개 작업', current: videos.length, target: videoGoal, done: videos.length >= videoGoal, xp: 40},
+    {key: 'weekly-sns:' + start, kind: 'weekly', title: '이웃 동네 소식', description: 'SNS 글 3개 올리기', current: snsPosted.length, target: 3, done: snsPosted.length >= 3, xp: 30, optional: true},
     {key: 'weekly-refresh:' + start, kind: 'weekly', title: '다시 빛나는 글', description: '과거 글 재작성 기획 1개 만들기', current: refreshed.length, target: 1, done: refreshed.length >= 1, xp: 30, optional: true},
   ].map(q => ({...q, period: start + ' ~ ' + end}));
 }

@@ -67,3 +67,10 @@ test('API: SNS 게시 기록은 블로그 글을 거절하고 경험치를 한 �
  await call('/api/action',{action:'snsPosted',id:sns.id});await call('/api/action',{action:'snsPosted',id:sns.id});
  const st=(await call('/api/state')).body.state;assert.equal(st.items.find(i=>i.id===sns.id).status,'게시됨');assert.equal(st.xp,10);
 });
+
+test('API: 자동 초안 실행 기록은 하루 한 번만 통과한다',async()=>{
+ const {call}=setup(()=>({}));
+ assert.equal((await call('/api/action',{action:'autoDraftRan',day:'2026-10-07'})).body.result.already,false);
+ assert.equal((await call('/api/action',{action:'autoDraftRan',day:'2026-10-07'})).body.result.already,true);
+ assert.equal((await call('/api/action',{action:'autoDraftRan',day:''})).status,400);
+});
