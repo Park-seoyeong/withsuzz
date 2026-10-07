@@ -128,7 +128,7 @@ export function styleSources(state) {
   // 발행한 글: 사이트에 원고가 남은 글 + 확장이 RSS로 읽어 온 실제 발행 본문(말투의 가장 확실한 샘플).
   const own = (state.items || []).filter(i => i.status === '게시됨' && String(i.draft || '').trim().length > 300);
   const feed = (state.blogFeed?.rows || []).filter(r => String(r.text || '').trim().length > 300 && !own.some(i => i.title === r.title)).map(r => ({title: r.title, draft: r.text, updatedAt: r.publishedAt || state.blogFeed.checkedAt}));
-  const posts = [...feed.slice(0, 6).reverse(), ...own];
+  const posts = [...feed.slice(0, 10).reverse(), ...own];
   const edits = (state.items || []).filter(i => i.aiOriginal && String(i.draft || '').trim() && i.draft.trim() !== i.aiOriginal.trim() && (i.status === '게시됨' || i.status === '예약됨'));
   const newer = list => list.filter(x => String(x.updatedAt || x.publishedAt || x.createdAt || '') > since).length;
   return {lessons, prompts, posts, edits, fresh: since ? newer(lessons) + newer(prompts) + newer(posts) + newer(edits) : lessons.length + prompts.length + posts.length + edits.length};
