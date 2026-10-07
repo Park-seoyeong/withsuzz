@@ -102,3 +102,5 @@
 .prompt-list{padding-left:20px;line-height:1.7}.prompt-list li{margin-bottom:12px}.prompt-list code{display:block;background:#f4f7fa;padding:6px 8px;border-radius:6px;font-size:11px;white-space:pre-wrap;margin-top:4px}
 
 .voiceq{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}.voiceq .check-row{display:flex;justify-content:flex-start;align-items:center;gap:8px;margin:4px 0;width:auto}.voiceq .check-row input[type=radio]{width:16px;height:16px;margin:0;flex:none}.voiceq legend{padding:0 4px}.voiceq input[name$='_custom']{margin-top:6px;width:100%}
+
+.chara{image-rendering:pixelated}.chara .hat{transform-box:fill-box;transform-origin:bottom center}

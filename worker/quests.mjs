@@ -4,12 +4,12 @@ import {today,addDays,weekStart,manual} from './domain.mjs';
 
 export const LEVEL_XP = 150;
 export const STAGES = [
-  {min: 1, id: 'start', title: '첫 모험', outfit: '여행 모자'},
-  {min: 2, id: 'ready', title: '준비된 여행자', outfit: '작은 배낭'},
-  {min: 3, id: 'camera', title: '카메라 탐험가', outfit: '필름 카메라'},
-  {min: 5, id: 'editor', title: '길 위의 에디터', outfit: '여행 수첩'},
-  {min: 8, id: 'guide', title: '동네방네 가이드', outfit: '길잡이 망토'},
-  {min: 12, id: 'author', title: '천 명의 여행 작가', outfit: '별빛 깃펜'},
+  {min: 1, id: 'start', title: '첫 모험', outfit: '토끼 귀 후드'},
+  {min: 2, id: 'ready', title: '준비된 여행자', outfit: '꽃핀'},
+  {min: 3, id: 'camera', title: '카메라 탐험가', outfit: '곰돌이 모자'},
+  {min: 5, id: 'editor', title: '길 위의 에디터', outfit: '밀짚모자'},
+  {min: 8, id: 'guide', title: '동네방네 가이드', outfit: '천사 링'},
+  {min: 12, id: 'author', title: '천 명의 여행 작가', outfit: '왕관'},
 ];
 export function levelInfo(xp = 0) {
   const level = 1 + Math.floor(xp / LEVEL_XP), stage = [...STAGES].reverse().find(s => level >= s.min), next = STAGES.find(s => s.min > level) || null;

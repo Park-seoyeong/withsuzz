@@ -92,7 +92,7 @@ test('API: 사진으로 캐릭터 맞추기는 보기 안의 값만 쓰고 사�
  const {call,prompts}=setup(()=>({hair:'흑발',skin:'중간 톤',glasses:true,outfit:'보라색',note:'안경을 쓴 인물이에요.'}));
  const png=readFileSync(new URL('./fixture-tiny.png',import.meta.url),{encoding:'base64'});
  const r=await call('/api/ai/look',{image:{type:'image/png',data:png}});assert.equal(r.status,200,JSON.stringify(r.body));
- assert.deepEqual(r.body.look,{hair:'흑발',skin:'중간 톤',glasses:true,outfit:'하늘색'});assert.equal(prompts.images,1);assert.match(prompts[0],/식별하거나/);
+ assert.deepEqual(r.body.look,{hair:'흑발',skin:'중간 톤',glasses:true,outfit:'하늘색',eyes:'갈색',style:'긴 생머리'});assert.equal(prompts.images,1);assert.match(prompts[0],/식별하거나/);
  assert.equal((await call('/api/state')).body.state.files.length,0);
  assert.equal((await call('/api/ai/look',{image:{type:'image/gif',data:'x'}})).status,400);
 });
