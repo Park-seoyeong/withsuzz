@@ -96,3 +96,12 @@ test('API: 사진으로 캐릭터 맞추기는 보기 안의 값만 쓰고 사�
  assert.equal((await call('/api/state')).body.state.files.length,0);
  assert.equal((await call('/api/ai/look',{image:{type:'image/gif',data:'x'}})).status,400);
 });
+
+test('API: 밤사이 글감 제안은 같은 제목을 거르고 아이디어로만 담는다',async()=>{
+ const {call}=setup(()=>({}));
+ await call('/api/action',{action:'saveItem',item:{title:'제주 억새 명소',channel:'blog'}});
+ const r=await call('/api/action',{action:'addNightIdeas',ideas:[{title:'제주 억새 명소',keyword:'제주 억새',type:'info',why:'중복'},{title:'가을 제주 2박 3일 코스',keyword:'제주 가을 여행',type:'review',why:'검색량 높음',outline:['1일차','2일차'],sources:['https://example.com/a']},{title:'',why:'x'},{title:'이상한 유형',type:'weird',why:'y'}]});
+ assert.equal(r.body.result.added,2);
+ const st=(await call('/api/state')).body.state,i=st.items.find(x=>x.title==='가을 제주 2박 3일 코스');assert.equal(i.status,'아이디어');assert.ok(!i.date);assert.match(i.notes,/\[밤사이 글감 제안\] 검색량 높음/);assert.match(i.notes,/- 1일차/);assert.equal(st.items.find(x=>x.title==='이상한 유형').type,'info');
+ assert.equal((await call('/api/action',{action:'addNightIdeas',ideas:[{title:'가을 제주 2박 3일 코스',why:'again'}]})).body.result.added,0);
+});

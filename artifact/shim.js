@@ -175,6 +175,9 @@ function nightDrafts(db) {
     },
     async list() { const q = await db.collection('drafts').get(); return q.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d && ['완료', '보류'].includes(d.status) && typeof d.itemId === 'string'); },
     async mark(itemId, status, note = '') { await ref(itemId).update({ status, note: String(note).slice(0, 300), handledAt: new Date().toISOString() }); },
+    // 밤사이 글감: 클라우드가 ideas/<id>에 써 둔 새 글감 후보. 사이트가 받으면 '받음'으로 표시한다.
+    async ideas() { const q = await db.collection('ideas').get(); return q.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d && d.status === '제안' && Array.isArray(d.ideas)); },
+    async tookIdeas(id, note = '') { await db.doc('ideas/' + String(id).replace(/[^A-Za-z0-9_.~:@+-]/g, '~')).update({ status: '받음', note: String(note).slice(0, 300), handledAt: new Date().toISOString() }); },
   };
 }
 
