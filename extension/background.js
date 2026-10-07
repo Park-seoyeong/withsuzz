@@ -73,6 +73,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     })().then(n => reply({ok: true, pages: n})).catch(async e => { await chrome.storage.local.set({lastCrawl: {at: new Date().toISOString(), pages: 0, url: String(msg.url || ''), error: e.message}}); reply({ok: false, error: e.message}); });
     return true;
   }
-  if (msg?.type === 'suzz-read-pages') { readPages(msg.urls).then(pages => reply({ok: true, pages})).catch(e => reply({ok: false, error: e.message})); return true; }
+  if (msg?.type === 'suzz-read-pages') { readPages(msg.urls).then(async pages => { await chrome.storage.local.set({lastRead: {at: new Date().toISOString(), ok: pages.filter(p => p.text).length, fail: pages.filter(p => !p.text).map(p => (p.error || '?') + ' ' + p.url.replace(/^https:\/\//, '').slice(0, 40))}}); reply({ok: true, pages}); }).catch(async e => { await chrome.storage.local.set({lastRead: {at: new Date().toISOString(), ok: 0, fail: [e.message]}}); reply({ok: false, error: e.message}); }); return true; }
   if (msg?.type === 'suzz-auto-run') { runAutoPages('직접').then(log => reply({ok: true, log})).catch(e => reply({ok: false, error: e.message})); return true; }
 });

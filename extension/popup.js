@@ -2,10 +2,12 @@ const KIND = {naver: '네이버 통계', posts: '네이버 글별 조회', produ
 const status = t => { document.getElementById('status').textContent = t; };
 const esc = t => String(t || '').replace(/[<>&]/g, '');
 async function show() {
-  const {queue = [], keys = {}, lastApi, linked = [], lastCrawl} = await chrome.storage.local.get(['queue', 'keys', 'lastApi', 'linked', 'lastCrawl']);
+  const {queue = [], keys = {}, lastApi, linked = [], lastCrawl, lastRead} = await chrome.storage.local.get(['queue', 'keys', 'lastApi', 'linked', 'lastCrawl', 'lastRead']);
+  const pagesOk = await chrome.permissions.contains({origins: ['https://*/*']}).catch(() => false);
   const v = chrome.runtime.getManifest().version, when = t => t ? new Date(t).toLocaleString('ko-KR', {month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '';
   document.getElementById('link-state').textContent = '수집기 ' + v + ' · 연결한 사이트 ' + linked.length + '곳' + (linked.length ? '' : ' (사이트 탭에서 ‘이 탭의 사이트와 연결’을 눌러 주세요)') + ' · 보관함 ' + queue.length + '개'
-    + (lastCrawl ? ' · 마지막 긁기 ' + when(lastCrawl.at) + ': ' + (lastCrawl.error ? '실패 — ' + lastCrawl.error : lastCrawl.pages + '쪽' + (lastCrawl.hint ? ' · ' + lastCrawl.hint : '')) : '');
+    + (lastCrawl ? ' · 마지막 긁기 ' + when(lastCrawl.at) + ': ' + (lastCrawl.error ? '실패 — ' + lastCrawl.error : lastCrawl.pages + '쪽' + (lastCrawl.hint ? ' · ' + lastCrawl.hint : '')) : '')
+    + ' · 공식 페이지 읽기 ' + (pagesOk ? '허용됨' : '아직 허용 안 됨 (아래 버튼)') + (lastRead ? ' · 마지막 읽기 ' + when(lastRead.at) + ': 성공 ' + lastRead.ok + (lastRead.fail?.length ? ' · 실패 ' + lastRead.fail.join(', ') : '') : '');
   document.getElementById('queue').innerHTML = queue.length ? queue.map(i => `<li><strong>${KIND[i.kind] || esc(i.kind)}</strong> · ${new Date(i.capturedAt).toLocaleString('ko-KR')}<br><small>${esc(i.title)}${i.errors?.length ? ' · 못 불러온 것 ' + i.errors.length : ''}</small></li>`).join('') : '<li><small>아직 보낼 자료가 없어요.</small></li>';
   const ready = !!(keys.clientId || keys.adKey);
   document.getElementById('api-state').textContent = !ready ? 'API 키가 없어요. ‘API 설정’에서 넣으면 6시간마다 검색량·트렌드·최저가를 불러와요.' : lastApi ? '마지막 API 불러오기: ' + new Date(lastApi.at).toLocaleString('ko-KR') + (lastApi.errors?.length ? ' (일부 실패)' : '') : 'API 키 저장됨 · 아직 불러오기 전이에요.';
