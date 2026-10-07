@@ -33,7 +33,8 @@ export function rekeyProducts(state, map) {
   }
   return changed;
 }
-export function genericProducts(state) { return (state.products || []).filter(p => pc_generic(p.keyword) || !p.keyword); }
+// 다시 매길 상품: 키워드가 화면 이름이거나, 키워드가 상품명에 들어 있지 않은 것(예: 검색어 '보조배터리'로 담긴 음식물처리기).
+export function genericProducts(state) { return (state.products || []).filter(p => pc_generic(p.keyword) || !p.keyword || !pc_compact(p.name).includes(pc_compact(p.keyword))); }
 export function saveProducts(state, input, at = new Date().toISOString()) {
   const source = PRODUCT_SOURCES[input?.source] ? input.source : null; if (!source) productError('상품 출처를 골라 주세요.');
   const keyword = pc_text(input.keyword, 60); if (!keyword) productError('어떤 키워드로 찾은 상품인지 적어 주세요.');
