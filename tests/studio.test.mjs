@@ -189,3 +189,32 @@ test('말투 2차 패스: 발행 글 샘플이 있으면 초안을 써즈 말투
  assert.equal(calls.length,2);assert.match(calls[1],/\[써즈가 실제 발행한 글\][\s\S]*샘플 1: 발행 글/);assert.match(calls[1],/\[원고\]\n제목: 제주 억새 명소 5곳/);
  assert.match(r.body.task.result.body,/^안녕하세요, 써즈입니다\./);assert.equal(r.body.task.result.voicePassed,true);assert.match(r.body.task.result.title,/정리$/);
 });
+
+test('내 블로그 글 전체 읽기: 목록은 합쳐지고 본문은 채워지며, RSS를 다시 받아도 읽어 둔 본문이 남는다', async () => {
+  const {DatabaseSync} = await import('node:sqlite'), {readFileSync} = await import('node:fs'), {default: worker} = await import('../dist/server/index.js');
+  const sql = new DatabaseSync(':memory:'); sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql', import.meta.url), 'utf8'));
+  const env = {ARTIFACT: '1', DB: {prepare(q) { let a = []; return {bind(...x) { a = x; return this; }, async first() { return sql.prepare(q).get(...a) || null; }, async run() { return {meta: {changes: sql.prepare(q).run(...a).changes}}; }}; }}};
+  const call = async (p, b) => { const r = await worker.fetch(new Request('https://t.local' + p, b ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)} : {}), env); return r.json(); };
+  const long = '오늘도 함께 떠나는 여행 블로거 써즈입니다. '.repeat(20);
+  const r1 = (await call('/api/action', {action: 'applyBlogPosts', rows: [{url: 'https://blog.naver.com/withsuzz/224000000001', title: '옛 글 1', publishedAt: '2025-01-02'}, {url: 'https://blog.naver.com/withsuzz/224000000002', title: '옛 글 2', publishedAt: '2025-02-03', text: long}, {url: 'https://evil.example/x', title: '딴 데', text: long}]})).result;
+  assert.equal(r1.added, 2); assert.equal(r1.texted, 1); assert.equal(r1.total, 2);
+  const r2 = (await call('/api/action', {action: 'applyBlogPosts', rows: [{url: 'https://blog.naver.com/PostView.naver?blogId=withsuzz&logNo=224000000001', title: '옛 글 1', text: long}]})).result;
+  assert.equal(r2.added, 0); assert.equal(r2.texted, 1, '글 번호가 같으면 같은 글');
+  const feed = {capturedAt: '2026-10-07T00:00:00.000Z', data: {rows: [{title: '새 글', url: 'https://blog.naver.com/withsuzz/224000000009', publishedAt: '2026-10-07T00:00:00.000Z', text: ''}, {title: '옛 글 2', url: 'https://blog.naver.com/withsuzz/224000000002', publishedAt: '2025-02-03T00:00:00.000Z', text: ''}]}};
+  await call('/api/action', {action: 'applyBlogFeed', item: feed});
+  const rows = (await call('/api/state')).state.blogFeed.rows;
+  assert.equal(rows.length, 3); assert.ok(rows.find(r => r.title === '옛 글 2').text.length > 300, 'RSS에 본문이 없어도 읽어 둔 본문 유지'); assert.ok(rows.find(r => r.title === '옛 글 1'), 'RSS에 없는 옛 글도 남음');
+  // 말투 질문 답 → 프롬프트 규칙
+  await call('/api/action', {action: 'saveItem', item: {title: '테스트', channel: 'blog'}});
+  const st = (await call('/api/state')).state;
+  const {voiceBlock} = await import('../worker/ai.mjs');
+  assert.equal(voiceBlock(st), '');
+  const qaState = {...st, voiceQA: {questions: [], answers: [{question: '가격 표기는?', answer: '숫자 뒤에 원, 천 단위 쉼표', at: 'x'}]}, items: [{id: 'a', title: '고친 글', aiOriginal: '첫 줄\n둘째 줄\n셋째 줄\n넷째 줄', draft: '첫 줄\n고친 둘째 줄!\n고친 셋째 줄\n넷째 줄'}]};
+  const vb = voiceBlock(qaState);
+  assert.match(vb, /가격 표기는\? → 숫자 뒤에 원/); assert.match(vb, /써즈가 고친 뒤/); assert.match(vb, /고친 둘째 줄/);
+  const {editedEnough, normalizeVoiceQuestions, voiceQuestionsPrompt} = await import('../worker/studio.mjs');
+  assert.equal(editedEnough('a\nb\nc', 'a\nb\nc'), false); const L = Array.from({length: 11}, (_, i) => '이 문장은 길이가 충분히 길어서 글자 수 비율이 작습니다 ' + i).join('\n'); assert.equal(editedEnough(L, L + '\n한 줄'), false, '11줄 중 1줄 추가는 아직 아님'); assert.equal(editedEnough('a\nb\nc', 'a\nB\nC'), true);
+  const qs = normalizeVoiceQuestions({questions: [{id: 'x', question: '소제목 끝 마침표?', options: ['붙인다.', '안 붙인다'], why: 'w', example: 'e'}, {question: '옵션 하나', options: ['하나']}]});
+  assert.equal(qs.length, 1); assert.equal(qs[0].id, 'q1');
+  assert.match(voiceQuestionsPrompt(qaState).data, /가격 표기는/);
+});

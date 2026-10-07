@@ -2,7 +2,7 @@
 // 1) 네이버 API: 6시간마다 써즈님 키로 공식 API를 부른다(naver-api.js).
 // 2) 자동 수집: 등록한 화면을 하루 두 번(9시·21시 무렵) 뒤쪽 탭으로 열어 읽는다(autopages.js).
 // 결과는 보관함(queue)에 넣고, 사이트를 열면 deliver.js가 넘겨 준다.
-import {collect, cleanKeywords, blogFeed} from './naver-api.js';
+import {collect, cleanKeywords, blogFeed, blogPostList} from './naver-api.js';
 import {runAutoPages, readPages, crawlPages} from './autopages.js';
 import {shoppingPage} from './shoppage.js';
 const ALARM = 'suzz-naver-api', EVERY = 360, AUTO = 'suzz-auto-pages';
@@ -55,6 +55,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg?.type === 'suzz-naver-post') {
     const p = msg.pkg || {}, pkg = {title: String(p.title || '').slice(0, 200), html: String(p.html || '').slice(0, 400000), text: String(p.text || '').slice(0, 200000), tags: String(p.tags || '').slice(0, 1000), when: String(p.when || '').slice(0, 40), photos: (Array.isArray(p.photos) ? p.photos : []).slice(0, 30).filter(x => /^data:image\//.test(x?.dataUrl || '')).map(x => ({name: String(x.name || 'photo.jpg').slice(0, 120), type: String(x.type || ''), dataUrl: x.dataUrl})), savedAt: new Date().toISOString()};
     chrome.storage.local.set({naverPost: pkg}).then(() => chrome.tabs.create({url: 'https://blog.naver.com/GoBlogWrite.naver'})).then(() => reply({ok: true, photos: pkg.photos.length})).catch(e => reply({ok: false, error: e.message}));
+    return true;
+  }
+  // 내 블로그 글 목록 전체(제목·주소·날짜). 본문은 사이트가 read-pages로 따로 읽는다.
+  if (msg?.type === 'suzz-blog-list') {
+    chrome.storage.local.get('blogId').then(({blogId = 'withsuzz'}) => blogPostList(msg.blogId && /^[A-Za-z0-9_-]{2,40}$/.test(msg.blogId) ? msg.blogId : blogId, {maxPages: Math.min(40, Number(msg.maxPages) || 20)}))
+      .then(posts => reply({ok: true, posts})).catch(e => reply({ok: false, error: e.message}));
     return true;
   }
   if (msg?.type === 'suzz-api-lookup') {

@@ -112,3 +112,26 @@ export async function blogFeed(blogId, fetchFn = fetch, now = new Date()) {
   if (!res.ok) throw new Error('블로그 RSS ' + res.status);
   return {id: crypto.randomUUID(), kind: 'rss', title: '내 블로그 새 글 (RSS)', url: '', capturedAt: now.toISOString(), data: {blogId: id, rows: parseRss(await res.text())}};
 }
+
+// 내 블로그 글 전체 목록: 공개 목록 API(PostTitleListAsync)를 30개씩 넘기며 읽는다. 로그인·키 없이 되는 공개 주소라 제목·번호·날짜만 온다.
+export async function blogPostList(blogId, {fetchFn = fetch, maxPages = 20, pause = () => new Promise(r => setTimeout(r, 250))} = {}) {
+  const id = String(blogId || '').trim(); if (!/^[A-Za-z0-9_-]{2,40}$/.test(id)) return [];
+  const out = [], seen = new Set();
+  for (let page = 1; page <= maxPages; page++) {
+    const res = await fetchFn('https://blog.naver.com/PostTitleListAsync.naver?blogId=' + id + '&viewdate=&currentPage=' + page + '&categoryNo=0&parentCategoryNo=&countPerPage=30');
+    if (!res.ok) throw new Error('블로그 목록 ' + res.status);
+    let body; try { body = JSON.parse((await res.text()).replace(/\\'/g, "'")); } catch { throw new Error('블로그 목록 형식을 읽지 못했어요.'); }
+    const list = Array.isArray(body?.postList) ? body.postList : [];
+    let fresh = 0;
+    for (const p of list) {
+      const no = String(p.logNo || '').trim(); if (!/^\d{6,}$/.test(no) || seen.has(no)) continue; seen.add(no); fresh++;
+      const d = String(p.addDate || '').trim(), m = d.match(/(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})/);
+      out.push({logNo: no, title: decodeTitle(p.title), url: 'https://blog.naver.com/' + id + '/' + no, publishedAt: m ? m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') : ''});
+    }
+    const total = Number(body?.totalCount || 0);
+    if (!fresh || list.length < 30 || (total && out.length >= total)) break;
+    await pause();
+  }
+  return out;
+}
+function decodeTitle(t) { let s = String(t || ''); try { s = decodeURIComponent(s.replace(/\+/g, ' ')); } catch {} return s.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").trim().slice(0, 200); }

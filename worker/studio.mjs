@@ -121,6 +121,43 @@ export function compareDraftItem(products, keyword) {
 // ───────── 글쓰기 지침서: 학습 자료·내 프롬프트·발행한 글·AI 초안을 고친 흔적을 모아 하나의 지침으로 정리한다 ─────────
 export const STYLE_SCHEMA = {type: 'object', additionalProperties: false, required: ['guide', 'changes', 'warnings'], properties: {guide: {type: 'string'}, changes: {type: 'array', items: {type: 'string'}}, warnings: {type: 'array', items: {type: 'string'}}}};
 // 마지막 지침서 이후에 새로 생긴 학습 거리(분석된 학습 자료·바뀐 프롬프트·새로 발행한 글·고친 AI 초안)를 센다.
+export function editedEnough(before, after) {
+  const a = String(before || '').trim(), b = String(after || '').trim();
+  if (!a || !b || a === b) return false;
+  // 같은 문장(줄)이 얼마나 남았는지로 변경량을 잰다: 줄의 10% 이상이 바뀌었거나 길이가 5% 이상 달라졌으면 ‘고친 글’.
+  const la = new Set(a.split(/\n+/).map(x => x.trim()).filter(Boolean)), lb = b.split(/\n+/).map(x => x.trim()).filter(Boolean);
+  const changed = lb.filter(x => !la.has(x)).length;
+  return changed / Math.max(1, lb.length) >= 0.1 || Math.abs(a.length - b.length) / Math.max(a.length, 1) >= 0.05;
+}
+// 써즈님이 ‘말투 질문’에 답한 내용 → 모든 원고 프롬프트에 들어가는 규칙 문장.
+export function voiceRulesText(state, max = 20) {
+  const ans = (state.voiceQA?.answers || []).filter(a => a && a.answer && a.question).slice(-max);
+  return ans.length ? ans.map(a => '- ' + st_text(a.question, 160) + ' → ' + st_text(a.answer, 200)).join('\n') : '';
+}
+export const VOICE_QA_SCHEMA = {type: 'object', properties: {questions: {type: 'array', items: {type: 'object', properties: {id: {type: 'string'}, question: {type: 'string'}, why: {type: 'string'}, options: {type: 'array', items: {type: 'string'}}, example: {type: 'string'}}, required: ['id', 'question', 'options']}}}, required: ['questions']};
+// 1주일에 한 번: Claude가 스스로 어색하다고 느낀 말투 판단 지점을 써즈님에게 묻는 질문 만들기.
+export function voiceQuestionsPrompt(state) {
+  const src = styleSources(state), rules = voiceRulesText(state, 40);
+  const recent = (state.items || []).filter(i => i.aiOriginal && String(i.draft || '').trim()).slice(-3);
+  const data = [
+    state.styleGuide?.text ? '[지금 지침서 중 말투 부분]\n' + st_text(state.styleGuide.text, 5000) : '',
+    src.posts.length ? '[써즈가 실제 발행한 글 샘플]\n' + src.posts.slice(-5).map(i => '■ ' + st_text(i.title, 100) + '\n' + st_text(i.draft, 1800)).join('\n\n') : '',
+    recent.length ? '[최근 AI가 쓴 초안 (써즈가 고친 흔적 포함)]\n' + recent.map(i => '■ ' + st_text(i.title, 100) + '\n<AI 초안>\n' + st_text(i.aiOriginal, 1500) + '\n<지금 원고>\n' + st_text(i.draft, 1500)).join('\n\n') : '',
+    rules ? '[이미 답해 준 말투 규칙 — 같은 걸 다시 묻지 않는다]\n' + rules : '',
+  ].filter(Boolean).join('\n\n');
+  return {
+    instructions: '너는 블로거 ‘써즈’의 원고를 쓰는 에디터다. 써즈 말투로 글을 쓰다가 스스로 확신이 없거나 어색하게 느낀 지점을 3~5개 골라, 써즈에게 직접 묻는 질문을 만든다.\n'
+      + '- 질문은 구체적인 선택지로 (예: 소제목 끝에 마침표를 붙일까요? / 가격을 말할 때 “원”을 쓸까요 “₩”를 쓸까요? / 마무리 인사는 어느 쪽이 더 써즈다운가요?).\n'
+      + '- options는 2~4개, 각각 실제 문장 예시로 쓴다. example에는 그 선택이 들어갈 짧은 원고 문장 하나를 둔다. why는 왜 헷갈렸는지 한 줄.\n'
+      + '- 샘플과 초안에서 실제로 흔들린 부분(어미 비율, 인사말, 이모지, 괄호 설명, 가격·시간 표기, 소제목 형식, 독자 호칭, 문단 길이)만 묻는다. 사실·경험을 묻지 않는다.\n'
+      + '- 이미 답한 규칙과 겹치는 질문은 내지 않는다. id는 q1, q2… 형식.',
+    data, schema: VOICE_QA_SCHEMA, example: {questions: [{id: 'q1', question: '', why: '', options: ['', ''], example: ''}]},
+  };
+}
+export function normalizeVoiceQuestions(r) {
+  const qs = (Array.isArray(r?.questions) ? r.questions : []).map((q, n) => ({id: 'q' + (n + 1), question: st_text(q.question, 200), why: st_text(q.why, 200), options: (Array.isArray(q.options) ? q.options : []).map(o => st_text(o, 200)).filter(Boolean).slice(0, 4), example: st_text(q.example, 300)})).filter(q => q.question && q.options.length >= 2).slice(0, 5);
+  return qs;
+}
 export function styleSources(state) {
   const since = state.styleGuide?.updatedAt || '';
   const lessons = (state.lessons || []).filter(l => l.summary && l.points && l.active !== false);
@@ -129,7 +166,8 @@ export function styleSources(state) {
   const own = (state.items || []).filter(i => i.status === '게시됨' && String(i.draft || '').trim().length > 300);
   const feed = (state.blogFeed?.rows || []).filter(r => String(r.text || '').trim().length > 300 && !own.some(i => i.title === r.title)).map(r => ({title: r.title, draft: r.text, updatedAt: r.publishedAt || state.blogFeed.checkedAt}));
   const posts = [...feed.slice(0, 10).reverse(), ...own];
-  const edits = (state.items || []).filter(i => i.aiOriginal && String(i.draft || '').trim() && i.draft.trim() !== i.aiOriginal.trim() && (i.status === '게시됨' || i.status === '예약됨'));
+  // 써즈님이 AI 초안을 고친 글: 발행 전이라도 글자 3% 이상 바뀌었으면 취향 신호로 쓴다.
+  const edits = (state.items || []).filter(i => i.aiOriginal && String(i.draft || '').trim() && editedEnough(i.aiOriginal, i.draft));
   const newer = list => list.filter(x => String(x.updatedAt || x.publishedAt || x.createdAt || '') > since).length;
   return {lessons, prompts, posts, edits, fresh: since ? newer(lessons) + newer(prompts) + newer(posts) + newer(edits) : lessons.length + prompts.length + posts.length + edits.length};
 }

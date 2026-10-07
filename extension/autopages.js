@@ -78,7 +78,7 @@ export async function runAutoPages(reason = '자동') {
 // 권한이 없는 사이트는 읽지 않고 그 사실만 돌려준다(권한은 팝업의 ‘공식 페이지 읽기 허용’으로 한 번만 준다).
 export async function readPages(urls) {
   const out = [];
-  for (const raw of (Array.isArray(urls) ? urls : []).slice(0, 6)) {
+  for (const raw of (Array.isArray(urls) ? urls : []).slice(0, 10)) {
     let u; try { u = new URL(String(raw)); } catch { continue; }
     if (u.protocol !== 'https:' || LOGIN.test(u.href)) continue;
     const allowed = await chrome.permissions.contains({origins: [u.origin + '/*']}).catch(() => false);

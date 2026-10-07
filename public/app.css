@@ -100,3 +100,5 @@
 .draft-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.draft-tools code{background:#eef4f8;padding:1px 5px;border-radius:4px}
 .draft-preview{min-height:460px;font-size:14px;line-height:2;color:#2a2520}.draft-preview h3{font-size:19px;margin:28px 0 10px;padding-left:12px;border-left:4px solid var(--blue);color:#234966}.draft-preview p{margin:0 0 14px}
 .prompt-list{padding-left:20px;line-height:1.7}.prompt-list li{margin-bottom:12px}.prompt-list code{display:block;background:#f4f7fa;padding:6px 8px;border-radius:6px;font-size:11px;white-space:pre-wrap;margin-top:4px}
+
+.voiceq{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:10px 0}.voiceq .check-row{display:flex;justify-content:flex-start;align-items:center;gap:8px;margin:4px 0;width:auto}.voiceq .check-row input[type=radio]{width:16px;height:16px;margin:0;flex:none}.voiceq legend{padding:0 4px}.voiceq input[name$='_custom']{margin-top:6px;width:100%}
