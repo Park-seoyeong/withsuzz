@@ -40,8 +40,16 @@ chrome.runtime.onInstalled.addListener(schedule);
 chrome.runtime.onStartup.addListener(schedule);
 chrome.alarms.onAlarm.addListener(a => {
   if (a.name === ALARM) run('자동').catch(() => {});
-  if (a.name === AUTO) runAutoPages('자동').catch(() => {});
+  if (a.name === AUTO) runAutoPages('자동').then(() => pushToSite()).catch(() => {});
 });
+// 열려 있는 사이트 탭(연결한 주소·Claude 아티팩트)에 '새 자료 있음'을 알려 새로고침 없이 받게 한다.
+async function pushToSite() {
+  const {linked = []} = await chrome.storage.local.get('linked');
+  const urls = [...new Set([...linked.map(o => o + '/*'), 'https://claude.ai/*', 'https://*.claudeusercontent.com/*'])];
+  let tabs = []; try { tabs = await chrome.tabs.query({url: urls}); } catch { return 0; }
+  let n = 0; for (const t of tabs) { try { await chrome.tabs.sendMessage(t.id, {type: 'suzz-push'}); n++; } catch {} }
+  return n;
+}
 chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg?.type === 'suzz-api-run') { run('직접').then(i => reply({ok: true, errors: i.errors, data: {keywords: i.data.keywords.length, shopping: i.data.shopping.length, trends: i.data.trends.length, volumes: i.data.volumes.length}})).catch(e => reply({ok: false, error: e.message})); return true; }
   if (msg?.type === 'suzz-naver-post') {
@@ -59,9 +67,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
       const page = {id: crypto.randomUUID(), url: String(msg.url || ''), title: String(msg.title || '').slice(0, 120), kind: msg.kind || 'products'};
       const items = await crawlPages(page, {maxPages: Math.min(40, Number(msg.maxPages) || 20)});
       const {queue = []} = await chrome.storage.local.get('queue');
-      await chrome.storage.local.set({queue: [...queue.filter(i => !(i.auto && i.pageId === page.id)), ...items].slice(-60)});
+      await chrome.storage.local.set({queue: [...queue.filter(i => !(i.auto && i.pageId === page.id)), ...items].slice(-60), lastCrawl: {at: new Date().toISOString(), pages: items.length, url: page.url, hint: items[0]?.pagerHint ? '다음 쪽 버튼을 못 찾았어요(마지막 자료 복사로 모양 전달)' : ''}});
+      await pushToSite();
       return items.length;
-    })().then(n => reply({ok: true, pages: n})).catch(e => reply({ok: false, error: e.message}));
+    })().then(n => reply({ok: true, pages: n})).catch(async e => { await chrome.storage.local.set({lastCrawl: {at: new Date().toISOString(), pages: 0, url: String(msg.url || ''), error: e.message}}); reply({ok: false, error: e.message}); });
     return true;
   }
   if (msg?.type === 'suzz-read-pages') { readPages(msg.urls).then(pages => reply({ok: true, pages})).catch(e => reply({ok: false, error: e.message})); return true; }

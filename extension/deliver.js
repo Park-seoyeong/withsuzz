@@ -9,7 +9,7 @@ window.addEventListener('message', async event => {
       if (watch.length) await chrome.storage.local.set({watch});
     }
     const {queue = []} = await chrome.storage.local.get('queue');
-    window.postMessage({type: 'suzz-ext-payload', version: 2, items: queue}, '*');
+    window.postMessage({type: 'suzz-ext-payload', version: 2, ext: chrome.runtime.getManifest().version, items: queue}, '*');
   }
   // 사이트에서 키워드 검색량을 바로 물어보면, 확장 백그라운드가 써즈님 키로 API를 불러 답한다(키는 넘기지 않음).
   if (event.data.type === 'suzz-ext-lookup' && Array.isArray(event.data.keywords)) {
@@ -35,4 +35,9 @@ window.addEventListener('message', async event => {
     await chrome.storage.local.set({queue: queue.filter(i => !event.data.ids.includes(i.id))});
   }
 });
-window.postMessage({type: 'suzz-ext-ready'}, '*');
+// 백그라운드가 '새 자료 있음'을 알리면 사이트 새로고침 없이 바로 넘긴다.
+chrome.runtime.onMessage.addListener(msg => {
+  if (msg?.type !== 'suzz-push') return;
+  chrome.storage.local.get('queue').then(({queue = []}) => window.postMessage({type: 'suzz-ext-payload', version: 2, ext: chrome.runtime.getManifest().version, items: queue}, '*'));
+});
+window.postMessage({type: 'suzz-ext-ready', ext: chrome.runtime.getManifest().version}, '*');
