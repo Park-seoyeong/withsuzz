@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "써즈 동네방네 수집기",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "로그인한 내 브라우저의 네이버 통계·쇼핑커넥트·여행 제휴 화면과, 내 키로 부른 네이버 공식 API(쇼핑 검색·데이터랩·검색광고) 결과를 써즈의 동네방네 사이트로 보내요.",
   "permissions": [
     "activeTab",

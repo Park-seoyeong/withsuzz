@@ -245,6 +245,26 @@ export function saveApiData(state, item, at = new Date().toISOString()) {
   state.apiSync = {capturedAt, savedAt: at, parts: {search: !!item.parts?.search, ad: !!item.parts?.ad}, metrics: touched.size, products, errors};
   return {skipped: false, metrics: touched.size, products, errors};
 }
+// 키워드 분석 화면(블랙키위·네이버 키워드 도구 등)에서 읽은 숫자 저장: 검색량·증감률·경쟁도. 화면 값은 그 화면 기준일로 기록한다.
+export function saveKeywordRows(state, {rows, source, date}, at = new Date().toISOString()) {
+  if (!Array.isArray(state.keywordMetrics)) state.keywordMetrics = [];
+  const src = pc_text(source, 40) || '분석 화면', day = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : /^\d{4}-\d{2}$/.test(date || '') ? date + '-01' : new Date(Date.parse(at) + 9 * 3600000).toISOString().slice(0, 10);
+  let saved = 0;
+  for (const r of (Array.isArray(rows) ? rows : []).slice(0, 300)) {
+    const kw = pc_text(r?.keyword, 60).trim(), key = pc_compact(kw); if (key.length < 2) continue;
+    const pc = pc_num(r.pc), mobile = pc_num(r.mobile), volume = pc_num(r.volume) ?? (pc === null && mobile === null ? null : (pc || 0) + (mobile || 0));
+    const chg = Number(String(r.change ?? '').replace(/[%,\s]/g, '')), change = String(r.change ?? '').trim() && Number.isFinite(chg) ? chg / 100 : null;
+    let m = state.keywordMetrics.find(x => x.key === key); if (!m) { m = {key, keyword: kw}; state.keywordMetrics.push(m); }
+    Object.assign(m, {source: src, updatedAt: at});
+    if (volume !== null) { m.volume = volume; if (pc !== null) m.monthlyPc = pc; if (mobile !== null) m.monthlyMobile = mobile; const h = (m.history ||= []).filter(x => x.date !== day); h.push({date: day, volume}); m.history = h.sort((a, b) => a.date.localeCompare(b.date)).slice(-90); }
+    if (['낮음', '중간', '높음'].includes(r.compIdx)) m.compIdx = r.compIdx;
+    if (change !== null) m.trend = {recent: null, prior: null, change, points: [], source: src};
+    if (r.note) m.note = pc_text(r.note, 80);
+    saved++;
+  }
+  if (state.keywordMetrics.length > 500) state.keywordMetrics.splice(0, state.keywordMetrics.length - 500);
+  return {saved, source: src, date: day};
+}
 const pc_metric = (state, key) => (state.keywordMetrics || []).find(m => m.key === key) || null;
 const pc_dayGap = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 86400000);
 // 검색량 기록 변화: 가장 최근 값과, 그보다 14일 이상 앞선 값 중 가장 가까운 값을 비교한다(월간 검색량은 30일 합계라 하루 차이는 의미가 작음).
@@ -259,7 +279,7 @@ export function keywordOpportunities(state, day, limit = 12) {
   const cands = new Map(), put = (kw, from) => { const k = pc_compact(kw); if (!k || k.length < 2) return; if (!cands.has(k)) cands.set(k, {keyword: String(kw).trim(), from: new Set()}); cands.get(k).from.add(from); };
   const affiliate = (state.products || []).filter(p => p.source !== 'naverShop');
   for (const p of affiliate) for (const kw of p.keywords || [p.keyword]) put(kw, '담은 상품');
-  for (const m of state.keywordMetrics || []) put(m.keyword, '네이버 API');
+  for (const m of state.keywordMetrics || []) put(m.keyword, m.source ? m.source : '네이버 API');
   for (const r of state.relatedKeywords || []) put(r.keyword, '연관 검색어');
   for (const kw of state.naverStats?.keywords || []) put(kw.keyword, '내 블로그 유입');
   const seasons = seasonCalendar(day, 8); for (const s of seasons) for (const kw of s.keywords) put(kw, '시즌');

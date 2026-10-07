@@ -1,4 +1,4 @@
-const KIND = {naver: '네이버 통계', posts: '네이버 글별 조회', products: '상품 목록', earnings: '수익', api: '네이버 API'};
+const KIND = {naver: '네이버 통계', posts: '네이버 글별 조회', products: '상품 목록', earnings: '수익', keywords: '키워드 분석 화면', api: '네이버 API', rss: '블로그 RSS'};
 const status = t => { document.getElementById('status').textContent = t; };
 const esc = t => String(t || '').replace(/[<>&]/g, '');
 async function show() {

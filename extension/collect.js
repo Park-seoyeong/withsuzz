@@ -1,7 +1,8 @@
 // 지금 보고 있는 탭에서 실행된다. 화면에 보이는 글자와 표만 모은다(쿠키·비밀번호·입력값은 읽지 않음).
 (() => {
   const url = location.href, host = location.hostname;
-  const kind = /admin\.blog\.naver\.com/.test(host) || /blog\.stat|\/stat\//.test(url) ? (/\/post|cv|views?/i.test(url) ? 'posts' : 'naver')
+  const kind = /blackkiwi|keywordtool|keyword-tool|keywordsound|pandarank|itemscout|searchad\.naver\.com/i.test(url) ? 'keywords'
+    : /admin\.blog\.naver\.com/.test(host) || /blog\.stat|\/stat\//.test(url) ? (/\/post|cv|views?/i.test(url) ? 'posts' : 'naver')
     : /brandconnect|shopping-connect|shoppingconnect/i.test(url) ? (/report|settle|perform|revenue|stat|income|정산/i.test(url) ? 'earnings' : 'products')
     : /myrealtrip/i.test(host) ? (/partner|report|settle|revenue|stat/i.test(url) ? 'earnings' : 'products')
     : /3hours|sesigan|세시간/i.test(url) ? 'earnings'

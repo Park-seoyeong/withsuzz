@@ -115,3 +115,13 @@ test('쇼핑 화면 읽기는 화면 속 상품 목록에서 이름·가격·판
   assert.equal(readShopping().blocked, true);
   delete globalThis.document; delete globalThis.location;
 });
+
+test('키워드 분석 화면 숫자는 검색량 기록과 급등(증감률)·경쟁도로 저장된다', async () => {
+  const {saveKeywordRows, keywordOpportunities} = await import('../worker/products.mjs');
+  const s = initialState();
+  const r = saveKeywordRows(s, {rows: [{keyword: '제주 억새', volume: '45,000', pc: '5,000', mobile: '40,000', change: '+180%', compIdx: '낮음'}, {keyword: '가습기', volume: '', pc: '12,000', mobile: '48,000', change: '', compIdx: 'x'}, {keyword: 'a'}], source: '블랙키위', date: '2026-10'}, '2026-10-07T01:00:00Z');
+  assert.deepEqual([r.saved, r.source, r.date], [2, '블랙키위', '2026-10-01']);
+  const m = s.keywordMetrics.find(x => x.keyword === '제주 억새'); assert.equal(m.volume, 45000); assert.equal(m.trend.change, 1.8); assert.equal(m.compIdx, '낮음'); assert.equal(m.history[0].date, '2026-10-01');
+  const g = s.keywordMetrics.find(x => x.keyword === '가습기'); assert.equal(g.volume, 60000); assert.equal(g.trend, undefined); assert.equal(g.compIdx, undefined);
+  const k = keywordOpportunities(s, '2026-10-07').find(x => x.keyword === '제주 억새'); assert.equal(k.parts.rising, 100); assert.ok(k.from.includes('블랙키위'));
+});
