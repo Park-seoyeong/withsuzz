@@ -84,9 +84,9 @@ test('데이터랩이 없으면 검색량 기록이 14일 이상 쌓였을 때 �
 
 test('블로그 RSS를 읽어 제목·주소·시각을 꺼내고, 사이트는 제목이 같은 예정 글만 게시 확인한다', async () => {
   const {parseRss, blogFeed} = await import('../extension/naver-api.js');
-  const xml = `<rss><channel><item><title><![CDATA[제주 억새 명소 5곳 &amp; 코스]]></title><link><![CDATA[https://blog.naver.com/withsuzz/224000000001?fromRss=true&amp;trackingCode=rss]]></link><pubDate>Tue, 06 Oct 2026 21:00:00 +0900</pubDate></item><item><title>다른 글</title><link>https://blog.naver.com/withsuzz/224000000002</link><pubDate>x</pubDate></item><item><title>외부</title><link>https://evil.example/1</link></item></channel></rss>`;
+  const xml = `<rss><channel><item><title><![CDATA[제주 억새 명소 5곳 &amp; 코스]]></title><description><![CDATA[<p>안녕하세요, 써즈입니다.</p><p>억새가 <b>은빛</b>으로&nbsp;흔들려요<br>저장해 두세요</p>]]></description><link><![CDATA[https://blog.naver.com/withsuzz/224000000001?fromRss=true&amp;trackingCode=rss]]></link><pubDate>Tue, 06 Oct 2026 21:00:00 +0900</pubDate></item><item><title>다른 글</title><link>https://blog.naver.com/withsuzz/224000000002</link><pubDate>x</pubDate></item><item><title>외부</title><link>https://evil.example/1</link></item></channel></rss>`;
   const rows = parseRss(xml);
-  assert.deepEqual(rows[0], {title: '제주 억새 명소 5곳 & 코스', url: 'https://blog.naver.com/withsuzz/224000000001', publishedAt: '2026-10-06T12:00:00.000Z'});
+  assert.deepEqual(rows[0], {title: '제주 억새 명소 5곳 & 코스', url: 'https://blog.naver.com/withsuzz/224000000001', publishedAt: '2026-10-06T12:00:00.000Z', text: '안녕하세요, 써즈입니다.\n억새가 은빛으로 흔들려요\n저장해 두세요'});
   assert.equal(rows.length, 2); assert.equal(rows[1].publishedAt, '');
   assert.equal(await blogFeed('bad id!'), null);
   const feed = await blogFeed('withsuzz', async () => ({ok: true, text: async () => xml}));

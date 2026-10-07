@@ -134,3 +134,24 @@ test('협찬이 아닌 글에 질문이 돌아오면 묻지 않고 한 번 더 �
  const sp=(await s2.call('/api/action',{action:'saveItem',item:{title:'협찬 글',channel:'blog',type:'sponsor'}})).body.result;
  const r2=await s2.call('/api/ai/write',{requestId:'r-'+'w'.repeat(24),itemId:sp.id,mode:'draft'});assert.equal(r2.body.task.status,'확인 필요','협찬 글은 질문을 그대로 둔다');
 });
+
+test('이미지 10장: 원고로 카드 글귀를 만들어 글에 저장하고, 표지·마무리 역할을 고정한다',async()=>{
+ const {normalizeCards}=await import('../worker/studio.mjs');
+ const r=normalizeCards({cards:[{role:'section',heading:'제목',lines:['a','b','c','d']},{role:'cover',heading:'둘째',lines:[]},{role:'tip',heading:'셋째',lines:['x']}],warnings:['짧음']});
+ assert.deepEqual(r.cards.map(c=>c.role),['cover','section','closing']);assert.equal(r.cards[0].lines.length,3);
+ assert.throws(()=>normalizeCards({cards:[]}),/카드 글귀/);
+ const {call,prompts}=setup(()=>({cards:Array.from({length:12},(_,n)=>({role:'section',label:'l',heading:'h'+n,lines:['x'],imagePrompt:'p',imagePromptKo:'ㅍ'})),warnings:[]}));
+ const it=(await call('/api/action',{action:'saveItem',item:{title:'라멘 골목',channel:'blog',type:'review',draft:'본문 '.repeat(50)}})).body.result;
+ const r2=await call('/api/ai/image-cards',{itemId:it.id});assert.equal(r2.status,200,JSON.stringify(r2.body));assert.equal(r2.body.imageCards.cards.length,10);assert.match(prompts.at(-1),/콘텐츠 디자이너/);
+ const st=(await call('/api/state')).body.state;assert.equal(st.items.find(i=>i.id===it.id).imageCards.cards[9].role,'closing');
+ const e=await call('/api/ai/image-cards',{itemId:'없음'});assert.equal(e.status,404);
+});
+
+test('말투 샘플: RSS로 읽은 발행 본문이 작성 자료와 지침서 재료에 들어가고, 내 프롬프트는 지시문 앞쪽에 전문으로 들어간다',async()=>{
+ const {aiPrompt,styleSamples}=await import('../worker/ai.mjs');const {styleSources}=await import('../worker/studio.mjs');
+ const state={items:[],lessons:[],settings:{editorRules:''},styleGuide:null,blogFeed:{checkedAt:'2026-10-07T00:00:00Z',rows:[{title:'발행 글',url:'https://blog.naver.com/withsuzz/1',publishedAt:'2026-10-06T00:00:00Z',text:'안녕하세요, 써즈입니다. '.repeat(40)},{title:'짧은 글',url:'https://blog.naver.com/withsuzz/2',publishedAt:'',text:'짧아요'}]}};
+ assert.equal(styleSamples(state,'x').length,1);assert.equal(styleSources(state).posts.length,1);
+ const p=aiPrompt({mode:'draft',item:{id:'a',title:'t'},prompt:{name:'내 프롬프트','text':'항상 ~했어요 체로 쓴다'}},state);
+ assert.match(p.instructions,/\[써즈 작성 프롬프트 — 내 프롬프트\][\s\S]*항상 ~했어요 체로 쓴다/);assert.match(p.instructions,/\[말투 규칙\] styleExamples는 써즈가 실제 발행한 글이다/);
+ const data=JSON.parse(p.input);assert.equal(data.styleExamples[0].title,'발행 글');assert.equal(data.userPrompt.text,'항상 ~했어요 체로 쓴다');
+});

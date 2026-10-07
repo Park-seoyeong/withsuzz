@@ -48,7 +48,7 @@ test('고른 프롬프트는 고정 원칙 뒤의 참고 데이터로 들어가�
  const s=initialState(),item={id:'i',title:'제목',type:'review'};
  const p=aiPrompt({item,mode:'draft',scope:'whole',day:'2026-10-06',verifyLatest:false,instruction:'',prompt:{name:'맛집 기본형',text:'메뉴별 비중을 맞춰 줘'}},s);
  assert.deepEqual(JSON.parse(p.input).userPrompt,{name:'맛집 기본형',text:'메뉴별 비중을 맞춰 줘'});
- assert.match(p.instructions,/userPrompt가 있으면/);assert.match(p.instructions,/고정 규칙을 따르고/);
+ assert.match(p.instructions,/\[써즈 작성 프롬프트 — 맛집 기본형\]\n[^]*메뉴별 비중을 맞춰 줘/);assert.match(p.instructions,/고정 규칙을 따른다/);
  assert.equal(JSON.parse(aiPrompt({item,mode:'draft',scope:'whole',day:'2026-10-06'},s).input).userPrompt,null);
  const text=brief(item,'기본 원칙',[],{name:'맛집 기본형',text:'메뉴별 비중을 맞춰 줘'});
  assert.match(text,/내 추가 프롬프트 \(맛집 기본형\):\n메뉴별 비중을 맞춰 줘/);assert.match(text,/필수 작성 규칙을 따른다/);

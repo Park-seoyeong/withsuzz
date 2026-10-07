@@ -15,7 +15,7 @@ import {questBoard,findQuest} from './quests.mjs';
 import {PRODUCT_SOURCES,PLATFORMS,saveProducts,deleteProduct,scoreProducts,productDraftItem,seasonCalendar,postPerformance,saveEarnings,deleteEarnings,earningsReport,platformCards,keywordOpportunities,recordAIUse,aiSpend,saveApiData,rekeyProducts,genericProducts,saveKeywordRows,profitReport,productMetric} from './products.mjs';
 import {savePrompt,deletePrompt,resolvePrompt,markPromptUsed} from './prompts.mjs';
 import {SUZZ_PROMPT_NAME,SUZZ_PROMPT_TEXT} from './suzz-prompt.mjs';
-import {SNS_SPEC,snsPrompt,normalizeSns,snsItems,seriesPrompt,normalizeSeries,seriesItems,compareDraftItem,styleSources,stylePrompt,saveStyleGuide} from './studio.mjs';
+import {SNS_SPEC,snsPrompt,normalizeSns,snsItems,seriesPrompt,normalizeSeries,seriesItems,compareDraftItem,styleSources,stylePrompt,saveStyleGuide,cardsPrompt,normalizeCards} from './studio.mjs';
 import {ASSISTANT_TOOLS,assistantWritingList,assistantWritingContext,saveAssistantProposal,requestAssistantWriting} from './assistant.mjs';
 const APP_HTML='__APP_HTML__',LOGIN_HTML='__LOGIN_HTML__',ASSETS={};
 const enc=new TextEncoder();
@@ -93,7 +93,7 @@ async function action(b,s){
  if(b.action==='saveApiData'){const r=saveApiData(s,b.item);if(!r.skipped)event(s,'metrics','네이버 API · 키워드 '+r.metrics+'개 · 쇼핑 상품 '+r.products+'개'+(r.errors.length?' · 실패 '+r.errors.length:''));return r;}
  if(b.action==='deleteProduct'){deleteProduct(s,b.id);return true;}
  // 내 블로그 RSS(확장이 읽어 옴): 제목이 같은 예정 글을 실제 게시글 주소로 ‘게시 확인’한다. RSS에 올라온 글만 확인하므로 실패를 성공으로 바꾸지 않는다.
- if(b.action==='applyBlogFeed'){const rows=(Array.isArray(b.item?.data?.rows)?b.item.data.rows:[]).slice(0,50).map(r=>({title:str(r.title,200).trim(),url:str(r.url,300),publishedAt:str(r.publishedAt,40)})).filter(r=>r.title&&/^https:\/\/(m\.)?blog\.naver\.com\//.test(r.url));const norm=t=>String(t||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');s.blogFeed={checkedAt:str(b.item?.capturedAt,40)||new Date().toISOString(),rows};const done=[];
+ if(b.action==='applyBlogFeed'){const rows=(Array.isArray(b.item?.data?.rows)?b.item.data.rows:[]).slice(0,50).map((r,n)=>({title:str(r.title,200).trim(),url:str(r.url,300),publishedAt:str(r.publishedAt,40),text:n<12?str(r.text,5000).trim():''})).filter(r=>r.title&&/^https:\/\/(m\.)?blog\.naver\.com\//.test(r.url));const norm=t=>String(t||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]/gu,'');s.blogFeed={checkedAt:str(b.item?.capturedAt,40)||new Date().toISOString(),rows};const done=[];
   for(const r of rows){if(s.items.some(i=>i.url===r.url))continue;const n=norm(r.title);const i=s.items.find(x=>x.channel==='blog'&&x.status!=='게시됨'&&!x.url&&(norm(x.title)===n||norm(x.title).length>=8&&n.includes(norm(x.title))));if(!i)continue;const job=(s.publishJobs||[]).find(j=>j.itemId===i.id&&['준비 중','발행 대기'].includes(j.status)||j.itemId===i.id&&j.status==='예약 확인됨'&&j.receipt?.method==='manual');
    try{if(job){await recordManualPublished(s,{jobId:job.id,postUrl:r.url},hash);}else{const now=new Date().toISOString(),at=r.publishedAt||now;i.status='게시됨';i.url=r.url;i.publishedAt=at;i.date=today(new Date(at));i.updatedAt=now;}award(s,'publish:'+i.id,30);event(s,'publishing',i.title+' — 블로그 RSS에서 게시를 확인했어요.',{id:i.id,postUrl:r.url});done.push({id:i.id,title:i.title,url:r.url});}catch(e){event(s,'attention',i.title+' — RSS로 게시 확인을 못 했어요: '+e.message,{id:i.id});}}
   return {rows:rows.length,confirmed:done};}
@@ -279,6 +279,7 @@ async function handle(r,env){try{
  if(u.pathname==='/api/ai/style-guide'&&r.method==='POST')return await aiStyleGuide(db,env);
  if(u.pathname==='/api/ai/lesson'&&r.method==='POST')return await aiLesson(await r.json(),db,env);
  if(u.pathname==='/api/ai/sns'&&r.method==='POST')return await aiSns(await r.json(),db,env);
+ if(u.pathname==='/api/ai/image-cards'&&r.method==='POST')return await aiImageCards(await r.json(),db,env);
  if(u.pathname==='/api/ai/series'&&r.method==='POST')return await aiSeries(await r.json(),db,env);
  if(u.pathname==='/api/ai/write'&&r.method==='POST')return await aiWrite(await r.json(),db,env);
  if(u.pathname==='/api/ai/task'){const {state}=await read(db);const task=state.tasks.find(t=>t.id===u.searchParams.get('id')||t.requestId===u.searchParams.get('requestId'));if(!task||!task.ai)fail('AI 작업을 찾지 못했어요.',404);if(task.status==='실행 중'&&Date.now()-Date.parse(task.startedAt)>180000){const changed=await mutate(db,s=>{const t=s.tasks.find(t=>t.id===task.id);if(t.status==='실행 중'){t.status='실패';t.message='요청이 중단되었어요. 기존 원고는 유지됐어요. 다시 요청해 주세요.';t.updatedAt=new Date().toISOString();}return t;});return json({task:changed.result});}return json({task});}
@@ -373,6 +374,15 @@ async function aiLesson(b,db,env){
  const t=k=>str(out?.[k],30000).trim();if(!t('summary')||!t('points')||!t('apply'))fail('Claude가 분석을 끝내지 못했어요. 다시 시도해 주세요.',502);
  const done=await mutate(db,s=>{const x=s.lessons.find(y=>y.id===l.id);if(!x)fail('학습 자료를 찾지 못했어요.',404);const now=new Date().toISOString(),warnings=(Array.isArray(out.warnings)?out.warnings:[]).map(w=>str(w,2000)).filter(Boolean).slice(0,20);if(x.url)warnings.push('원본 링크는 Claude가 열어 보지 않았어요. 링크 내용은 직접 확인해 주세요.');x.summary=t('summary');x.points=t('points');x.apply=t('apply');x.updatedAt=now;x.analysisStatus=x.url?'자료 일부 확인':'Claude 분석 완료';x.analysis={provider:'claude',requestId:crypto.randomUUID(),at:now,readFileIds:ids,checkedURLs:[],warnings};event(s,'learning','학습 자료를 분석했어요: '+x.title);return {id:x.id,status:x.analysisStatus};});
  return json(done.result);
+}
+// 이미지 10장 글귀: 원고로 카드 글귀와 이미지 프롬프트를 만들고 글에 저장한다(그림은 사이트가 그린다).
+async function aiImageCards(b,db,env){
+ if(!aiProvider(env))fail('AI 연결이 필요해요.',503);
+ const {state}=await read(db),base=state.items.find(i=>i.id===b.itemId);if(!base)fail('글을 먼저 저장해 주세요.',404);
+ if(!str(base.draft||base.notes).trim())fail('원고나 메모가 있어야 이미지 글귀를 만들 수 있어요.');
+ let out,ok=true;try{out=normalizeCards(await generateJSON(cardsPrompt(base,state.styleGuide?.text||''),env));}catch(e){ok=false;throw e;}finally{await mutate(db,s=>{recordAIUse(s,{feature:'이미지 카드',provider:aiProvider(env),model:aiProvider(env)==='artifact'?'Claude (내 계정)':'',ok});return true;});}
+ const saved=await mutate(db,s=>{const i=s.items.find(x=>x.id===base.id);if(!i)fail('글을 찾지 못했어요.',404);i.imageCards={at:new Date().toISOString(),cards:out.cards,warnings:out.warnings};event(s,'content','‘'+i.title+'’ 이미지 카드 '+out.cards.length+'장 글귀를 만들었어요.',{id:i.id});return i.imageCards;});
+ return json({imageCards:saved.result});
 }
 async function aiSns(b,db,env){
  if(!aiProvider(env))fail('AI 연결이 필요해요.',503);

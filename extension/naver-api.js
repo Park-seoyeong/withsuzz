@@ -95,13 +95,15 @@ export async function collect(keywordList, keys, {fetchFn = fetch, now = new Dat
   return {id: crypto.randomUUID(), kind: 'api', title: '네이버 API · 키워드 ' + keywords.length + '개', url: '', capturedAt: now.toISOString(), data, errors: [...new Set(errors)].slice(0, 10), parts: ready};
 }
 
-// 내 블로그 RSS: 새로 올라간 글의 제목·주소·시각. 서비스 워커에는 DOMParser가 없어 정규식으로 읽는다.
+// 내 블로그 RSS: 새로 올라간 글의 제목·주소·시각·본문 글자. 서비스 워커에는 DOMParser가 없어 정규식으로 읽는다.
 const unCdata = t => String(t || '').replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, '$1').trim();
 export function parseRss(xml) {
   return [...String(xml).matchAll(/<item>([\s\S]*?)<\/item>/g)].slice(0, 50).map(m => {
     const tag = n => unCdata((m[1].match(new RegExp('<' + n + '>([\\s\\S]*?)</' + n + '>')) || [])[1]);
     const link = tag('link').replace(/&amp;/g, '&'), date = Date.parse(tag('pubDate'));
-    return {title: plain(tag('title')), url: link.split('?')[0], publishedAt: Number.isNaN(date) ? '' : new Date(date).toISOString()};
+    // description에는 글 본문(HTML)이 들어온다. 태그를 걷어낸 글자만 남겨 '써즈 말투 샘플'로 쓴다.
+    const text = plain(tag('description').replace(/<br\s*\/?>|<\/p>|<\/div>/gi, '\n').replace(/&nbsp;/g, ' ')).replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').slice(0, 6000);
+    return {title: plain(tag('title')), url: link.split('?')[0], publishedAt: Number.isNaN(date) ? '' : new Date(date).toISOString(), text};
   }).filter(r => r.title && /^https:\/\/(m\.)?blog\.naver\.com\//.test(r.url));
 }
 export async function blogFeed(blogId, fetchFn = fetch, now = new Date()) {

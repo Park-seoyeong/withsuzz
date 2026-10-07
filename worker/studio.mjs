@@ -125,7 +125,10 @@ export function styleSources(state) {
   const since = state.styleGuide?.updatedAt || '';
   const lessons = (state.lessons || []).filter(l => l.summary && l.points && l.active !== false);
   const prompts = (state.prompts || []).filter(p => !p.archived && p.text);
-  const posts = (state.items || []).filter(i => i.status === '게시됨' && String(i.draft || '').trim().length > 300);
+  // 발행한 글: 사이트에 원고가 남은 글 + 확장이 RSS로 읽어 온 실제 발행 본문(말투의 가장 확실한 샘플).
+  const own = (state.items || []).filter(i => i.status === '게시됨' && String(i.draft || '').trim().length > 300);
+  const feed = (state.blogFeed?.rows || []).filter(r => String(r.text || '').trim().length > 300 && !own.some(i => i.title === r.title)).map(r => ({title: r.title, draft: r.text, updatedAt: r.publishedAt || state.blogFeed.checkedAt}));
+  const posts = [...feed.slice(0, 6).reverse(), ...own];
   const edits = (state.items || []).filter(i => i.aiOriginal && String(i.draft || '').trim() && i.draft.trim() !== i.aiOriginal.trim() && (i.status === '게시됨' || i.status === '예약됨'));
   const newer = list => list.filter(x => String(x.updatedAt || x.publishedAt || x.createdAt || '') > since).length;
   return {lessons, prompts, posts, edits, fresh: since ? newer(lessons) + newer(prompts) + newer(posts) + newer(edits) : lessons.length + prompts.length + posts.length + edits.length};
@@ -159,4 +162,35 @@ export function saveStyleGuide(state, {guide, changes = [], warnings = [], count
   const history = [...(prev?.history || []), ...(prev?.text ? [{version: prev.version, text: prev.text, updatedAt: prev.updatedAt}] : [])].slice(-5);
   state.styleGuide = {version: (prev?.version || 0) + 1, text, changes: st_list(changes, 12, 300), warnings: st_list(warnings, 10, 300), counts: counts || prev?.counts || null, manual, updatedAt: now, history};
   return state.styleGuide;
+}
+
+// 이미지 10장(카드뉴스): 원고에 있는 내용만으로 표지·본문 카드·마무리 카드 글귀를 뽑고, 사진형 이미지가 필요할 때 쓸 생성 프롬프트도 함께 만든다.
+// 사이트에서는 이 글귀로 1080×1080 PNG를 그려 원고 첨부에 넣는다. 본문에 없는 숫자·경험은 만들지 않는다.
+export const CARD_COUNT = 10;
+export const CARDS_SCHEMA = {type: 'object', additionalProperties: false, required: ['cards', 'warnings'], properties: {
+  cards: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['role', 'label', 'heading', 'lines', 'imagePrompt', 'imagePromptKo'], properties: {
+    role: {type: 'string', enum: ['cover', 'section', 'tip', 'closing']}, label: {type: 'string'}, heading: {type: 'string'}, lines: {type: 'array', items: {type: 'string'}}, imagePrompt: {type: 'string'}, imagePromptKo: {type: 'string'}}}},
+  warnings: {type: 'array', items: {type: 'string'}}}};
+export function cardsPrompt(item, guide = '') {
+  const data = JSON.stringify({title: st_text(item.title, 200), type: item.type, keyword: st_text(item.keyword, 100), region: st_text(item.region, 60), draft: st_text(item.draft, 14000), notes: st_text(item.draft ? '' : item.notes, 4000), styleGuide: st_text(guide, 3000)});
+  return {
+    instructions: '너는 블로거 ‘써즈’의 콘텐츠 디자이너다. 원고를 읽고 블로그 본문 사이에 넣을 카드 이미지 ' + CARD_COUNT + '장의 글귀를 만든다.\n'
+      + '- 정확히 ' + CARD_COUNT + '장: 1장은 cover(제목 카드), 마지막 1장은 closing(마무리·저장 유도), 나머지는 section(소제목별 핵심)과 tip(꿀팁·체크리스트).\n'
+      + '- label은 카드 상단 작은 글(예: "위치·이용", "주문 팁"), heading은 18자 이내, lines는 1~3줄이고 한 줄 24자 이내. 모바일에서 한눈에 읽히게 짧게.\n'
+      + '- 원고에 있는 사실만 쓴다. 가격·시간·수치는 원고에 그대로 있을 때만 쓰고, 원고에 없는 경험·평가·과장(인생 맛집, 무조건 추천)은 넣지 않는다.\n'
+      + '- imagePrompt는 그 카드 자리에 사진형 이미지를 따로 만들 때 쓸 영어 프롬프트(사람 얼굴·브랜드 로고·글자 없이, 장면·분위기·구도·조명 위주, 300자 이내). imagePromptKo는 같은 내용 한국어 한 줄.\n'
+      + '- 원고가 짧으면 lines를 더 짧게 하되 장수는 채우고, 채울 내용이 부족하면 warnings에 적는다.',
+    data, schema: CARDS_SCHEMA,
+    example: {cards: [{role: 'cover', label: '', heading: '', lines: [''], imagePrompt: '', imagePromptKo: ''}], warnings: []},
+  };
+}
+export function normalizeCards(r) {
+  const roles = ['cover', 'section', 'tip', 'closing'];
+  let cards = (Array.isArray(r?.cards) ? r.cards : []).map(c => ({role: roles.includes(c?.role) ? c.role : 'section', label: st_text(c?.label, 30), heading: st_text(c?.heading, 40), lines: st_list(c?.lines, 3, 60), imagePrompt: st_text(c?.imagePrompt, 400), imagePromptKo: st_text(c?.imagePromptKo, 160)})).filter(c => c.heading || c.lines.length);
+  if (!cards.length) throw Object.assign(new Error('카드 글귀를 만들지 못했어요. 원고를 조금 더 채운 뒤 다시 시도해 주세요.'), {status: 502});
+  cards = cards.slice(0, CARD_COUNT);
+  if (cards[0].role !== 'cover') cards[0].role = 'cover';
+  cards.forEach((c, n) => { if (n > 0 && c.role === 'cover') c.role = 'section'; });
+  if (cards.length > 1 && cards[cards.length - 1].role !== 'closing') cards[cards.length - 1].role = 'closing';
+  return {cards, warnings: st_list(r?.warnings, 10, 300)};
 }
