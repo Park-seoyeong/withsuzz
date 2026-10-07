@@ -180,3 +180,12 @@ test("원고에서 '## ' 줄은 자동으로 소제목 서식이 된다",async()
  const doc=await formattingDocument({items:[item],formattingProfiles:[]},item,hash);
  assert.deepEqual(doc.blocks.map(b=>b.kind),['paragraph','heading','paragraph']);assert.equal(doc.blocks[1].text,'가는 법과 주차');assert.ok(doc.hasCustomFormatting);
 });
+
+test('말투 2차 패스: 발행 글 샘플이 있으면 초안을 써즈 말투로 다시 써서 원고에 넣고, 사실은 그대로 둔다',async()=>{
+ const calls=[];const {call}=setup(input=>{calls.push(input);if(/원고 교정 담당/.test(input))return {title:'제주 억새 명소 5곳 정리',body:'안녕하세요, 써즈입니다. 억새 보러 갈 곳 궁금하셨죠? '+'새별오름이 제일 유명하더라고요. '.repeat(20)};return {kind:'draft',title:'제주 억새 명소 5곳',disclosure:'',body:'본문입니다. 새별오름은 제주시 애월읍에 있습니다. '.repeat(20),questions:[],warnings:[],linkPositions:[],summary:''};});
+ await call('/api/action',{action:'applyBlogFeed',item:{capturedAt:'2026-10-07T00:00:00Z',data:{rows:[{title:'발행 글',url:'https://blog.naver.com/withsuzz/1',publishedAt:'2026-10-06T00:00:00Z',text:'안녕하세요, 써즈입니다. 억새가 은빛으로 흔들리더라고요. '.repeat(30)}]}}});
+ const it=(await call('/api/action',{action:'saveItem',item:{title:'제주 억새 명소 5곳',channel:'blog',type:'info',keyword:'제주 억새'}})).body.result;
+ const r=await call('/api/ai/write',{requestId:'r-'+'v'.repeat(24),itemId:it.id,mode:'draft',autoApply:true});assert.equal(r.status,200,JSON.stringify(r.body));
+ assert.equal(calls.length,2);assert.match(calls[1],/\[써즈가 실제 발행한 글\][\s\S]*샘플 1: 발행 글/);assert.match(calls[1],/\[원고\]\n제목: 제주 억새 명소 5곳/);
+ assert.match(r.body.task.result.body,/^안녕하세요, 써즈입니다\./);assert.equal(r.body.task.result.voicePassed,true);assert.match(r.body.task.result.title,/정리$/);
+});
