@@ -124,3 +124,13 @@ test('API: 주간 리포트는 기록된 숫자로 만들어지고 주마다 하
  const r=await call('/api/ai/weekly-report',{});assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.report.headline,'한 줄');assert.equal(r.body.report.facts.revenue,5000);assert.match(prompts.at(-1),/weekRevenueByPlatform/);
  await call('/api/ai/weekly-report',{});assert.equal((await call('/api/state')).body.state.weeklyReports.length,1);
 });
+
+test('협찬이 아닌 글에 질문이 돌아오면 묻지 않고 한 번 더 요청해 초안으로 받는다',async()=>{
+ let n=0;const {call,prompts}=setup(()=>(++n===1?{kind:'questions',title:'',disclosure:'',body:'',questions:['키워드가 뭐예요?'],warnings:[],linkPositions:[],summary:''}:{kind:'draft',title:'군산시간여행축제 정보',disclosure:'',body:'본문',questions:[],warnings:['공식 출처 확인 필요: 일정'],linkPositions:[],summary:''}));
+ const it=(await call('/api/action',{action:'saveItem',item:{title:'군산시간여행축제',channel:'blog',type:'info'}})).body.result;
+ const r=await call('/api/ai/write',{requestId:'r-'+'q'.repeat(24),itemId:it.id,mode:'draft',autoApply:true});
+ assert.equal(r.body.task.status,'완료');assert.ok(r.body.task.appliedAt);assert.match(r.body.task.result.warnings[0],/질문이 돌아와서/);assert.equal(n,2);assert.match(prompts[1],/질문하지 말고/);
+ let m=0;const s2=setup(()=>({kind:'questions',title:'',disclosure:'',body:'',questions:['제공 조건이 뭐예요?'],warnings:[],linkPositions:[],summary:''}));
+ const sp=(await s2.call('/api/action',{action:'saveItem',item:{title:'협찬 글',channel:'blog',type:'sponsor'}})).body.result;
+ const r2=await s2.call('/api/ai/write',{requestId:'r-'+'w'.repeat(24),itemId:sp.id,mode:'draft'});assert.equal(r2.body.task.status,'확인 필요','협찬 글은 질문을 그대로 둔다');
+});
