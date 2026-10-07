@@ -40,7 +40,7 @@ document.getElementById('link').addEventListener('click', async () => {
 document.getElementById('copy').addEventListener('click', async () => {
   const {queue = []} = await chrome.storage.local.get('queue'), last = [...queue].reverse().find(i => i.kind !== 'api');
   if (!last) { status('복사할 화면 자료가 없어요.'); return; }
-  await navigator.clipboard.writeText([last.title, last.url, ...last.tables, last.text].join('\n\n'));
+  await navigator.clipboard.writeText([last.title, last.url, ...(last.pagerHint ? ['[다음 쪽 버튼 후보]\n' + last.pagerHint] : []), ...last.tables, last.text].join('\n\n'));
   status('복사했어요. 사이트의 ‘캡처로 담기/성과 입력’ 칸에 붙여넣어 주세요.');
 });
 document.getElementById('api-run').addEventListener('click', async e => {
@@ -85,7 +85,7 @@ document.getElementById('crawl').addEventListener('click', async e => {
     if (!ok) { status('권한을 허락하지 않아 읽지 않았어요.'); return; }
     status('뒤쪽 탭에서 목록을 끝까지 읽는 중… (쪽마다 몇 초, 창을 닫지 마세요)');
     const r = await chrome.runtime.sendMessage({type: 'suzz-crawl', url: tab.url, title: tab.title, kind: 'products'});
-    status(r?.ok ? r.pages + '쪽을 읽었어요. 사이트를 열면 Claude가 상품으로 정리해 저장해요.' : '읽지 못했어요: ' + (r?.error || ''));
+    status(r?.ok ? (r.pages + '쪽을 읽었어요. 사이트를 열면 Claude가 상품으로 정리해 저장해요.' + (r.pages === 1 ? ' 1쪽만 읽혔다면 ‘마지막 자료 복사’를 눌러 Claude에게 붙여넣어 주세요(다음 쪽 버튼 모양이 담겨 있어요).' : '')) : '읽지 못했어요: ' + (r?.error || ''));
   } catch (err) { status('읽지 못했어요: ' + (err?.message || err)); }
   finally { e.target.disabled = false; show(); }
 });

@@ -103,6 +103,17 @@ export async function readPages(urls) {
 // 1) 끝까지 스크롤해 더 불러오고 2) ‘다음’ 쪽 버튼이 있으면 눌러 가며 최대 maxPages쪽을 읽는다. 쪽마다 하나의 자료로 돌려준다.
 const PAGE_HELPERS = {
   scroll: () => { window.scrollTo(0, document.body.scrollHeight); return document.body.scrollHeight; },
+  // 다음 쪽 버튼을 못 찾았을 때: 화면 아래쪽 링크·버튼의 생김새(태그·class·짧은 글자)만 모아 돌려준다. 개인 정보는 담지 않는다.
+  pager: () => {
+    const h = document.body.scrollHeight, out = [];
+    for (const el of document.querySelectorAll('a, button')) {
+      const r = el.getBoundingClientRect(), top = r.top + window.scrollY, t = (el.innerText || el.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim();
+      if (top < h * 0.6 || t.length > 12) continue;
+      out.push('<' + el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? ' class="' + el.className.slice(0, 60) + '"' : '') + (el.getAttribute('aria-label') ? ' aria-label="' + el.getAttribute('aria-label').slice(0, 20) + '"' : '') + '>' + t.slice(0, 12));
+      if (out.length >= 40) break;
+    }
+    return out.join('\n');
+  },
   next: () => {
     const vis = el => el && el.offsetParent !== null && !el.disabled && el.getAttribute('aria-disabled') !== 'true';
     const txt = el => (el.innerText || el.getAttribute('aria-label') || el.title || '').replace(/\s+/g, '').toLowerCase();
@@ -130,7 +141,7 @@ export async function crawlPages(page, {maxPages = 20, settle = 2500} = {}) {
       seen.add(key);
       items.push({...merged, kind: page.kind || 'products', auto: true, pageId: page.id, part: n, title: (merged.title || page.title || '') + ' (' + n + '쪽)', url: now.url || page.url});
       const [{result: moved}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: PAGE_HELPERS.next}).catch(() => [{result: false}]);
-      if (!moved) break;
+      if (!moved) { if (n === 1) { const [{result: hint}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: PAGE_HELPERS.pager}).catch(() => [{result: ''}]); items[0].pagerHint = String(hint || '').slice(0, 4000); } break; }
       await new Promise(r => setTimeout(r, settle));
     }
   } finally { chrome.tabs.remove(tab.id).catch(() => {}); }
