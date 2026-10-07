@@ -200,6 +200,18 @@ const ready = (async () => {
     try { await downloads.save({ filename, data }); } catch (e) { if (e?.code !== 'declined' && e?.code !== 'cancelled') throw new Error('파일을 저장하지 못했어요.'); }
   } : null;
   const mcp = await use('mcp');
+  // 전체 상품 카탈로그(catalog/_meta + c??-??): 외부에서 수집한 수만 개 상품. 사이트 상태와 분리해 필요할 때만 읽는다.
+  let catalogCache = null;
+  window.suzzCatalog = {
+    async meta() { const s = await db.doc('catalog/_meta').get(); return s.exists ? s.data() : null; },
+    async all(onProgress) {
+      if (catalogCache) return catalogCache;
+      const meta = await this.meta(); if (!meta) return [];
+      const rows = []; let n = 0;
+      for (const p of meta.parts || []) { const s = await db.doc('catalog/' + p.id).get(); if (s.exists) for (const r of s.data().rows || []) rows.push(r); n++; onProgress?.(n, meta.parts.length); }
+      catalogCache = rows; return rows;
+    },
+  };
   window.suzzResearch = research(db, mcp);
   window.suzzNightDrafts = nightDrafts(db);
   window.suzzReadPdf = readPdf;
