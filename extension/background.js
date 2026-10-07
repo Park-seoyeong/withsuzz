@@ -67,10 +67,11 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
       const page = {id: crypto.randomUUID(), url: String(msg.url || ''), title: String(msg.title || '').slice(0, 120), kind: msg.kind || 'products'};
       const items = await crawlPages(page, {maxPages: Math.min(40, Number(msg.maxPages) || 20)});
       const {queue = []} = await chrome.storage.local.get('queue');
-      await chrome.storage.local.set({queue: [...queue.filter(i => !(i.auto && i.pageId === page.id)), ...items].slice(-60), lastCrawl: {at: new Date().toISOString(), pages: items.length, url: page.url, hint: items[0]?.pagerHint ? '다음 쪽 버튼을 못 찾았어요(마지막 자료 복사로 모양 전달)' : ''}});
+      const rows = items.at(-1)?.data?.rows?.length || 0;
+      await chrome.storage.local.set({queue: [...queue.filter(i => !(i.auto && i.pageId === page.id)), ...items].slice(-60), lastCrawl: {at: new Date().toISOString(), pages: items.length, rows, url: page.url, hint: items[0]?.pagerHint && !rows ? '다음 쪽 버튼을 못 찾았어요(마지막 자료 복사로 모양 전달)' : ''}});
       await pushToSite();
       return items.length;
-    })().then(n => reply({ok: true, pages: n})).catch(async e => { await chrome.storage.local.set({lastCrawl: {at: new Date().toISOString(), pages: 0, url: String(msg.url || ''), error: e.message}}); reply({ok: false, error: e.message}); });
+    })().then(n => chrome.storage.local.get('lastCrawl').then(({lastCrawl}) => reply({ok: true, pages: n, rows: lastCrawl?.rows || 0}))).catch(async e => { await chrome.storage.local.set({lastCrawl: {at: new Date().toISOString(), pages: 0, url: String(msg.url || ''), error: e.message}}); reply({ok: false, error: e.message}); });
     return true;
   }
   if (msg?.type === 'suzz-read-pages') { readPages(msg.urls).then(async pages => { await chrome.storage.local.set({lastRead: {at: new Date().toISOString(), ok: pages.filter(p => p.text).length, fail: pages.filter(p => !p.text).map(p => (p.error || '?') + ' ' + p.url.replace(/^https:\/\//, '').slice(0, 40))}}); reply({ok: true, pages}); }).catch(async e => { await chrome.storage.local.set({lastRead: {at: new Date().toISOString(), ok: 0, fail: [e.message]}}); reply({ok: false, error: e.message}); }); return true; }

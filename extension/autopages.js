@@ -125,7 +125,13 @@ const PAGE_HELPERS = {
   },
 };
 export async function crawlPages(page, {maxPages = 20, settle = 2500} = {}) {
+  // 상품 JSON 응답을 받아 적는 훅을 그 사이트에 먼저 심고(문서 시작 시점), 끝나면 걷어낸다.
+  let origin = ''; try { origin = new URL(page.url).origin; } catch {}
+  const HOOK = 'suzz-nethook';
+  try { await chrome.scripting.unregisterContentScripts({ids: [HOOK]}); } catch {}
+  if (origin) { try { await chrome.scripting.registerContentScripts([{id: HOOK, matches: [origin + '/*'], js: ['nethook.js'], world: 'MAIN', runAt: 'document_start', persistAcrossSessions: false}]); } catch {} }
   const tab = await chrome.tabs.create({url: page.url, active: false}), items = [], seen = new Set();
+  const netRows = async () => { try { const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, world: 'MAIN', func: () => (window.__suzzRows || []).slice(0, 2000)}); return Array.isArray(result) ? result : []; } catch { return []; } };
   try {
     await waitLoaded(tab.id); await new Promise(r => setTimeout(r, 3000));
     for (let n = 1; n <= maxPages; n++) {
@@ -144,7 +150,10 @@ export async function crawlPages(page, {maxPages = 20, settle = 2500} = {}) {
       if (!moved) { if (n === 1) { const [{result: hint}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: PAGE_HELPERS.pager}).catch(() => [{result: ''}]); items[0].pagerHint = String(hint || '').slice(0, 4000); } break; }
       await new Promise(r => setTimeout(r, settle));
     }
-  } finally { chrome.tabs.remove(tab.id).catch(() => {}); }
+    // JSON으로 받아 적은 상품 행: 쪽과 무관하게 전체를 마지막 자료에 붙인다(사이트는 이 행을 바로 저장한다).
+    const rows = await netRows();
+    if (rows.length && items.length) items[items.length - 1].data = {...(items[items.length - 1].data || {}), rows, viaNetwork: true};
+  } finally { chrome.tabs.remove(tab.id).catch(() => {}); try { await chrome.scripting.unregisterContentScripts({ids: [HOOK]}); } catch {} }
   if (!items.length) throw new Error('화면에서 읽을 글자를 찾지 못했어요.');
   return items;
 }

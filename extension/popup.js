@@ -6,7 +6,7 @@ async function show() {
   const pagesOk = await chrome.permissions.contains({origins: ['https://*/*']}).catch(() => false);
   const v = chrome.runtime.getManifest().version, when = t => t ? new Date(t).toLocaleString('ko-KR', {month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : '';
   document.getElementById('link-state').textContent = '수집기 ' + v + ' · 연결한 사이트 ' + linked.length + '곳' + (linked.length ? '' : ' (사이트 탭에서 ‘이 탭의 사이트와 연결’을 눌러 주세요)') + ' · 보관함 ' + queue.length + '개'
-    + (lastCrawl ? ' · 마지막 긁기 ' + when(lastCrawl.at) + ': ' + (lastCrawl.error ? '실패 — ' + lastCrawl.error : lastCrawl.pages + '쪽' + (lastCrawl.hint ? ' · ' + lastCrawl.hint : '')) : '')
+    + (lastCrawl ? ' · 마지막 긁기 ' + when(lastCrawl.at) + ': ' + (lastCrawl.error ? '실패 — ' + lastCrawl.error : lastCrawl.pages + '쪽' + (lastCrawl.rows ? ' · JSON 상품 ' + lastCrawl.rows + '개' : '') + (lastCrawl.hint ? ' · ' + lastCrawl.hint : '')) : '')
     + ' · 공식 페이지 읽기 ' + (pagesOk ? '허용됨' : '아직 허용 안 됨 (아래 버튼)') + (lastRead ? ' · 마지막 읽기 ' + when(lastRead.at) + ': 성공 ' + lastRead.ok + (lastRead.fail?.length ? ' · 실패 ' + lastRead.fail.join(', ') : '') : '');
   document.getElementById('queue').innerHTML = queue.length ? queue.map(i => `<li><strong>${KIND[i.kind] || esc(i.kind)}</strong> · ${new Date(i.capturedAt).toLocaleString('ko-KR')}<br><small>${esc(i.title)}${i.errors?.length ? ' · 못 불러온 것 ' + i.errors.length : ''}</small></li>`).join('') : '<li><small>아직 보낼 자료가 없어요.</small></li>';
   const ready = !!(keys.clientId || keys.adKey);
@@ -95,7 +95,7 @@ document.getElementById('crawl').addEventListener('click', async e => {
     }
     status('뒤쪽 탭에서 목록을 끝까지 읽는 중… (쪽마다 몇 초, 창을 닫지 마세요)');
     const r = await chrome.runtime.sendMessage({type: 'suzz-crawl', url: tab.url, title: tab.title, kind: 'products'});
-    status(r?.ok ? (r.pages + '쪽을 읽었어요. 사이트를 열면 Claude가 상품으로 정리해 저장해요.' + (r.pages === 1 ? ' 1쪽만 읽혔다면 ‘마지막 자료 복사’를 눌러 Claude에게 붙여넣어 주세요(다음 쪽 버튼 모양이 담겨 있어요).' : '')) : '읽지 못했어요: ' + (r?.error || ''));
+    status(r?.ok ? (r.pages + '쪽을 읽었어요' + (r.rows ? ' · 상품 JSON ' + r.rows + '개를 그대로 받아 적었어요' : '') + '. 사이트를 열면 상품으로 저장돼요.' + (r.pages === 1 ? ' 1쪽만 읽혔다면 ‘마지막 자료 복사’를 눌러 Claude에게 붙여넣어 주세요(다음 쪽 버튼 모양이 담겨 있어요).' : '')) : '읽지 못했어요: ' + (r?.error || ''));
   } catch (err) { status('읽지 못했어요: ' + (err?.message || err)); }
   finally { e.target.disabled = false; show(); }
 });
