@@ -21,8 +21,6 @@
         "https://*.claudeusercontent.com/*",
         "https://claude.ai/*",
         "https://*.claude.ai/*",
-        "https://*.workers.dev/*",
-        "https://*.chatgpt.site/*",
         "http://127.0.0.1/*",
         "http://localhost/*"
       ],
