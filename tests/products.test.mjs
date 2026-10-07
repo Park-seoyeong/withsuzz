@@ -46,3 +46,14 @@ test('팔기 좋은 키워드·글별 성과·AI 비용은 측정된 값만 쓴�
  recordAIUse(s,{feature:'글쓰기',provider:'anthropic',model:'claude-opus-5-5',inputTokens:10000,outputTokens:2000},'2026-10-05T03:00:00Z');recordAIUse(s,{feature:'글쓰기',provider:'artifact',model:'Claude (내 계정)'},'2026-10-06T03:00:00Z');
  const a=aiSpend(s,'2026-10-06',1400);assert.equal(a.calls,2);assert.equal(a.unpriced,1);assert.equal(a.monthKrw,Math.round((10000*4+2000*20)/1e6*1400));assert.equal(a.days.at(-1).usd,null);assert.equal(a.days.at(-1).calls,1);
 });
+
+test('품목 키워드: 화면 이름 같은 키워드는 점수에 쓰지 않고, 상품별 품목으로 바꾼다',async()=>{
+ const {rekeyProducts,genericProducts}=await import('../worker/products.mjs');
+ const s=initialState();
+ saveProducts(s,{source:'brand',keyword:'홍보할 상품 찾기',rows:[{name:'삼성 갤럭시 S26 FE',price:'1033650',item:'스마트폰'},{name:'쿠쿠 음식물처리기 3L',price:'499000'}]});
+ assert.equal(s.products[0].keyword,'스마트폰');assert.deepEqual(s.products[0].keywords,['스마트폰']);
+ assert.equal(s.products[1].keyword,'홍보할 상품 찾기');assert.equal(genericProducts(s).length,1);
+ assert.equal(rekeyProducts(s,{[s.products[1].id]:'음식물처리기',[s.products[0].id]:'',nope:'x'}),1);
+ assert.equal(s.products[1].keyword,'음식물처리기');assert.deepEqual(s.products[1].keywords,['음식물처리기']);
+ const ks=keywordOpportunities(s,'2026-10-07');assert.ok(!ks.some(k=>k.keyword==='홍보할 상품 찾기'));assert.ok(ks.some(k=>k.keyword==='음식물처리기'));
+});

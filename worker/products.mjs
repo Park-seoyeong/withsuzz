@@ -14,13 +14,26 @@ export function normalizeProduct(raw, source, keyword, at) {
   const amount = amountRaw ?? (price !== null && rate !== null ? Math.round(price * rate / 100) : null);
   const rating = pc_num(raw.rating);
   return {
-    id: crypto.randomUUID(), source, keyword: pc_text(keyword, 60), name, brand: pc_text(raw.brand, 80), price,
+    id: crypto.randomUUID(), source, keyword: pc_text(raw.item, 60) || pc_text(keyword, 60), name, brand: pc_text(raw.brand, 80), price,
     commissionRate: rate !== null && rate <= 100 ? rate : null, commissionAmount: amount, commissionEstimated: amountRaw === null && amount !== null,
     rating: rating !== null && rating <= 5 ? rating : null, reviews: pc_num(raw.reviews), salesRank: pc_num(raw.salesRank),
     url: pc_safeUrl(raw.url), note: pc_text(raw.note, 300), category: pc_text(raw.category, 30), capturedAt: at,
   };
 }
 
+// 화면 이름처럼 검색어로 쓸 수 없는 키워드(상품 찾기, 인기 상품…)는 점수·글감에 쓰지 않는다.
+const pc_generic = k => /상품|추천|찾기|목록|검색|인기|전체|홍보|베스트|best|결과/i.test(String(k || '')) && String(k || '').length <= 12;
+// 품목 키워드 다시 매기기: Claude가 상품명만 보고 정한 품목을 keyword로 바꾼다(기존 키워드는 keywords에 남김).
+export function rekeyProducts(state, map) {
+  let changed = 0;
+  for (const [id, item] of Object.entries(map || {})) {
+    const p = (state.products || []).find(x => x.id === id), kw = pc_text(item, 60).trim(); if (!p || !kw || pc_generic(kw)) continue;
+    if (pc_compact(p.keyword) === pc_compact(kw)) continue;
+    p.keywords = [...new Set([kw, ...(p.keywords || [p.keyword]).filter(k => !pc_generic(k))])]; p.keyword = kw; changed++;
+  }
+  return changed;
+}
+export function genericProducts(state) { return (state.products || []).filter(p => pc_generic(p.keyword) || !p.keyword); }
 export function saveProducts(state, input, at = new Date().toISOString()) {
   const source = PRODUCT_SOURCES[input?.source] ? input.source : null; if (!source) productError('상품 출처를 골라 주세요.');
   const keyword = pc_text(input.keyword, 60); if (!keyword) productError('어떤 키워드로 찾은 상품인지 적어 주세요.');
@@ -31,8 +44,9 @@ export function saveProducts(state, input, at = new Date().toISOString()) {
   for (const p of rows) {
     // 같은 출처·같은 링크(링크가 없으면 같은 이름)는 새 값으로 갱신한다.
     const old = state.products.find(x => x.source === p.source && (p.url ? x.url === p.url : !x.url && pc_compact(x.name) === pc_compact(p.name)));
-    if (old) { Object.assign(old, {...p, id: old.id, keywords: [...new Set([...(old.keywords || [old.keyword]), keyword])]}); updated++; }
-    else { state.products.push({...p, keywords: [keyword]}); added++; }
+    const kws = [...new Set([p.keyword, keyword].filter(k => k && !pc_generic(k)))];
+    if (old) { Object.assign(old, {...p, id: old.id, keywords: [...new Set([...(old.keywords || [old.keyword]), ...kws])]}); updated++; }
+    else { state.products.push({...p, keywords: kws.length ? kws : [keyword]}); added++; }
   }
   if (state.products.length > 2000) state.products.splice(0, state.products.length - 2000);
   return {added, updated, total: rows.length};
@@ -272,7 +286,8 @@ export function keywordOpportunities(state, day, limit = 12) {
     const best = [...products].sort((a, b) => (a.salesRank ?? 999) - (b.salesRank ?? 999))[0] || null;
     return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, metric: m ? {volume: m.volume ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, volumeChange: vc, lowPrice: m.shopping?.lowPrice ?? null, shopTotal: m.shopping?.total ?? null, updatedAt: m.updatedAt || null} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url} : null, golden: products.length > 0 && score >= 60};
   }).filter(r => r.from.includes('담은 상품') || r.season || r.metric || r.score >= 50);
-  return rows.sort((a, b) => Number(b.golden) - Number(a.golden) || b.score - a.score).slice(0, limit);
+  // 골든 → 담은 상품이 있는 키워드 → 점수 순. 상품이 있는 키워드는 자리가 없어도 시즌 키워드보다 먼저 보인다.
+  return rows.sort((a, b) => Number(b.golden) - Number(a.golden) || Number(!!b.product) - Number(!!a.product) || b.score - a.score).slice(0, limit);
 }
 
 // ───────── AI 사용 기록·비용 ─────────
