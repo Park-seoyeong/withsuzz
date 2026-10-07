@@ -1,3 +1,9 @@
+// 보안: 이 스크립트는 claude.ai 전체 프레임에 붙지만, 팝업의 ‘이 탭의 사이트와 연결’로 등록한 주소(linked)와 로컬 테스트 주소에서만 응답한다.
+// 다른 아티팩트·다른 페이지가 같은 메시지를 흉내 내도 수집 자료·API 조회·페이지 읽기 어느 것도 받지 못한다.
+(async () => {
+  const local = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(location.origin);
+  let linked = []; try { ({linked = []} = await chrome.storage.local.get('linked')); } catch { return; }
+  if (!local && !linked.includes(location.origin)) return;
 // 써즈의 동네방네 사이트(Claude 아티팩트 등)가 열려 있으면, 확장이 모아 둔 화면 자료·API 결과를 그 페이지에 건넨다.
 // 사이트가 먼저 인사(suzz-ext-hello)를 보내야만 응답하고, 받았다는 확인(suzz-ext-ack) 뒤에 보관함에서 지운다.
 // 인사에 담긴 키워드(사이트의 상품·시즌·추천 키워드)는 API로 불러올 키워드 목록으로 기억한다.
@@ -5,7 +11,7 @@ window.addEventListener('message', async event => {
   if (event.source !== window || !event.data || typeof event.data !== 'object') return;
   if (event.data.type === 'suzz-ext-hello') {
     if (Array.isArray(event.data.keywords)) {
-      const watch = [...new Set(event.data.keywords.map(k => String(k || '').trim().slice(0, 40)).filter(k => k.length >= 2))].slice(0, 30);
+      const watch = [...new Set(event.data.keywords.map(k => String(k || '').trim().slice(0, 40)).filter(k => k.length >= 2))].slice(0, 100);
       if (watch.length) await chrome.storage.local.set({watch});
     }
     const {queue = []} = await chrome.storage.local.get('queue');
@@ -46,3 +52,4 @@ chrome.runtime.onMessage.addListener(msg => {
   chrome.storage.local.get('queue').then(({queue = []}) => window.postMessage({type: 'suzz-ext-payload', version: 2, ext: chrome.runtime.getManifest().version, items: queue}, '*'));
 });
 window.postMessage({type: 'suzz-ext-ready', ext: chrome.runtime.getManifest().version}, '*');
+})();
