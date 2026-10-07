@@ -213,13 +213,13 @@ export function sponsorChecklist(r){
   sec('업체에 확인할 것',r.questions),sec('충돌·주의',r.conflicts)].filter(Boolean).join('\n\n');
 }
 // 세 연결 방식(Claude 안, Claude API, OpenAI API)에서 같은 JSON 결과를 받는다.
-export async function generateJSON({instructions,data,schema,example,files=[]},env,fetcher=fetch){
+export async function generateJSON({instructions,data,schema,example,files=[],pdfPages=40},env,fetcher=fetch){
  const provider=aiProvider(env);if(!provider)throw aiError('AI 연결이 필요해요.',503);
  const bytesOf=a=>Uint8Array.from(atob(a.data),c=>c.charCodeAt(0));
  if(provider==='artifact'){
   let extra='';const images=files.filter(a=>a.kind==='image').map(a=>new Blob([bytesOf(a)],{type:a.type}));
   for(const a of files.filter(a=>a.kind==='text'))extra+='\n\n[첨부 '+a.name+']\n'+a.text.slice(0,40000);
-  for(const a of files.filter(a=>a.kind==='pdf')){if(!env.PDF)throw aiError('PDF를 읽을 수 없는 화면이에요. 캡처 사진으로 올려 주세요.',400);const r=await env.PDF(bytesOf(a));if(r.text)extra+='\n\n[첨부 PDF '+a.name+']\n'+r.text.slice(0,40000);images.push(...(r.images||[]));}
+  for(const a of files.filter(a=>a.kind==='pdf')){if(!env.PDF)throw aiError('PDF를 읽을 수 없는 화면이에요. 캡처 사진으로 올려 주세요.',400);let r;try{r=await env.PDF(bytesOf(a),{maxPages:pdfPages});}catch(e){throw aiError('PDF ‘'+a.name+'’를 읽지 못했어요: '+String(e?.message||e).slice(0,120)+'. 글자를 복사해 붙여넣거나 캡처로 올려 주세요.',400);}if(!r.text&&!(r.images||[]).length)throw aiError('PDF ‘'+a.name+'’에서 글자를 찾지 못했어요(이미지만 있는 스캔본). 글자를 복사해 붙여넣어 주세요.',400);if(r.text)extra+='\n\n[첨부 PDF '+a.name+(r.readPages<r.pages?' · 앞 '+r.readPages+'/'+r.pages+'쪽':'')+']\n'+r.text.slice(0,60000);images.push(...(r.images||[]));}
   if(images.length){const lim=await env.SAMPLE.limits?.().catch(()=>null);if(!lim?.images)throw aiError('이 화면에서는 Claude가 사진을 볼 수 없어요. 내용을 복사해 붙여넣어 주세요.',400);if(images.length>lim.images.maxCount)throw aiError('사진은 한 번에 '+lim.images.maxCount+'장까지 읽을 수 있어요.',413);}
   try{return await env.SAMPLE.json(instructions+'\n\n'+data+extra+'\n\n[출력 형식] 아래 모양의 JSON 객체 하나만 출력한다.\n'+JSON.stringify(example),{cache:false,modelTier:'default',...(images.length?{images}:{})});}catch(e){const [m,st]=SAMPLE_ERRORS[e?.code]||['Claude 작업 중 오류가 발생했어요. 잠시 뒤 다시 시도해 주세요.',502];throw aiError(m,st);}}
  if(provider==='anthropic'){const client=new Anthropic({apiKey:env.ANTHROPIC_API_KEY,fetch:fetcher,timeout:100000,maxRetries:1});let message;try{const content=[...files.map(a=>a.kind==='image'?{type:'image',source:{type:'base64',media_type:a.type,data:a.data}}:a.kind==='pdf'?{type:'document',source:{type:'base64',media_type:'application/pdf',data:a.data},title:a.name}:{type:'text',text:'[첨부 '+a.name+']\n'+a.text}),{type:'text',text:data}];message=await client.beta.messages.create({model:env.ANTHROPIC_MODEL||CLAUDE_DEFAULT_MODEL,max_tokens:8000,system:instructions,messages:[{role:'user',content}],output_config:{effort:'low',format:{type:'json_schema',schema}},betas:['server-side-fallback-2026-07-01'],fallbacks:'default'});}catch(e){throw claudeError(e);}

@@ -113,14 +113,14 @@ async function pdfjs() {
   if (!pdfLib) pdfLib = (async () => { await loadScript(PDFJS + 'pdf.worker.min.js'); await loadScript(PDFJS + 'pdf.min.js'); return window.pdfjsLib; })().catch(e => { pdfLib = null; throw e; });
   return pdfLib;
 }
-async function readPdf(bytes, {maxPages = 40, maxImages = 3} = {}) {
+async function readPdf(bytes, {maxPages = 40, maxImages = 3, onPage = null} = {}) {
   const lib = await pdfjs();
   const doc = await lib.getDocument({ data: bytes, isEvalSupported: false, disableFontFace: true }).promise;
   const pages = Math.min(doc.numPages, maxPages), texts = [], images = [];
   for (let n = 1; n <= pages; n++) {
     const page = await doc.getPage(n), content = await page.getTextContent();
     const text = content.items.map(i => i.str + (i.hasEOL ? '\n' : '')).join(' ').replace(/[ \t]+/g, ' ').trim();
-    texts.push(text);
+    texts.push(text); if (onPage) { try { onPage(n, pages); } catch {} }
     // 글자가 거의 없는 쪽(스캔·사진 PDF)은 그림으로 바꿔 Claude가 보게 한다.
     if (text.length < 40 && images.length < maxImages) {
       const view = page.getViewport({ scale: 1.6 }), canvas = document.createElement('canvas');
@@ -194,6 +194,7 @@ const ready = (async () => {
   const mcp = await use('mcp');
   window.suzzResearch = research(db, mcp);
   window.suzzNightDrafts = nightDrafts(db);
+  window.suzzReadPdf = readPdf;
   return { DB: chunked(db, feeds(db)), BUCKET: bucket(db, assets), SAMPLE: sample || undefined, PDF: readPdf, RESEARCH: id => window.suzzResearch.get(id), ARTIFACT: true };
 })();
 

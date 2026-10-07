@@ -88,3 +88,4 @@
 .kpi.warn{background:#fff3f0;border-color:#f0c8c0}
 .dropzone{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;text-align:center;padding:26px 16px;margin:14px 0 8px;border:2px dashed #b9d3e6;border-radius:14px;background:#f7fbfe;cursor:pointer}.dropzone:hover,.dropzone.over{border-color:var(--blue);background:#eaf4fb}.dropzone strong{font-size:14px}
 .bulk-list{list-style:none;margin:6px 0 0;padding:0}.bulk-list li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #edf3f7;font-size:13px}.bulk-list li small{color:var(--muted);white-space:nowrap}.bulk-list .bulk-done small{color:#3d7a52}.bulk-list .bulk-fail small{color:#b4584a}.bulk-list .bulk-read small,.bulk-list .bulk-up small{color:var(--blue)}
+.bulk-list .bulk-pdf small{color:var(--blue)}
