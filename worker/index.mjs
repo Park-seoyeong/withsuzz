@@ -14,6 +14,7 @@ import {generateAI,aiProvider,AI_PROVIDER_NAMES,generateJSON,sponsorPrompt,norma
 import {questBoard,findQuest} from './quests.mjs';
 import {PRODUCT_SOURCES,PLATFORMS,saveProducts,deleteProduct,scoreProducts,productDraftItem,seasonCalendar,postPerformance,saveEarnings,deleteEarnings,earningsReport,platformCards,keywordOpportunities,recordAIUse,aiSpend,saveApiData,rekeyProducts,genericProducts,saveKeywordRows,profitReport,productMetric} from './products.mjs';
 import {savePrompt,deletePrompt,resolvePrompt,markPromptUsed} from './prompts.mjs';
+import {SUZZ_PROMPT_NAME,SUZZ_PROMPT_TEXT} from './suzz-prompt.mjs';
 import {SNS_SPEC,snsPrompt,normalizeSns,snsItems,seriesPrompt,normalizeSeries,seriesItems,compareDraftItem,styleSources,stylePrompt,saveStyleGuide} from './studio.mjs';
 import {ASSISTANT_TOOLS,assistantWritingList,assistantWritingContext,saveAssistantProposal,requestAssistantWriting} from './assistant.mjs';
 const APP_HTML='__APP_HTML__',LOGIN_HTML='__LOGIN_HTML__',ASSETS={};
@@ -96,6 +97,8 @@ async function action(b,s){
   for(const r of rows){if(s.items.some(i=>i.url===r.url))continue;const n=norm(r.title);const i=s.items.find(x=>x.channel==='blog'&&x.status!=='게시됨'&&!x.url&&(norm(x.title)===n||norm(x.title).length>=8&&n.includes(norm(x.title))));if(!i)continue;const job=(s.publishJobs||[]).find(j=>j.itemId===i.id&&['준비 중','발행 대기'].includes(j.status)||j.itemId===i.id&&j.status==='예약 확인됨'&&j.receipt?.method==='manual');
    try{if(job){await recordManualPublished(s,{jobId:job.id,postUrl:r.url},hash);}else{const now=new Date().toISOString(),at=r.publishedAt||now;i.status='게시됨';i.url=r.url;i.publishedAt=at;i.date=today(new Date(at));i.updatedAt=now;}award(s,'publish:'+i.id,30);event(s,'publishing',i.title+' — 블로그 RSS에서 게시를 확인했어요.',{id:i.id,postUrl:r.url});done.push({id:i.id,title:i.title,url:r.url});}catch(e){event(s,'attention',i.title+' — RSS로 게시 확인을 못 했어요: '+e.message,{id:i.id});}}
   return {rows:rows.length,confirmed:done};}
+ // 써즈님 프롬프트 전문 설치: 같은 이름이 없을 때 한 번만 넣고 기본으로 둔다(이미 있으면 그대로).
+ if(b.action==='installSuzzPrompt'){if((s.prompts||[]).some(p=>p.name===SUZZ_PROMPT_NAME))return {installed:false};const p=savePrompt(s,{name:SUZZ_PROMPT_NAME,text:SUZZ_PROMPT_TEXT,note:'써즈님이 ChatGPT 때부터 쓰던 25항목 전담 에디터 프롬프트 전문. 모든 초안·밤사이 원고에 기본으로 들어가요.',types:[],isDefault:!(s.prompts||[]).some(p=>p.isDefault)});event(s,'settings','써즈 전담 에디터 프롬프트(25항목 전체)를 라이브러리에 넣었어요.');return {installed:true,id:p.id};}
  if(b.action==='saveStyleGuide'){const g=saveStyleGuide(s,{guide:b.text,changes:['직접 고침'],manual:true});event(s,'learning','글쓰기 지침서를 직접 고쳤어요 (v'+g.version+').');return g;}
  if(b.action==='nightDraftHeld'){const i=s.items.find(x=>x.id===b.itemId);if(i)event(s,'attention','밤사이 초안 보류: '+i.title+' — '+(Array.isArray(b.warnings)?b.warnings.map(w=>str(w,300)).join(' / '):'자료가 부족해요.'),{id:i.id});return true;}
  // 밤사이 완성 원고 받기: 글감이 없던 날에 클라우드가 글감+원고를 통째로 만든 것. 제목이 같은 글이 있으면 건너뛴다.

@@ -87,3 +87,16 @@ test('ChatGPT 작성 요청도 고른 프롬프트를 읽고, 삭제되면 기�
  assert.equal((await f.action({action:'requestAssistant',itemId:f.item.id,requestId:crypto.randomUUID(),mode:'draft',promptId:'gone'})).status,404);
  assert.equal((await f.state()).tasks.filter(t=>t.status==='작성 요청').length,0);
 });
+
+test('써즈 프롬프트 전문은 한 번만 설치되고 기본 프롬프트가 되며, 초안 요청에 들어간다',async()=>{
+ const {DatabaseSync}=await import('node:sqlite'),{readFileSync}=await import('node:fs'),{default:worker}=await import('../dist/server/index.js');
+ const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql',import.meta.url),'utf8'));const prompts=[];
+ const env={ARTIFACT:'1',SAMPLE:{json:async input=>{prompts.push(input);return {kind:'draft',title:'t',disclosure:'',body:'b',questions:[],warnings:[],linkPositions:[],summary:''};},limits:async()=>({})},DB:{prepare(q){let a=[];return {bind(...x){a=x;return this;},async first(){return sql.prepare(q).get(...a)||null;},async run(){return {meta:{changes:sql.prepare(q).run(...a).changes}};}};}}};
+ const call=async(p,b)=>{const r=await worker.fetch(new Request('https://t.local'+p,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}),env);return r.json();};
+ assert.equal((await call('/api/action',{action:'installSuzzPrompt'})).result.installed,true);
+ assert.equal((await call('/api/action',{action:'installSuzzPrompt'})).result.installed,false);
+ const st=(await call('/api/state')).state;assert.equal(st.prompts.length,1);assert.equal(st.prompts[0].isDefault,true);assert.match(st.prompts[0].text,/## 8\. 써즈 말투/);assert.ok(st.prompts[0].text.length>8000);
+ const it=(await call('/api/action',{action:'saveItem',item:{title:'글',channel:'blog'}})).result;
+ await call('/api/ai/write',{requestId:'r-'+'z'.repeat(24),itemId:it.id,mode:'draft',promptId:st.prompts[0].id});
+ assert.match(prompts.at(-1),/써즈 말투/);
+});
