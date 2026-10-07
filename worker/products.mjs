@@ -75,10 +75,14 @@ export function scoreProducts(list, keyword = '') {
   return scored;
 }
 
-export function productDraftItem(p) {
+export function productMetric(state, p) { return (state.keywordMetrics || []).find(m => m.key === pc_compact(p?.keyword)) || null; }
+export function productDraftItem(p, metric = null) {
   const facts = [
     '상품: ' + p.name + (p.brand ? ' (' + p.brand + ')' : ''),
     p.price !== null ? '화면에서 본 가격: ' + p.price.toLocaleString('ko-KR') + '원 (' + p.capturedAt.slice(0, 10) + ' 기준, 발행 전 다시 확인)' : '',
+    metric?.shopping?.lowPrice != null ? '네이버 쇼핑 최저가: ' + metric.shopping.lowPrice.toLocaleString('ko-KR') + '원 (' + String(metric.updatedAt || '').slice(0, 10) + ' 기준)' : '',
+    metric?.volume != null ? '네이버 월 검색량: ' + metric.volume.toLocaleString('ko-KR') + '회' + (metric.compIdx ? ' · 광고 경쟁 ' + metric.compIdx : '') : '',
+    !p.url ? '제휴 링크가 아직 없어요. 쇼핑커넥트에서 링크를 만들어 ‘공식·제휴 링크’ 칸에 넣어 주세요.' : '',
     p.rating !== null ? '평점 ' + p.rating + (p.reviews !== null ? ' · 리뷰 ' + p.reviews.toLocaleString('ko-KR') + '개' : '') : '',
     p.note ? '메모: ' + p.note : '',
     '써 보지 않은 상품이면 사용 후기처럼 쓰지 않는다. 확인된 정보·선택 기준·추천 대상 중심으로 쓴다.',

@@ -117,3 +117,10 @@ test('API: 밤사이 완성 원고는 글감+원고를 한 번에 만들고, 같
  assert.equal((await call('/api/action',{action:'applyNightPost',key:'2026-10-08-9',title:'가습기 고르는 기준 5가지!',body:'x'})).body.result.applied,false,'같은 제목');
  assert.equal((await call('/api/action',{action:'applyNightPost',key:'k3',title:'t',body:''})).body.result.applied,false,'본문 없음');
 });
+
+test('API: 주간 리포트는 기록된 숫자로 만들어지고 주마다 하나만 남는다',async()=>{
+ const {call,prompts}=setup(()=>({headline:'한 줄',summary:'요약',wins:['a'],fixes:['b'],nextWeek:['c']}));
+ await call('/api/action',{action:'saveEarnings',rows:[{date:new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Seoul'}).format(new Date()),platform:'brand',revenue:'5000'}]});
+ const r=await call('/api/ai/weekly-report',{});assert.equal(r.status,200,JSON.stringify(r.body));assert.equal(r.body.report.headline,'한 줄');assert.equal(r.body.report.facts.revenue,5000);assert.match(prompts.at(-1),/weekRevenueByPlatform/);
+ await call('/api/ai/weekly-report',{});assert.equal((await call('/api/state')).body.state.weeklyReports.length,1);
+});
