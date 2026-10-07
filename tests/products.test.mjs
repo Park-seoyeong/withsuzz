@@ -52,7 +52,7 @@ test('품목 키워드: 화면 이름 같은 키워드는 점수에 쓰지 않�
  const s=initialState();
  saveProducts(s,{source:'brand',keyword:'홍보할 상품 찾기',rows:[{name:'삼성 갤럭시 S26 FE',price:'1033650',item:'스마트폰'},{name:'쿠쿠 음식물처리기 3L',price:'499000'}]});
  assert.equal(s.products[0].keyword,'스마트폰');assert.deepEqual(s.products[0].keywords,['스마트폰']);
- assert.equal(s.products[1].keyword,'홍보할 상품 찾기');assert.equal(genericProducts(s).length,1);
+ assert.equal(s.products[1].keyword,'홍보할 상품 찾기');assert.equal(genericProducts(s).length,2,'품목 "스마트폰"도 상품명에 없으니 다시 매길 대상');
  assert.equal(rekeyProducts(s,{[s.products[1].id]:'음식물처리기',[s.products[0].id]:'',nope:'x'}),1);
  assert.equal(s.products[1].keyword,'음식물처리기');assert.deepEqual(s.products[1].keywords,['음식물처리기']);
  const ks=keywordOpportunities(s,'2026-10-07');assert.ok(!ks.some(k=>k.keyword==='홍보할 상품 찾기'));assert.ok(ks.some(k=>k.keyword==='음식물처리기'));
