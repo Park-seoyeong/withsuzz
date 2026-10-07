@@ -8,7 +8,7 @@ import {normalizeSns,snsItems,snsPrompt,normalizeSeries,seriesItems,compareDraft
 function setup(answer){
  const sql=new DatabaseSync(':memory:');sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql',import.meta.url),'utf8'));
  const prompts=[];
- const env={ARTIFACT:'1',SAMPLE:{json:async (input,opts)=>{prompts.push(input);prompts.images=(opts?.images||[]).length;return answer(input);},limits:async()=>({images:{maxCount:5}})},DB:{prepare(q){let a=[];return {bind(...x){a=x;return this;},async first(){return sql.prepare(q).get(...a)||null;},async run(){return {meta:{changes:sql.prepare(q).run(...a).changes}};}};}}};
+ const env={ARTIFACT:'1',SAMPLE:{json:async (input,opts)=>{prompts.push(input);prompts.images=(opts?.images||[]).length;prompts.tier=opts?.modelTier;return answer(input);},limits:async()=>({images:{maxCount:5}})},DB:{prepare(q){let a=[];return {bind(...x){a=x;return this;},async first(){return sql.prepare(q).get(...a)||null;},async run(){return {meta:{changes:sql.prepare(q).run(...a).changes}};}};}}};
  const call=async(p,b)=>{const r=await worker.fetch(new Request('https://t.local'+p,b?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b)}:{}),env);return {status:r.status,body:await r.json()};};
  return {call,prompts};
 }
@@ -154,4 +154,12 @@ test('말투 샘플: RSS로 읽은 발행 본문이 작성 자료와 지침서 �
  const p=aiPrompt({mode:'draft',item:{id:'a',title:'t'},prompt:{name:'내 프롬프트','text':'항상 ~했어요 체로 쓴다'}},state);
  assert.match(p.instructions,/\[써즈 작성 프롬프트 — 내 프롬프트\][\s\S]*항상 ~했어요 체로 쓴다/);assert.match(p.instructions,/\[말투 규칙\] styleExamples는 써즈가 실제 발행한 글이다/);
  const data=JSON.parse(p.input);assert.equal(data.styleExamples[0].title,'발행 글');assert.equal(data.userPrompt.text,'항상 ~했어요 체로 쓴다');
+});
+
+test('내 프롬프트를 고르면 ChatGPT 방식 그대로: 프롬프트 전문이 맨 앞, 자료는 읽기 쉬운 양식, 가장 능력 있는 모델 등급',async()=>{
+ const tiers=[];const {call,prompts}=setup(()=>({kind:'draft',title:'t',disclosure:'',body:'본문',questions:[],warnings:[],linkPositions:[],summary:''}));
+ const pid=(await call('/api/action',{action:'savePrompt',prompt:{name:'내 25항목',text:'## 역할\n써즈 전담 에디터다.',isDefault:true}})).body.result.id;
+ const it=(await call('/api/action',{action:'saveItem',item:{title:'한강 종이비행기 축제',channel:'blog',type:'issue',region:'서울',keyword:'서울 나들이',notes:''}})).body.result;
+ const r=await call('/api/ai/write',{requestId:'r-'+'f'.repeat(24),itemId:it.id,mode:'draft',promptId:pid});assert.equal(r.status,200,JSON.stringify(r.body));
+ const p=prompts.at(-1);assert.ok(p.startsWith('## 역할\n써즈 전담 에디터다.'),p.slice(0,80));assert.doesNotMatch(p,/고정 규칙은 추가 프롬프트/);assert.match(p,/\[작성 요청\]\n작성 요청: 전체 초안\n종류: 빠른 정보·이슈/);assert.match(p,/메인 키워드: 서울 나들이/);assert.match(p,/\(없음 — 정보형으로 쓴다\)/);assert.match(p,/조사 과정 문장은 본문에 쓰지 않고/);assert.equal(prompts.tier,'complex');
 });
