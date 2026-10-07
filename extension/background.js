@@ -3,7 +3,7 @@
 // 2) 자동 수집: 등록한 화면을 하루 두 번(9시·21시 무렵) 뒤쪽 탭으로 열어 읽는다(autopages.js).
 // 결과는 보관함(queue)에 넣고, 사이트를 열면 deliver.js가 넘겨 준다.
 import {collect, cleanKeywords, blogFeed} from './naver-api.js';
-import {runAutoPages, readPages} from './autopages.js';
+import {runAutoPages, readPages, crawlPages} from './autopages.js';
 import {shoppingPage} from './shoppage.js';
 const ALARM = 'suzz-naver-api', EVERY = 360, AUTO = 'suzz-auto-pages';
 
@@ -52,6 +52,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   if (msg?.type === 'suzz-api-lookup') {
     chrome.storage.local.get('keys').then(({keys = {}}) => collect(msg.keywords, keys, {pause: () => Promise.resolve()}))
       .then(item => reply({ok: true, item: {...item, lookup: true}})).catch(e => reply({ok: false, error: e.message}));
+    return true;
+  }
+  if (msg?.type === 'suzz-crawl') {
+    (async () => {
+      const page = {id: crypto.randomUUID(), url: String(msg.url || ''), title: String(msg.title || '').slice(0, 120), kind: msg.kind || 'products'};
+      const items = await crawlPages(page, {maxPages: Math.min(40, Number(msg.maxPages) || 20)});
+      const {queue = []} = await chrome.storage.local.get('queue');
+      await chrome.storage.local.set({queue: [...queue.filter(i => !(i.auto && i.pageId === page.id)), ...items].slice(-60)});
+      return items.length;
+    })().then(n => reply({ok: true, pages: n})).catch(e => reply({ok: false, error: e.message}));
     return true;
   }
   if (msg?.type === 'suzz-read-pages') { readPages(msg.urls).then(pages => reply({ok: true, pages})).catch(e => reply({ok: false, error: e.message})); return true; }

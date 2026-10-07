@@ -98,3 +98,42 @@ export async function readPages(urls) {
   }
   return out;
 }
+
+// 상품 목록 전부 긁기: 등록 화면(쇼핑커넥트·브랜드커넥트 상품 목록 등)을 뒤쪽 탭으로 열어
+// 1) 끝까지 스크롤해 더 불러오고 2) ‘다음’ 쪽 버튼이 있으면 눌러 가며 최대 maxPages쪽을 읽는다. 쪽마다 하나의 자료로 돌려준다.
+const PAGE_HELPERS = {
+  scroll: () => { window.scrollTo(0, document.body.scrollHeight); return document.body.scrollHeight; },
+  next: () => {
+    const vis = el => el && el.offsetParent !== null && !el.disabled && el.getAttribute('aria-disabled') !== 'true';
+    const txt = el => (el.innerText || el.getAttribute('aria-label') || el.title || '').replace(/\s+/g, '').toLowerCase();
+    let el = document.querySelector('a[rel="next"], button[rel="next"]');
+    if (!vis(el)) el = [...document.querySelectorAll('a, button')].find(e => vis(e) && /^(다음|다음쪽|다음페이지|next|>|›|»)$/.test(txt(e)));
+    if (!vis(el)) { const cur = document.querySelector('[aria-current="page"], [aria-current="true"], .active[class*="page"], [class*="page"] .active, [class*="paging"] .on, [class*="pagination"] .selected'); const n = cur && (cur.closest('li') || cur).nextElementSibling; const link = n && (n.matches('a,button') ? n : n.querySelector('a,button')); if (vis(link)) el = link; }
+    if (!vis(el)) return false;
+    el.click(); return true;
+  },
+};
+export async function crawlPages(page, {maxPages = 20, settle = 2500} = {}) {
+  const tab = await chrome.tabs.create({url: page.url, active: false}), items = [], seen = new Set();
+  try {
+    await waitLoaded(tab.id); await new Promise(r => setTimeout(r, 3000));
+    for (let n = 1; n <= maxPages; n++) {
+      // 끝까지 스크롤(무한 스크롤 대비, 높이가 그대로면 끝)
+      let last = -1;
+      for (let s = 0; s < 25; s++) { const [{result: h}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: PAGE_HELPERS.scroll}); if (h === last) break; last = h; await new Promise(r => setTimeout(r, 1200)); }
+      const now = await chrome.tabs.get(tab.id);
+      if (LOGIN.test(now.url || '')) throw new Error('로그인이 풀려 있어요. 이 브라우저에서 다시 로그인해 주세요.');
+      const rs = await readAll(tab.id).catch(() => []);
+      if (!rs.length) break;
+      const merged = mergeResults(rs), key = (merged.text + merged.tables.join('')).slice(0, 4000);
+      if (seen.has(key)) break; // 같은 내용이면 마지막 쪽
+      seen.add(key);
+      items.push({...merged, kind: page.kind || 'products', auto: true, pageId: page.id, part: n, title: (merged.title || page.title || '') + ' (' + n + '쪽)', url: now.url || page.url});
+      const [{result: moved}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, func: PAGE_HELPERS.next}).catch(() => [{result: false}]);
+      if (!moved) break;
+      await new Promise(r => setTimeout(r, settle));
+    }
+  } finally { chrome.tabs.remove(tab.id).catch(() => {}); }
+  if (!items.length) throw new Error('화면에서 읽을 글자를 찾지 못했어요.');
+  return items;
+}

@@ -74,3 +74,18 @@ document.getElementById('read-allow').addEventListener('click', async () => {
     status(ok ? '허용했어요. 이제 초안을 만들 때 공식 페이지를 대신 읽어 사이트에 넘겨요.' : '허용하지 않았어요. 공식 페이지는 검색 요약으로만 참고해요.');
   } catch (e) { status('허용하지 못했어요: ' + (e?.message || e)); }
 });
+
+// 상품 목록 전부 긁기: 지금 보는 목록 화면(브랜드커넥트·쇼핑커넥트 상품 등)을 뒤쪽 탭으로 열어 끝까지 스크롤하고 ‘다음’ 쪽을 눌러 가며 최대 20쪽을 읽는다.
+document.getElementById('crawl').addEventListener('click', async e => {
+  e.target.disabled = true;
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true}), u = new URL(tab.url);
+    if (u.protocol !== 'https:') { status('https 화면만 읽을 수 있어요.'); return; }
+    const ok = await chrome.permissions.request({origins: [u.origin + '/*']});
+    if (!ok) { status('권한을 허락하지 않아 읽지 않았어요.'); return; }
+    status('뒤쪽 탭에서 목록을 끝까지 읽는 중… (쪽마다 몇 초, 창을 닫지 마세요)');
+    const r = await chrome.runtime.sendMessage({type: 'suzz-crawl', url: tab.url, title: tab.title, kind: 'products'});
+    status(r?.ok ? r.pages + '쪽을 읽었어요. 사이트를 열면 Claude가 상품으로 정리해 저장해요.' : '읽지 못했어요: ' + (r?.error || ''));
+  } catch (err) { status('읽지 못했어요: ' + (err?.message || err)); }
+  finally { e.target.disabled = false; show(); }
+});
