@@ -177,6 +177,9 @@ function nightDrafts(db) {
     async mark(itemId, status, note = '') { await ref(itemId).update({ status, note: String(note).slice(0, 300), handledAt: new Date().toISOString() }); },
     // 밤사이 글감: 클라우드가 ideas/<id>에 써 둔 새 글감 후보. 사이트가 받으면 '받음'으로 표시한다.
     async ideas() { const q = await db.collection('ideas').get(); return q.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d && d.status === '제안' && Array.isArray(d.ideas)); },
+    // 밤사이 완성 원고: 클라우드가 posts/<날짜-번호>에 글감+원고를 통째로 써 둔다. 사이트가 받으면 '적용됨'으로 표시한다.
+    async posts() { const q = await db.collection('posts').get(); return q.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d && d.status === '완료' && typeof d.body === 'string'); },
+    async tookPost(id, status, note = '') { await db.doc('posts/' + String(id).replace(/[^A-Za-z0-9_.~:@+-]/g, '~')).update({ status, note: String(note).slice(0, 300), handledAt: new Date().toISOString() }); },
     async tookIdeas(id, note = '') { await db.doc('ideas/' + String(id).replace(/[^A-Za-z0-9_.~:@+-]/g, '~')).update({ status: '받음', note: String(note).slice(0, 300), handledAt: new Date().toISOString() }); },
   };
 }

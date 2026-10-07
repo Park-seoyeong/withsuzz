@@ -105,3 +105,15 @@ test('API: 밤사이 글감 제안은 같은 제목을 거르고 아이디어로
  const st=(await call('/api/state')).body.state,i=st.items.find(x=>x.title==='가을 제주 2박 3일 코스');assert.equal(i.status,'아이디어');assert.ok(!i.date);assert.match(i.notes,/\[밤사이 글감 제안\] 검색량 높음/);assert.match(i.notes,/- 1일차/);assert.equal(st.items.find(x=>x.title==='이상한 유형').type,'info');
  assert.equal((await call('/api/action',{action:'addNightIdeas',ideas:[{title:'가을 제주 2박 3일 코스',why:'again'}]})).body.result.added,0);
 });
+
+test('API: 밤사이 완성 원고는 글감+원고를 한 번에 만들고, 같은 제목·같은 키는 받지 않는다',async()=>{
+ const {call}=setup(()=>({}));
+ await call('/api/action',{action:'saveProducts',source:'brand',keyword:'가습기',rows:[{name:'A 가습기',price:'39000',commissionAmount:'1500',url:'https://brandconnect.naver.com/p/1'}]});
+ const pid=(await call('/api/state')).body.state.products[0].id;
+ const r=await call('/api/action',{action:'applyNightPost',key:'2026-10-08-1',date:'2026-10-08',title:'가습기 고르는 기준 5가지',keyword:'가습기',type:'affiliate',disclosure:'이 글에는 제휴 링크가 포함되어 있어요.',body:'본문이에요.',warnings:['가격 확인'],productId:pid,why:'수수료 높음',createdAt:'2026-10-07T18:20:00Z'});
+ assert.equal(r.body.result.applied,true);
+ const st=(await call('/api/state')).body.state,i=st.items.find(x=>x.nightPost);assert.equal(i.date,'2026-10-08');assert.equal(i.status,'초안 작성');assert.equal(i.type,'affiliate');assert.equal(i.links,'https://brandconnect.naver.com/p/1');assert.match(i.draft,/^가습기 고르는 기준 5가지\n\n이 글에는 제휴 링크/);assert.match(i.notes,/가격 확인/);assert.equal(st.tasks[0].title,'밤사이 완성 원고: 가습기 고르는 기준 5가지');
+ assert.equal((await call('/api/action',{action:'applyNightPost',key:'2026-10-08-1',title:'다른 제목',body:'x'})).body.result.applied,false,'같은 키');
+ assert.equal((await call('/api/action',{action:'applyNightPost',key:'2026-10-08-9',title:'가습기 고르는 기준 5가지!',body:'x'})).body.result.applied,false,'같은 제목');
+ assert.equal((await call('/api/action',{action:'applyNightPost',key:'k3',title:'t',body:''})).body.result.applied,false,'본문 없음');
+});
