@@ -81,3 +81,16 @@ test('봤어요·빼기한 키워드는 추천에서 빠지고 되돌리면 다�
   await call('/api/action', {action: 'dismissKeyword', keyword: '보조배터리', undo: true});
   assert.ok((await kws()).includes('보조배터리'));
 });
+
+test('상품 글감은 같은 상품으로 두 번 만들지 않고, 겹친 빈 글감은 정리된다', async () => {
+  const {DatabaseSync} = await import('node:sqlite'), {readFileSync} = await import('node:fs'), {default: worker} = await import('../dist/server/index.js');
+  const sql = new DatabaseSync(':memory:'); sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql', import.meta.url), 'utf8'));
+  const env = {ARTIFACT: '1', DB: {prepare(q) { let a = []; return {bind(...x) { a = x; return this; }, async first() { return sql.prepare(q).get(...a) || null; }, async run() { return {meta: {changes: sql.prepare(q).run(...a).changes}}; }}; }}};
+  const call = async (p, b) => { const r = await worker.fetch(new Request('https://t.local' + p, b ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)} : {}), env); return r.json(); };
+  await call('/api/action', {action: 'saveProducts', source: 'brand', keyword: '오메가3', rows: [{name: '블랙모어스 오메가3', price: '29000', commissionAmount: '900', salesRank: '1'}]});
+  const pid = (await call('/api/state')).state.products[0].id;
+  const a = (await call('/api/action', {action: 'productToItem', id: pid})).result, b = (await call('/api/action', {action: 'productToItem', id: pid})).result;
+  assert.equal(a.id, b.id);
+  await call('/api/action', {action: 'saveItem', item: {title: a.title, productId: pid, channel: 'blog', type: 'affiliate'}});
+  const r = await call('/api/action', {action: 'dedupeProductItems'}); assert.equal(r.result.removed, 0); assert.equal((await call('/api/state')).state.items.filter(i => i.productId === pid).length, 1);
+});
