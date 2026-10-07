@@ -147,6 +147,14 @@ function research(db, mcp) {
   const ref = id => db.doc('research/' + String(id).replace(/[^A-Za-z0-9_.~:@+-]/g, '~'));
   return {
     async get(id) { const s = await ref(id).get(); return s.exists ? s.data() : null; },
+    // 확장이 써즈님 브라우저에서 읽어 온 공식 페이지 원문을 조사 문서에 덧붙인다(클라우드는 공식 사이트 접속이 막혀 있음).
+    async addPages(id, pages) {
+      const s = await ref(id).get(); if (!s.exists) return false;
+      const list = (Array.isArray(pages) ? pages : []).filter(p => p && /^https:\/\//.test(p.url || '') && String(p.text || '').trim().length > 200).slice(0, 6)
+        .map(p => ({url: String(p.url).slice(0, 500), title: String(p.title || '').slice(0, 200), text: String(p.text).slice(0, 12000), readAt: new Date().toISOString()}));
+      if (!list.length) return false;
+      await ref(id).update({pages: list}); return true;
+    },
     async request(item) {
       const now = new Date().toISOString();
       await ref(item.id).set({ itemId: item.id, title: String(item.title || '').slice(0, 200), keyword: String(item.keyword || '').slice(0, 100), region: String(item.region || '').slice(0, 60), type: String(item.type || ''), links: String(item.links || '').slice(0, 2000), question: String(item.question || '').slice(0, 1000), status: '요청', requestedAt: now });

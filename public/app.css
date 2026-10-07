@@ -89,7 +89,7 @@
 .dropzone{display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;text-align:center;padding:26px 16px;margin:14px 0 8px;border:2px dashed #b9d3e6;border-radius:14px;background:#f7fbfe;cursor:pointer}.dropzone:hover,.dropzone.over{border-color:var(--blue);background:#eaf4fb}.dropzone strong{font-size:14px}
 .bulk-list{list-style:none;margin:6px 0 0;padding:0}.bulk-list li{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid #edf3f7;font-size:13px}.bulk-list li small{color:var(--muted);white-space:nowrap}.bulk-list .bulk-done small{color:#3d7a52}.bulk-list .bulk-fail small{color:#b4584a}.bulk-list .bulk-read small,.bulk-list .bulk-up small{color:var(--blue)}
 .bulk-list .bulk-pdf small{color:var(--blue)}
-.auto-bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 12px;margin-bottom:8px;border:1px solid var(--line);border-radius:10px;background:#f7fbfe;font-size:13px}.auto-bar.busy{background:#fff8e8;border-color:#ecd9a6}.auto-bar .check-row{margin:0}
+.auto-bar{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 14px;margin:-8px 0 16px;font-weight:600;border:1px solid var(--line);border-radius:10px;background:#f7fbfe;font-size:13px}.auto-bar.busy{background:#fff3d6;border-color:#e4c77a;box-shadow:0 2px 8px #c9a44a33}.auto-bar.busy #auto-draft-status{color:#8a5a00;font-size:14px}.auto-bar .check-row{margin:0}
 
 /* 이미지 10장 미리보기 */
 .card-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:12px}

@@ -3,7 +3,7 @@
 // 2) 자동 수집: 등록한 화면을 하루 두 번(9시·21시 무렵) 뒤쪽 탭으로 열어 읽는다(autopages.js).
 // 결과는 보관함(queue)에 넣고, 사이트를 열면 deliver.js가 넘겨 준다.
 import {collect, cleanKeywords, blogFeed} from './naver-api.js';
-import {runAutoPages} from './autopages.js';
+import {runAutoPages, readPages} from './autopages.js';
 import {shoppingPage} from './shoppage.js';
 const ALARM = 'suzz-naver-api', EVERY = 360, AUTO = 'suzz-auto-pages';
 
@@ -54,5 +54,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
       .then(item => reply({ok: true, item: {...item, lookup: true}})).catch(e => reply({ok: false, error: e.message}));
     return true;
   }
+  if (msg?.type === 'suzz-read-pages') { readPages(msg.urls).then(pages => reply({ok: true, pages})).catch(e => reply({ok: false, error: e.message})); return true; }
   if (msg?.type === 'suzz-auto-run') { runAutoPages('직접').then(log => reply({ok: true, log})).catch(e => reply({ok: false, error: e.message})); return true; }
 });

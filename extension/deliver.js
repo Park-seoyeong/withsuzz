@@ -24,6 +24,12 @@ window.addEventListener('message', async event => {
     try { reply = await chrome.runtime.sendMessage({type: 'suzz-naver-post', pkg: event.data.pkg}); } catch (e) { reply = {ok: false, error: e?.message || '확장과 연결하지 못했어요.'}; }
     window.postMessage({type: 'suzz-ext-naver-result', id: event.data.id, ...reply}, '*');
   }
+  // 사이트가 공식 페이지 주소를 주면 이 브라우저가 뒤쪽 탭으로 열어 글자만 읽어 돌려준다(Claude 클라우드는 공식 사이트 접속이 막혀 있음).
+  if (event.data.type === 'suzz-ext-read-pages' && Array.isArray(event.data.urls)) {
+    let reply;
+    try { reply = await chrome.runtime.sendMessage({type: 'suzz-read-pages', urls: event.data.urls.slice(0, 6)}); } catch (e) { reply = {ok: false, error: e?.message || '확장과 연결하지 못했어요.'}; }
+    window.postMessage({type: 'suzz-ext-read-pages-result', id: event.data.id, ...reply}, '*');
+  }
   if (event.data.type === 'suzz-ext-ack' && Array.isArray(event.data.ids)) {
     const {queue = []} = await chrome.storage.local.get('queue');
     await chrome.storage.local.set({queue: queue.filter(i => !event.data.ids.includes(i.id))});

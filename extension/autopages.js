@@ -73,3 +73,28 @@ export async function runAutoPages(reason = '자동') {
   await chrome.storage.local.set({queue: q, lastAuto: {at: new Date().toISOString(), reason, log}});
   return log;
 }
+
+// 공식 페이지 읽기: 사이트가 준 주소(최대 6개)를 뒤쪽 탭으로 열어 보이는 글자만 읽고 닫는다. Claude 클라우드는 공식 사이트 접속이 막혀 있어 이 브라우저가 대신 읽는다.
+// 권한이 없는 사이트는 읽지 않고 그 사실만 돌려준다(권한은 팝업의 ‘공식 페이지 읽기 허용’으로 한 번만 준다).
+export async function readPages(urls) {
+  const out = [];
+  for (const raw of (Array.isArray(urls) ? urls : []).slice(0, 6)) {
+    let u; try { u = new URL(String(raw)); } catch { continue; }
+    if (u.protocol !== 'https:' || LOGIN.test(u.href)) continue;
+    const allowed = await chrome.permissions.contains({origins: [u.origin + '/*']}).catch(() => false);
+    if (!allowed) { out.push({url: u.href, error: '권한 없음'}); continue; }
+    const tab = await chrome.tabs.create({url: u.href, active: false});
+    try {
+      await waitLoaded(tab.id, 25000);
+      await new Promise(r => setTimeout(r, 2500));
+      let merged = null;
+      for (let n = 0; n < 3 && !merged?.text; n++) { const rs = await readAll(tab.id).catch(() => []); if (rs.length) merged = mergeResults(rs); if (!merged?.text) await new Promise(r => setTimeout(r, 2000)); }
+      const now = await chrome.tabs.get(tab.id);
+      if (LOGIN.test(now.url || '')) out.push({url: u.href, error: '로그인 화면'});
+      else if (!merged?.text) out.push({url: u.href, error: '글자를 읽지 못했어요'});
+      else out.push({url: u.href, title: String(merged.title || '').slice(0, 200), text: [merged.text, ...(merged.tables || [])].join('\n\n').slice(0, 12000)});
+    } catch (e) { out.push({url: u.href, error: String(e?.message || e).slice(0, 120)}); }
+    finally { chrome.tabs.remove(tab.id).catch(() => {}); }
+  }
+  return out;
+}

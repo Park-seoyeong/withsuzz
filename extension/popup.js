@@ -66,3 +66,11 @@ document.getElementById('auto-add').addEventListener('click', async () => {
 });
 document.getElementById('api-options').addEventListener('click', () => chrome.runtime.openOptionsPage());
 show();
+
+// 글쓰기 전 공식 페이지(축제·관광청·업체 사이트)를 이 브라우저가 대신 읽으려면 https 전체 읽기 권한이 한 번 필요하다. 로그인·비밀번호는 다루지 않는다.
+document.getElementById('read-allow').addEventListener('click', async () => {
+  try {
+    const ok = await chrome.permissions.request({origins: ['https://*/*']});
+    status(ok ? '허용했어요. 이제 초안을 만들 때 공식 페이지를 대신 읽어 사이트에 넘겨요.' : '허용하지 않았어요. 공식 페이지는 검색 요약으로만 참고해요.');
+  } catch (e) { status('허용하지 못했어요: ' + (e?.message || e)); }
+});
