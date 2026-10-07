@@ -1,4 +1,4 @@
-const KIND = {naver: '네이버 통계', posts: '네이버 글별 조회', products: '상품 목록', earnings: '수익', keywords: '키워드 분석 화면', api: '네이버 API', rss: '블로그 RSS'};
+const KIND = {naver: '네이버 통계', posts: '네이버 글별 조회', products: '상품 목록 (상품 찾기)', links: '발급 링크 관리', other: '기타 화면', earnings: '수익', keywords: '키워드 분석 화면', api: '네이버 API', rss: '블로그 RSS'};
 const status = t => { document.getElementById('status').textContent = t; };
 const esc = t => String(t || '').replace(/[<>&]/g, '');
 async function show() {
@@ -17,6 +17,7 @@ document.getElementById('grab').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
     const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['collect.js']});
     if (!result || (!result.text && !result.tables.length)) { status('이 화면에서 읽을 글자를 찾지 못했어요.'); return; }
+    if (result.kind === 'links' || result.kind === 'other') { status('이 화면(' + (result.activeTab || '') + ')은 상품 목록이 아니에요. 쇼핑 커넥트 → 상품 찾기 화면에서 보내 주세요.'); return; }
     const {queue = []} = await chrome.storage.local.get('queue');
     await chrome.storage.local.set({queue: [...queue, result].slice(-20)});
     status(KIND[result.kind] + ' 화면을 담았어요. 사이트를 열면 받아져요.');
@@ -88,6 +89,10 @@ document.getElementById('crawl').addEventListener('click', async e => {
     if (u.protocol !== 'https:') { status('https 화면만 읽을 수 있어요.'); return; }
     const ok = await chrome.permissions.request({origins: [u.origin + '/*']});
     if (!ok) { status('권한을 허락하지 않아 읽지 않았어요.'); return; }
+    if (/brandconnect|shopping-connect|shoppingconnect/i.test(u.host + u.pathname)) {
+      const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['collect.js']}).catch(() => [{result: null}]);
+      if (result && result.kind !== 'products') { status('이 화면은 ‘' + (result.activeTab || result.kind) + '’이에요. 쇼핑 커넥트 → 상품 찾기 화면을 띄운 뒤 눌러 주세요.'); return; }
+    }
     status('뒤쪽 탭에서 목록을 끝까지 읽는 중… (쪽마다 몇 초, 창을 닫지 마세요)');
     const r = await chrome.runtime.sendMessage({type: 'suzz-crawl', url: tab.url, title: tab.title, kind: 'products'});
     status(r?.ok ? (r.pages + '쪽을 읽었어요. 사이트를 열면 Claude가 상품으로 정리해 저장해요.' + (r.pages === 1 ? ' 1쪽만 읽혔다면 ‘마지막 자료 복사’를 눌러 Claude에게 붙여넣어 주세요(다음 쪽 버튼 모양이 담겨 있어요).' : '')) : '읽지 못했어요: ' + (r?.error || ''));
