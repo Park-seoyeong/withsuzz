@@ -57,3 +57,13 @@ test('품목 키워드: 화면 이름 같은 키워드는 점수에 쓰지 않�
  assert.equal(s.products[1].keyword,'음식물처리기');assert.deepEqual(s.products[1].keywords,['음식물처리기']);
  const ks=keywordOpportunities(s,'2026-10-07');assert.ok(!ks.some(k=>k.keyword==='홍보할 상품 찾기'));assert.ok(ks.some(k=>k.keyword==='음식물처리기'));
 });
+
+test('손익은 수익 − (고정 비용 + AI API)이고, 수익 기록이 없는 달은 손익을 내지 않는다',async()=>{
+ const {profitReport}=await import('../worker/products.mjs');
+ const s=initialState();s.settings.costs=[{name:'Claude 구독',monthly:'29000'},{name:'',monthly:'1'}];
+ saveEarnings(s,{rows:[{date:'2026-10-02',platform:'brand',revenue:'50000'},{date:'2026-10-03',platform:'threehours',revenue:'12000'},{date:'2026-09-10',platform:'adpost',revenue:'8000'}]});
+ recordAIUse(s,{feature:'글쓰기',provider:'anthropic',model:'claude-opus-5-5',inputTokens:100000,outputTokens:10000},'2026-10-05T03:00:00Z');
+ const p=profitReport(s,'2026-10-07',1400,3);
+ assert.deepEqual(p.rows.map(r=>r.month),['2026-08','2026-09','2026-10']);assert.equal(p.rows[0].profit,null);assert.equal(p.rows[1].profit,8000-29000);
+ const c=p.current;assert.equal(c.revenue,62000);assert.equal(c.ai,Math.round((100000*4+10000*20)/1e6*1400));assert.equal(c.profit,62000-29000-c.ai);assert.equal(c.byPlatform.threehours,12000);assert.ok(p.projected>c.profit);
+});

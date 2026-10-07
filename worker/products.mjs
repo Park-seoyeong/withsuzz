@@ -313,6 +313,24 @@ export function keywordOpportunities(state, day, limit = 12) {
 
 // ───────── AI 사용 기록·비용 ─────────
 export const AI_PRICES = {opus: {in: 4, out: 20}, sonnet: {in: 2, out: 10}, haiku: {in: 1, out: 5}, 'gpt-5-mini': {in: 0.25, out: 2}};
+// 손익: 달마다 (애드포스트·쇼핑커넥트·세시간전·… 수익) − (구독 등 고정 비용 + AI API 사용액). 수익은 기록된 달만, 비용은 고정비가 있는 달마다 뺀다.
+export function profitReport(state, day, rate = 1400, months = 6) {
+  const costs = (state.settings?.costs || []).map(c => ({name: pc_text(c.name, 40), monthly: pc_num(c.monthly) ?? 0})).filter(c => c.name);
+  const fixed = costs.reduce((a, c) => a + c.monthly, 0);
+  const keys = []; for (let i = months - 1; i >= 0; i--) { const d = new Date(day.slice(0, 7) + '-01T12:00:00Z'); d.setUTCMonth(d.getUTCMonth() - i); keys.push(d.toISOString().slice(0, 7)); }
+  const rows = keys.map(month => {
+    const earn = (state.earnings || []).filter(e => e.date.startsWith(month)), byPlatform = {};
+    for (const e of earn) if (e.revenue !== null) byPlatform[e.platform] = (byPlatform[e.platform] ?? 0) + e.revenue;
+    const revenue = Object.values(byPlatform).reduce((a, v) => a + v, 0), hasRevenue = earn.some(e => e.revenue !== null);
+    const aiUsd = (state.aiLog || []).filter(e => e.at.startsWith(month)).reduce((a, e) => { const p = AI_PRICES[pc_family(e.model)]; return p && e.inputTokens !== null ? a + (e.inputTokens * p.in + e.outputTokens * p.out) / 1e6 : a; }, 0);
+    const ai = Math.round(aiUsd * rate), cost = fixed + ai;
+    return {month, revenue: hasRevenue ? revenue : null, byPlatform, fixed, ai, cost, profit: hasRevenue ? revenue - cost : null};
+  });
+  const cur = rows.at(-1), elapsed = Number(day.slice(8, 10)), dim = pc_daysIn(day.slice(0, 7));
+  const projected = cur.revenue === null ? null : Math.round(cur.revenue / Math.max(1, elapsed) * dim) - cur.fixed - Math.round(cur.ai / Math.max(1, elapsed) * dim);
+  const breakEven = fixed > 0 && cur.revenue !== null ? Math.round(fixed / Math.max(1, Math.max(cur.revenue / Math.max(1, elapsed) * dim, 1)) * 100) : null;
+  return {rows, costs, fixed, current: cur, projected, breakEvenShare: breakEven, rate};
+}
 export function recordAIUse(state, e, at = new Date().toISOString()) {
   if (!Array.isArray(state.aiLog)) state.aiLog = [];
   state.aiLog.push({at, feature: pc_text(e.feature, 30), provider: pc_text(e.provider, 20), model: pc_text(e.model, 60), ok: e.ok !== false, inputTokens: Number.isFinite(e.inputTokens) ? e.inputTokens : null, outputTokens: Number.isFinite(e.outputTokens) ? e.outputTokens : null});
