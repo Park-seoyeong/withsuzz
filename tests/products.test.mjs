@@ -67,3 +67,17 @@ test('손익은 수익 − (고정 비용 + AI API)이고, 수익 기록이 없�
  assert.deepEqual(p.rows.map(r=>r.month),['2026-08','2026-09','2026-10']);assert.equal(p.rows[0].profit,null);assert.equal(p.rows[1].profit,8000-29000);
  const c=p.current;assert.equal(c.revenue,62000);assert.equal(c.ai,Math.round((100000*4+10000*20)/1e6*1400));assert.equal(c.profit,62000-29000-c.ai);assert.equal(c.byPlatform.threehours,12000);assert.ok(p.projected>c.profit);
 });
+
+test('봤어요·빼기한 키워드는 추천에서 빠지고 되돌리면 다시 나온다', async () => {
+  const {DatabaseSync} = await import('node:sqlite'), {readFileSync} = await import('node:fs'), {default: worker} = await import('../dist/server/index.js');
+  const sql = new DatabaseSync(':memory:'); sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql', import.meta.url), 'utf8'));
+  const env = {ARTIFACT: '1', DB: {prepare(q) { let a = []; return {bind(...x) { a = x; return this; }, async first() { return sql.prepare(q).get(...a) || null; }, async run() { return {meta: {changes: sql.prepare(q).run(...a).changes}}; }}; }}};
+  const call = async (p, b) => { const r = await worker.fetch(new Request('https://t.local' + p, b ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)} : {}), env); return r.json(); };
+  await call('/api/action', {action: 'saveProducts', source: 'brand', keyword: '보조배터리', rows: [{name: 'A 보조배터리', price: '39000', commissionAmount: '1500', salesRank: '1'}]});
+  const kws = () => call('/api/state').then(d => d.commerce.keywords.map(k => k.keyword));
+  assert.ok((await kws()).includes('보조배터리'));
+  await call('/api/action', {action: 'dismissKeyword', keyword: '보조 배터리'});
+  assert.ok(!(await kws()).includes('보조배터리'));
+  await call('/api/action', {action: 'dismissKeyword', keyword: '보조배터리', undo: true});
+  assert.ok((await kws()).includes('보조배터리'));
+});

@@ -281,6 +281,8 @@ export function volumeChange(history = []) {
 // ───────── 지금 팔기 좋은 키워드: 확인된 신호만으로 점수를 낸다(검색량·경쟁은 미연결이면 빼고 계산) ─────────
 export function keywordOpportunities(state, day, limit = 12) {
   const cands = new Map(), put = (kw, from) => { const k = pc_compact(kw); if (!k || k.length < 2) return; if (!cands.has(k)) cands.set(k, {keyword: String(kw).trim(), from: new Set()}); cands.get(k).from.add(from); };
+  // 써즈님이 ‘봤어요·빼기’로 치운 키워드는 목록에서 빠지고, 그만큼 다음 키워드가 올라온다.
+  const dismissed = new Set((state.dismissedKeywords || []).map(d => pc_compact(d.keyword)));
   const affiliate = (state.products || []).filter(p => p.source !== 'naverShop');
   for (const p of affiliate) for (const kw of p.keywords || [p.keyword]) put(kw, '담은 상품');
   for (const m of state.keywordMetrics || []) put(m.keyword, m.source ? m.source : '네이버 API');
@@ -310,7 +312,7 @@ export function keywordOpportunities(state, day, limit = 12) {
     const w = {sold: 25, rising: 15, season: 15, gap: 15, revenue: 20, inflow: 10, volume: 15, competition: 10}, sum = Object.values(w).reduce((a, x) => a + x, 0), score = Math.round(Object.keys(w).reduce((a, x) => a + (parts[x] ?? 30) * w[x], 0) / sum);
     const best = [...products].sort((a, b) => (a.salesRank ?? 999) - (b.salesRank ?? 999))[0] || null;
     return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, metric: m ? {volume: m.volume ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, volumeChange: vc, lowPrice: m.shopping?.lowPrice ?? null, shopTotal: m.shopping?.total ?? null, updatedAt: m.updatedAt || null} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url} : null, golden: products.length > 0 && score >= 60};
-  }).filter(r => r.from.includes('담은 상품') || r.season || r.metric || r.score >= 50);
+  }).filter(r => r.from.includes('담은 상품') || r.season || r.metric || r.score >= 50).filter(r => !dismissed.has(pc_compact(r.keyword)));
   // 골든 → 담은 상품이 있는 키워드 → 점수 순. 상품이 있는 키워드는 자리가 없어도 시즌 키워드보다 먼저 보인다.
   return rows.sort((a, b) => Number(b.golden) - Number(a.golden) || Number(!!b.product) - Number(!!a.product) || b.score - a.score).slice(0, limit);
 }
