@@ -163,3 +163,20 @@ test('내 프롬프트를 고르면 ChatGPT 방식 그대로: 프롬프트 전�
  const r=await call('/api/ai/write',{requestId:'r-'+'f'.repeat(24),itemId:it.id,mode:'draft',promptId:pid});assert.equal(r.status,200,JSON.stringify(r.body));
  const p=prompts.at(-1);assert.ok(p.startsWith('## 역할\n써즈 전담 에디터다.'),p.slice(0,80));assert.doesNotMatch(p,/고정 규칙은 추가 프롬프트/);assert.match(p,/\[작성 요청\]\n작성 요청: 전체 초안\n종류: 빠른 정보·이슈/);assert.match(p,/메인 키워드: 서울 나들이/);assert.match(p,/\(없음 — 정보형으로 쓴다\)/);assert.match(p,/조사 과정 문장은 본문에 쓰지 않고/);assert.equal(prompts.tier,'complex');
 });
+
+test('이미지 방향: 대표 이미지는 1장, 사진 프롬프트만은 글귀 대신 프롬프트에 힘을 주고, 고른 방향이 글에 남는다',async()=>{
+ const {cardsPrompt,normalizeCards}=await import('../worker/studio.mjs');
+ const tp=cardsPrompt({title:'t',draft:'본문'},'','thumbnail');assert.equal(tp.count,1);assert.match(tp.instructions,/정확히 1장/);
+ const pp=cardsPrompt({title:'t',draft:'본문'},'','photos','따뜻한 가을');assert.match(pp.instructions,/imagePrompt에 힘을/);assert.match(pp.instructions,/분위기: 따뜻한 가을/);
+ assert.equal(normalizeCards({cards:Array.from({length:10},(_,n)=>({role:'section',heading:'h'+n,lines:['x']})),warnings:[]},1).cards.length,1);
+ const {call}=setup(()=>({cards:Array.from({length:10},(_,n)=>({role:'section',label:'l',heading:'h'+n,lines:['x'],imagePrompt:'p',imagePromptKo:'ㅍ'})),warnings:[]}));
+ const it=(await call('/api/action',{action:'saveItem',item:{title:'라멘 골목',channel:'blog',type:'review',draft:'본문 '.repeat(50)}})).body.result;
+ const r=await call('/api/ai/image-cards',{itemId:it.id,direction:'summary',mood:'깔끔한'});assert.equal(r.status,200);assert.equal(r.body.imageCards.cards.length,5);assert.equal(r.body.imageCards.direction,'summary');assert.equal(r.body.imageCards.mood,'깔끔한');
+});
+
+test("원고에서 '## ' 줄은 자동으로 소제목 서식이 된다",async()=>{
+ const {formattingDocument}=await import('../worker/formatting.mjs');
+ const hash=async t=>'h'+t.length;const item={id:'i',type:'info',draft:'안녕하세요\n\n## 가는 법과 주차\n\n여의나루역 3번 출구예요.'};
+ const doc=await formattingDocument({items:[item],formattingProfiles:[]},item,hash);
+ assert.deepEqual(doc.blocks.map(b=>b.kind),['paragraph','heading','paragraph']);assert.equal(doc.blocks[1].text,'가는 법과 주차');assert.ok(doc.hasCustomFormatting);
+});

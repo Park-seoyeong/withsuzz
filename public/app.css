@@ -95,3 +95,8 @@
 .card-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-top:12px}
 .card-thumb{margin:0}.card-thumb img{width:100%;aspect-ratio:1;border-radius:12px;border:1px solid var(--line, #e8e0d6);display:block}
 .card-thumb figcaption{font-size:12px;margin-top:6px;line-height:1.4}
+
+/* 원고 미리보기·도구 */
+.draft-tools{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}.draft-tools code{background:#eef4f8;padding:1px 5px;border-radius:4px}
+.draft-preview{min-height:460px;font-size:14px;line-height:2;color:#2a2520}.draft-preview h3{font-size:19px;margin:28px 0 10px;padding-left:12px;border-left:4px solid var(--blue);color:#234966}.draft-preview p{margin:0 0 14px}
+.prompt-list{padding-left:20px;line-height:1.7}.prompt-list li{margin-bottom:12px}.prompt-list code{display:block;background:#f4f7fa;padding:6px 8px;border-radius:6px;font-size:11px;white-space:pre-wrap;margin-top:4px}

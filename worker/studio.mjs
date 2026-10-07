@@ -172,24 +172,35 @@ export const CARDS_SCHEMA = {type: 'object', additionalProperties: false, requir
   cards: {type: 'array', items: {type: 'object', additionalProperties: false, required: ['role', 'label', 'heading', 'lines', 'imagePrompt', 'imagePromptKo'], properties: {
     role: {type: 'string', enum: ['cover', 'section', 'tip', 'closing']}, label: {type: 'string'}, heading: {type: 'string'}, lines: {type: 'array', items: {type: 'string'}}, imagePrompt: {type: 'string'}, imagePromptKo: {type: 'string'}}}},
   warnings: {type: 'array', items: {type: 'string'}}}};
-export function cardsPrompt(item, guide = '') {
-  const data = JSON.stringify({title: st_text(item.title, 200), type: item.type, keyword: st_text(item.keyword, 100), region: st_text(item.region, 60), draft: st_text(item.draft, 14000), notes: st_text(item.draft ? '' : item.notes, 4000), styleGuide: st_text(guide, 3000)});
+export const CARD_DIRECTIONS = {
+  cards: {label: '카드뉴스 (글귀 카드)', count: 10, note: '표지·소제목별 핵심·꿀팁·마무리 카드. 사이트가 바로 PNG로 그린다.'},
+  summary: {label: '정보 요약 카드 (일정·요금·가는 법)', count: 5, note: '독자가 저장할 정리 카드: 기본 정보, 일정·시간, 요금·접수, 가는 법·주차, 준비물·팁.'},
+  thumbnail: {label: '대표 이미지 1장', count: 1, note: '검색 결과와 목록에 보일 대표 카드 한 장: 메인 키워드가 들어간 제목과 한 줄 요약.'},
+  photos: {label: '사진형 이미지 프롬프트만', count: 10, note: '카드는 그리지 않고, 본문 흐름에 맞춰 장면별 사진 생성 프롬프트(영어·한국어)만 만든다.'},
+};
+export function cardsPrompt(item, guide = '', direction = 'cards', mood = '') {
+  const dir = CARD_DIRECTIONS[direction] || CARD_DIRECTIONS.cards, n = dir.count;
+  const shape = direction === 'summary' ? '1장은 cover(제목·한 줄 요약), 나머지는 tip(정보 정리: label은 항목 이름, lines는 "항목: 값" 꼴 최대 3줄), 마지막은 closing(출발 전 확인·저장 유도).'
+    : direction === 'thumbnail' ? '정확히 1장 cover: heading은 메인 키워드가 앞에 오는 제목(18자 이내), lines는 한 줄 요약 1~2줄.'
+    : direction === 'photos' ? '카드 글귀는 간단히(heading만) 하고 imagePrompt에 힘을 준다: 본문 흐름 순서대로 장면·피사체·구도·시간대·조명·분위기를 구체적으로(사람 얼굴·로고·글자 없이).'
+    : '1장은 cover(제목 카드), 마지막 1장은 closing(마무리·저장 유도), 나머지는 section(소제목별 핵심)과 tip(꿀팁·체크리스트).';
+  const data = JSON.stringify({title: st_text(item.title, 200), type: item.type, keyword: st_text(item.keyword, 100), region: st_text(item.region, 60), draft: st_text(item.draft, 14000), notes: st_text(item.draft ? '' : item.notes, 4000), styleGuide: st_text(guide, 3000), direction: dir.label, mood: st_text(mood, 60)});
   return {
-    instructions: '너는 블로거 ‘써즈’의 콘텐츠 디자이너다. 원고를 읽고 블로그 본문 사이에 넣을 카드 이미지 ' + CARD_COUNT + '장의 글귀를 만든다.\n'
-      + '- 정확히 ' + CARD_COUNT + '장: 1장은 cover(제목 카드), 마지막 1장은 closing(마무리·저장 유도), 나머지는 section(소제목별 핵심)과 tip(꿀팁·체크리스트).\n'
-      + '- label은 카드 상단 작은 글(예: "위치·이용", "주문 팁"), heading은 18자 이내, lines는 1~3줄이고 한 줄 24자 이내. 모바일에서 한눈에 읽히게 짧게.\n'
+    instructions: '너는 블로거 ‘써즈’의 콘텐츠 디자이너다. 원고를 읽고 블로그에 넣을 이미지 ' + n + '장의 글귀와 이미지 프롬프트를 만든다. 방향: ' + dir.label + ' — ' + dir.note + '\n'
+      + '- 정확히 ' + n + '장. ' + shape + '\n'
+      + '- label은 카드 상단 작은 글, heading은 18자 이내, lines는 1~3줄이고 한 줄 24자 이내. 모바일에서 한눈에 읽히게 짧게.\n'
       + '- 원고에 있는 사실만 쓴다. 가격·시간·수치는 원고에 그대로 있을 때만 쓰고, 원고에 없는 경험·평가·과장(인생 맛집, 무조건 추천)은 넣지 않는다.\n'
-      + '- imagePrompt는 그 카드 자리에 사진형 이미지를 따로 만들 때 쓸 영어 프롬프트(사람 얼굴·브랜드 로고·글자 없이, 장면·분위기·구도·조명 위주, 300자 이내). imagePromptKo는 같은 내용 한국어 한 줄.\n'
+      + '- imagePrompt는 사진형 이미지를 만들 때 쓸 영어 프롬프트(사람 얼굴·브랜드 로고·글자 없이, 장면·분위기·구도·조명 위주, 300자 이내' + (mood ? ', 분위기: ' + st_text(mood, 60) : '') + '). imagePromptKo는 같은 내용 한국어 한 줄.\n'
       + '- 원고가 짧으면 lines를 더 짧게 하되 장수는 채우고, 채울 내용이 부족하면 warnings에 적는다.',
-    data, schema: CARDS_SCHEMA,
+    data, schema: CARDS_SCHEMA, count: n,
     example: {cards: [{role: 'cover', label: '', heading: '', lines: [''], imagePrompt: '', imagePromptKo: ''}], warnings: []},
   };
 }
-export function normalizeCards(r) {
+export function normalizeCards(r, count = CARD_COUNT) {
   const roles = ['cover', 'section', 'tip', 'closing'];
   let cards = (Array.isArray(r?.cards) ? r.cards : []).map(c => ({role: roles.includes(c?.role) ? c.role : 'section', label: st_text(c?.label, 30), heading: st_text(c?.heading, 40), lines: st_list(c?.lines, 3, 60), imagePrompt: st_text(c?.imagePrompt, 400), imagePromptKo: st_text(c?.imagePromptKo, 160)})).filter(c => c.heading || c.lines.length);
   if (!cards.length) throw Object.assign(new Error('카드 글귀를 만들지 못했어요. 원고를 조금 더 채운 뒤 다시 시도해 주세요.'), {status: 502});
-  cards = cards.slice(0, CARD_COUNT);
+  cards = cards.slice(0, count);
   if (cards[0].role !== 'cover') cards[0].role = 'cover';
   cards.forEach((c, n) => { if (n > 0 && c.role === 'cover') c.role = 'section'; });
   if (cards.length > 1 && cards[cards.length - 1].role !== 'closing') cards[cards.length - 1].role = 'closing';

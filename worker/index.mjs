@@ -15,7 +15,7 @@ import {questBoard,findQuest} from './quests.mjs';
 import {PRODUCT_SOURCES,PLATFORMS,saveProducts,deleteProduct,scoreProducts,productDraftItem,seasonCalendar,postPerformance,saveEarnings,deleteEarnings,earningsReport,platformCards,keywordOpportunities,recordAIUse,aiSpend,saveApiData,rekeyProducts,genericProducts,saveKeywordRows,profitReport,productMetric} from './products.mjs';
 import {savePrompt,deletePrompt,resolvePrompt,markPromptUsed} from './prompts.mjs';
 import {SUZZ_PROMPT_NAME,SUZZ_PROMPT_TEXT} from './suzz-prompt.mjs';
-import {SNS_SPEC,snsPrompt,normalizeSns,snsItems,seriesPrompt,normalizeSeries,seriesItems,compareDraftItem,styleSources,stylePrompt,saveStyleGuide,cardsPrompt,normalizeCards} from './studio.mjs';
+import {SNS_SPEC,snsPrompt,normalizeSns,snsItems,seriesPrompt,normalizeSeries,seriesItems,compareDraftItem,styleSources,stylePrompt,saveStyleGuide,cardsPrompt,normalizeCards,CARD_DIRECTIONS} from './studio.mjs';
 import {ASSISTANT_TOOLS,assistantWritingList,assistantWritingContext,saveAssistantProposal,requestAssistantWriting} from './assistant.mjs';
 const APP_HTML='__APP_HTML__',LOGIN_HTML='__LOGIN_HTML__',ASSETS={};
 const enc=new TextEncoder();
@@ -380,8 +380,9 @@ async function aiImageCards(b,db,env){
  if(!aiProvider(env))fail('AI 연결이 필요해요.',503);
  const {state}=await read(db),base=state.items.find(i=>i.id===b.itemId);if(!base)fail('글을 먼저 저장해 주세요.',404);
  if(!str(base.draft||base.notes).trim())fail('원고나 메모가 있어야 이미지 글귀를 만들 수 있어요.');
- let out,ok=true;try{out=normalizeCards(await generateJSON(cardsPrompt(base,state.styleGuide?.text||''),env));}catch(e){ok=false;throw e;}finally{await mutate(db,s=>{recordAIUse(s,{feature:'이미지 카드',provider:aiProvider(env),model:aiProvider(env)==='artifact'?'Claude (내 계정)':'',ok});return true;});}
- const saved=await mutate(db,s=>{const i=s.items.find(x=>x.id===base.id);if(!i)fail('글을 찾지 못했어요.',404);i.imageCards={at:new Date().toISOString(),cards:out.cards,warnings:out.warnings};event(s,'content','‘'+i.title+'’ 이미지 카드 '+out.cards.length+'장 글귀를 만들었어요.',{id:i.id});return i.imageCards;});
+ const direction=CARD_DIRECTIONS[b.direction]?b.direction:'cards',mood=str(b.mood,60),cp=cardsPrompt(base,state.styleGuide?.text||'',direction,mood);
+ let out,ok=true;try{out=normalizeCards(await generateJSON(cp,env),cp.count);}catch(e){ok=false;throw e;}finally{await mutate(db,s=>{recordAIUse(s,{feature:'이미지 카드',provider:aiProvider(env),model:aiProvider(env)==='artifact'?'Claude (내 계정)':'',ok});return true;});}
+ const saved=await mutate(db,s=>{const i=s.items.find(x=>x.id===base.id);if(!i)fail('글을 찾지 못했어요.',404);i.imageCards={at:new Date().toISOString(),direction,mood,cards:out.cards,warnings:out.warnings};event(s,'content','‘'+i.title+'’ 이미지 카드 '+out.cards.length+'장 글귀를 만들었어요.',{id:i.id});return i.imageCards;});
  return json({imageCards:saved.result});
 }
 async function aiSns(b,db,env){
