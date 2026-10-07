@@ -307,11 +307,16 @@ export function keywordOpportunities(state, day, limit = 12) {
     const season = seasons.find(s => s.keywords.some(x => pc_compact(x) === k)); if (season) parts.season = season.status === '한창' ? 90 : season.status === '지금 쓸 때' ? 100 : 40;
     const own = state.items.filter(i => pc_compact(i.keyword) === k || pc_compact(i.title).includes(k)); parts.gap = own.length === 0 ? 100 : own.length === 1 ? 60 : 25;
     if (amounts.length) parts.revenue = Math.min(100, Math.round(Math.sqrt(Math.max(...amounts) / 5000) * 100));
+    // 관심: 담은 상품의 리뷰 수(많을수록 사람들이 실제로 사는 품목)와 평점. 리뷰 10,000개면 100점, 1,000개면 75점, 100개면 50점.
+    const revs = products.map(p => p.reviews).filter(v => v !== null), rates = products.map(p => p.rating).filter(v => v !== null);
+    if (revs.length) parts.interest = Math.max(0, Math.min(100, Math.round(Math.log10(Math.max(...revs) + 1) * 25 + (rates.length ? (Math.max(...rates) - 4.5) * 20 : 0))));
     const inflow = (state.naverStats?.keywords || []).find(x => pc_compact(x.keyword) === k); if (inflow) parts.inflow = Math.min(100, Math.round(inflow.percentage * 8));
     // 확인되지 않은 신호는 중립값 30으로 둔다(근거가 적은 키워드가 만점이 되지 않게).
-    const w = {sold: 25, rising: 15, season: 15, gap: 15, revenue: 20, inflow: 10, volume: 15, competition: 10}, sum = Object.values(w).reduce((a, x) => a + x, 0), score = Math.round(Object.keys(w).reduce((a, x) => a + (parts[x] ?? 30) * w[x], 0) / sum);
-    const best = [...products].sort((a, b) => (a.salesRank ?? 999) - (b.salesRank ?? 999))[0] || null;
-    return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, metric: m ? {volume: m.volume ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, volumeChange: vc, lowPrice: m.shopping?.lowPrice ?? null, shopTotal: m.shopping?.total ?? null, updatedAt: m.updatedAt || null} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url} : null, golden: products.length > 0 && score >= 60};
+    const w = {sold: 25, rising: 15, season: 15, gap: 15, revenue: 20, inflow: 10, volume: 15, competition: 10, interest: 20}, sum = Object.values(w).reduce((a, x) => a + x, 0), score = Math.round(Object.keys(w).reduce((a, x) => a + (parts[x] ?? 30) * w[x], 0) / sum);
+    const best = [...products].sort((a, b) => (a.salesRank ?? 999) - (b.salesRank ?? 999) || (b.reviews ?? -1) - (a.reviews ?? -1))[0] || null;
+    // 골든: 점수 60 이상, 또는 검색량이 아직 없어도 리뷰가 많고(관심 70+) 수수료가 괜찮고(수익 50+) 내 글이 없는 품목.
+    const golden = products.length > 0 && (score >= 60 || ((parts.interest ?? 0) >= 70 && (parts.revenue ?? 0) >= 50 && own.length === 0));
+    return {keyword: c.keyword, from: [...c.from], score, parts, mentions, season: season ? {title: season.title, status: season.status} : null, metric: m ? {volume: m.volume ?? null, compIdx: m.compIdx ?? null, change: m.trend?.change ?? null, volumeChange: vc, lowPrice: m.shopping?.lowPrice ?? null, shopTotal: m.shopping?.total ?? null, updatedAt: m.updatedAt || null} : null, ownPosts: own.length, writtenToday: own.some(i => (i.createdAt || '').slice(0, 10) === day), product: best ? {id: best.id, name: best.name, source: best.source, commissionAmount: best.commissionAmount, salesRank: best.salesRank, url: best.url, reviews: best.reviews, rating: best.rating, count: products.length} : null, golden};
   }).filter(r => r.from.includes('담은 상품') || r.season || r.metric || r.score >= 50).filter(r => !dismissed.has(pc_compact(r.keyword)));
   // 골든 → 담은 상품이 있는 키워드 → 점수 순. 상품이 있는 키워드는 자리가 없어도 시즌 키워드보다 먼저 보인다.
   return rows.sort((a, b) => Number(b.golden) - Number(a.golden) || Number(!!b.product) - Number(!!a.product) || b.score - a.score).slice(0, limit);

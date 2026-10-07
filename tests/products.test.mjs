@@ -94,3 +94,14 @@ test('상품 글감은 같은 상품으로 두 번 만들지 않고, 겹친 빈 
   await call('/api/action', {action: 'saveItem', item: {title: a.title, productId: pid, channel: 'blog', type: 'affiliate'}});
   const r = await call('/api/action', {action: 'dedupeProductItems'}); assert.equal(r.result.removed, 0); assert.equal((await call('/api/state')).state.items.filter(i => i.productId === pid).length, 1);
 });
+
+test('리뷰가 많고 수수료가 괜찮은 카탈로그 품목은 검색량이 없어도 골든이 된다', async () => {
+  const {keywordOpportunities, saveProducts} = await import('../worker/products.mjs');
+  const state = {items: [], products: [], keywordMetrics: [], dismissedKeywords: []};
+  saveProducts(state, {source: 'brand', keyword: '오메가3', rows: [{name: '블랙모어스 오메가3 80캡슐', price: '47900', commissionRate: '18', rating: '4.86', reviews: '11023', url: 'https://brandconnect.naver.com/1/affiliate/products/2'}]});
+  saveProducts(state, {source: 'brand', keyword: '싱크볼', rows: [{name: '사각싱크볼 교체', price: '50000', commissionRate: '48', rating: '4.9', reviews: '12', url: 'https://brandconnect.naver.com/1/affiliate/products/3'}]});
+  const rows = keywordOpportunities(state, '2026-10-07', 20), o = rows.find(k => k.keyword === '오메가3'), s = rows.find(k => k.keyword === '싱크볼');
+  assert.ok(o.parts.interest >= 70 && o.golden, JSON.stringify(o.parts));
+  assert.ok(s.parts.interest < 70 && !s.golden, JSON.stringify(s.parts));
+  assert.equal(o.product.reviews, 11023); assert.ok(o.score > s.score);
+});
