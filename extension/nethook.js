@@ -16,7 +16,9 @@
     if (typeof name !== 'string' || name.length < 2 || !price) return null;
     const rate = num(pick(o, RATE)), amount = num(pick(o, AMOUNT));
     const id = String(pick(o, ['productId', 'id', 'productNo', 'itemId', 'nvMid', 'prodId']) || name);
-    return {id, name: name.replace(/<[^>]+>/g, '').trim().slice(0, 200), price, commissionRate: rate !== null ? String(rate <= 1 && rate > 0 ? Math.round(rate * 1000) / 10 : rate) : '', commissionAmount: amount !== null ? String(amount) : '', url: String(pick(o, URL_) || '').slice(0, 500), category: String(pick(o, CAT) || '').slice(0, 120), brand: String(pick(o, BRAND) || '').slice(0, 80), rating: pick(o, ['averageReviewScore', 'reviewScore', 'rating', 'score']) ?? '', reviews: pick(o, ['reviewCount', 'reviews', 'totalReviewCount']) ?? '', salesRank: pick(o, ['rank', 'salesRank', 'ranking']) ?? '', keys: Object.keys(o).slice(0, 30)};
+    // 링크 칸 이름을 모르면 값 중에 https 주소가 있는 칸을 쓴다.
+    const anyUrl = Object.values(o).find(v => typeof v === 'string' && /^https?:\/\/\S+$/.test(v) && !/\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(v));
+    return {id, name: name.replace(/<[^>]+>/g, '').trim().slice(0, 200), price, commissionRate: rate !== null ? String(rate <= 1 && rate > 0 ? Math.round(rate * 1000) / 10 : rate) : '', commissionAmount: amount !== null ? String(amount) : '', url: String(pick(o, URL_) || anyUrl || '').slice(0, 500), category: String(pick(o, CAT) || '').slice(0, 120), brand: String(pick(o, BRAND) || '').slice(0, 80), rating: pick(o, ['averageReviewScore', 'reviewScore', 'rating', 'score']) ?? '', reviews: pick(o, ['reviewCount', 'reviews', 'totalReviewCount']) ?? '', salesRank: pick(o, ['rank', 'salesRank', 'ranking']) ?? '', keys: Object.keys(o).slice(0, 30)};
   };
   window.suzzExtractRows = (json, depth = 0, out = []) => {
     if (!json || typeof json !== 'object' || depth > 12 || out.length >= 2000) return out;
