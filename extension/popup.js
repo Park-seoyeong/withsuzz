@@ -17,7 +17,7 @@ document.getElementById('grab').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
     const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['collect.js']});
     if (!result || (!result.text && !result.tables.length)) { status('이 화면에서 읽을 글자를 찾지 못했어요.'); return; }
-    if (result.kind === 'links' || result.kind === 'other') { status('이 화면(' + (result.activeTab || '') + ')은 상품 목록이 아니에요. 쇼핑 커넥트 → 상품 찾기 화면에서 보내 주세요.'); return; }
+    if (result.kind === 'links') { status('이 화면(' + (result.activeTab || '') + ')은 상품 목록이 아니에요. 쇼핑 커넥트 → 상품 찾기 화면에서 보내 주세요.'); return; }
     const {queue = []} = await chrome.storage.local.get('queue');
     await chrome.storage.local.set({queue: [...queue, result].slice(-20)});
     status(KIND[result.kind] + ' 화면을 담았어요. 사이트를 열면 받아져요.');
@@ -91,7 +91,7 @@ document.getElementById('crawl').addEventListener('click', async e => {
     if (!ok) { status('권한을 허락하지 않아 읽지 않았어요.'); return; }
     if (/brandconnect|shopping-connect|shoppingconnect/i.test(u.host + u.pathname)) {
       const [{result}] = await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['collect.js']}).catch(() => [{result: null}]);
-      if (result && result.kind !== 'products') { status('이 화면은 ‘' + (result.activeTab || result.kind) + '’이에요. 쇼핑 커넥트 → 상품 찾기 화면을 띄운 뒤 눌러 주세요.'); return; }
+      if (result && ['earnings', 'links'].includes(result.kind) && result.activeTab) { status('이 화면은 ‘' + result.activeTab + '’이에요. 쇼핑 커넥트 → 상품 찾기 화면을 띄운 뒤 눌러 주세요.'); return; }
     }
     status('뒤쪽 탭에서 목록을 끝까지 읽는 중… (쪽마다 몇 초, 창을 닫지 마세요)');
     const r = await chrome.runtime.sendMessage({type: 'suzz-crawl', url: tab.url, title: tab.title, kind: 'products'});

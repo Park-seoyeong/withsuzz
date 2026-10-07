@@ -2,8 +2,19 @@
 (() => {
   const url = location.href, host = location.hostname;
   // 브랜드커넥트(쇼핑 커넥트)는 지금 켜진 하위 탭으로 구분한다: 상품 찾기 → 상품, 판매 실적·정산 → 수익, 발급 링크 관리 → 링크(상품 아님).
-  const activeTab = (() => { for (const el of document.querySelectorAll('[aria-current], [aria-selected="true"], .active, .on, .selected, .is-active, [class*="active"], [class*="selected"]')) { const t = (el.innerText || '').replace(/\s+/g, ' ').trim(); if (/^(상품 ?찾기|판매 ?실적|발급 ?링크 ?관리|정산 ?관리|쇼핑 ?커넥트 ?소개)$/.test(t)) return t.replace(/\s+/g, ''); } return ''; })();
-  const bcKind = activeTab === '상품찾기' ? 'products' : /판매실적|정산관리/.test(activeTab) ? 'earnings' : activeTab === '발급링크관리' ? 'links' : activeTab ? 'other' : '';
+  const activeTab = (() => {
+    const TABS = /^(상품 ?찾기|판매 ?실적|발급 ?링크 ?관리|쇼핑 ?커넥트 ?소개)$/;
+    const cands = [...document.querySelectorAll('a, button, li, span, div')].filter(el => TABS.test((el.innerText || '').replace(/\s+/g, ' ').trim()) && el.children.length <= 2);
+    const isOn = el => {
+      const cls = String(el.className || '') + ' ' + String(el.parentElement?.className || '');
+      if (/inactive|disabled/i.test(cls)) return false;
+      if (el.getAttribute('aria-current') || el.getAttribute('aria-selected') === 'true' || el.parentElement?.getAttribute('aria-selected') === 'true') return true;
+      if (/(^|[\s_-])(active|on|selected|current|is-active)([\s_-]|$)/i.test(cls)) return true;
+      const cs = getComputedStyle(el); return Number(cs.fontWeight) >= 600 || (cs.borderBottomWidth !== '0px' && cs.borderBottomStyle !== 'none');
+    };
+    const on = cands.find(isOn); return on ? (on.innerText || '').replace(/\s+/g, '') : '';
+  })();
+  const bcKind = activeTab === '상품찾기' ? 'products' : activeTab === '판매실적' ? 'earnings' : activeTab === '발급링크관리' ? 'links' : '';
   const kind = /blackkiwi|keywordtool|keyword-tool|keywordsound|pandarank|itemscout|searchad\.naver\.com/i.test(url) ? 'keywords'
     : /admin\.blog\.naver\.com/.test(host) || /blog\.stat|\/stat\//.test(url) ? (/\/post|cv|views?/i.test(url) ? 'posts' : 'naver')
     : /brandconnect|shopping-connect|shoppingconnect/i.test(url) ? (bcKind || (/report|settle|perform|revenue|stat|income|정산/i.test(url) ? 'earnings' : 'products'))
