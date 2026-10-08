@@ -1,7 +1,7 @@
 import {readFile,mkdir,writeFile,rm,cp} from 'node:fs/promises';
 import {build} from 'esbuild';
 let domain=await readFile('worker/domain.mjs','utf8'),worker=await readFile('worker/index.mjs','utf8'),policy=await readFile('worker/editor-policy.mjs','utf8'),ai=await readFile('worker/ai.mjs','utf8');
-worker=worker.replace(/^import .* from '\.\/(?:domain|ai|naver|recommendations|reviews|assistant|learning-assistant|publishing|refresh|metrics|naver-posts|formatting|automatic|trends|prompts|quests|products|studio|suzz-prompt)\.mjs';\r?\n/gm,'');ai=ai.replace(/^import .* from '\.\/(?:editor-policy|studio)\.mjs';\r?\n/gm,'');
+worker=worker.replace(/^import .* from '\.\/(?:domain|ai|naver|recommendations|reviews|assistant|learning-assistant|publishing|refresh|metrics|naver-posts|formatting|automatic|trends|prompts|quests|products|studio|suzz-prompt)\.mjs';\r?\n/gm,'');ai=ai.replace(/^import .* from '\.\/(?:editor-policy|studio|formatting)\.mjs';\r?\n/gm,'');
 worker=worker.replace("'__APP_HTML__'",JSON.stringify(await readFile('public/index.html','utf8'))).replace("'__LOGIN_HTML__'",JSON.stringify(await readFile('public/login.html','utf8')));
 const assets={};for(const [name,type] of [['app.css','text/css'],['app.js','text/javascript']])assets['/'+name]={text:await readFile('public/'+name,'utf8'),type:type+'; charset=utf-8'};
 worker=worker.replace('ASSETS={}', 'ASSETS='+JSON.stringify(assets));

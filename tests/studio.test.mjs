@@ -208,7 +208,7 @@ test('내 블로그 글 전체 읽기: 목록은 합쳐지고 본문은 채워�
   await call('/api/action', {action: 'saveItem', item: {title: '테스트', channel: 'blog'}});
   const st = (await call('/api/state')).state;
   const {voiceBlock} = await import('../worker/ai.mjs');
-  assert.equal(voiceBlock(st), '');
+  assert.match(voiceBlock(st), /줄바꿈 호흡/); assert.doesNotMatch(voiceBlock(st), /말투 규칙/);
   const qaState = {...st, voiceQA: {questions: [], answers: [{question: '가격 표기는?', answer: '숫자 뒤에 원, 천 단위 쉼표', at: 'x'}]}, items: [{id: 'a', title: '고친 글', aiOriginal: '첫 줄\n둘째 줄\n셋째 줄\n넷째 줄', draft: '첫 줄\n고친 둘째 줄!\n고친 셋째 줄\n넷째 줄'}]};
   const vb = voiceBlock(qaState);
   assert.match(vb, /가격 표기는\? → 숫자 뒤에 원/); assert.match(vb, /써즈가 고친 뒤/); assert.match(vb, /고친 둘째 줄/);
@@ -217,4 +217,19 @@ test('내 블로그 글 전체 읽기: 목록은 합쳐지고 본문은 채워�
   const qs = normalizeVoiceQuestions({questions: [{id: 'x', question: '소제목 끝 마침표?', options: ['붙인다.', '안 붙인다'], why: 'w', example: 'e'}, {question: '옵션 하나', options: ['하나']}]});
   assert.equal(qs.length, 1); assert.equal(qs[0].id, 'q1');
   assert.match(voiceQuestionsPrompt(qaState).data, /가격 표기는/);
+});
+
+test('줄 길이: 발행 글에서 배운 길이로 원고를 문장 단위로 다시 줄바꿈한다', async () => {
+  const {lineProfile, reflowLines} = await import('../worker/formatting.mjs');
+  const rows = Array.from({length: 3}, (_, i) => ({url: 'https://blog.naver.com/withsuzz/22400000000' + i, title: 't' + i, readAt: 'x', text: Array.from({length: 20}, (_, k) => '오늘도 함께 떠나는 여행 블로거 써즈입니다 ' + k).join('\n')}));
+  const p = lineProfile({settings: {}, blogFeed: {rows}});
+  assert.ok(p.samples >= 40 && p.learned >= 20 && p.learned <= 26, JSON.stringify(p)); assert.equal(p.maxLen, p.learned); assert.equal(p.align, 'center');
+  assert.equal(lineProfile({settings: {lineLength: 30}, blogFeed: {rows}}).maxLen, 30);
+  assert.equal(lineProfile({settings: {}, blogFeed: {rows: []}}).maxLen, 26);
+  const body = '## 1. 가는 법\n\n서울역에서 KTX를 타면 전주역까지 1시간 반쯤 걸려요. 역에서 한옥마을까지는 버스로 20분 정도인데요, 택시를 타면 더 빨라요!\n\nhttps://example.com/x\n짧은 줄';
+  const out = reflowLines(body, 24);
+  const lines = out.split('\n');
+  assert.equal(lines[0], '## 1. 가는 법'); assert.ok(lines.every(l => [...l].length <= 28), out); assert.ok(out.includes('https://example.com/x'));
+  assert.ok(lines.filter(Boolean).length >= 5, out); assert.doesNotMatch(out, /걸려요\. 역에서/, '문장 끝에서 줄을 바꾼다');
+  assert.equal(reflowLines('이미 짧은 줄\n또 짧은 줄', 24), '이미 짧은 줄\n또 짧은 줄');
 });

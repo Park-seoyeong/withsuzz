@@ -1,4 +1,5 @@
 import {editedEnough,voiceRulesText} from './studio.mjs';
+import {lineProfile} from './formatting.mjs';
 import {EDITOR_POLICY} from './editor-policy.mjs';
 import Anthropic from '@anthropic-ai/sdk';
 const aiError=(message,status=502)=>Object.assign(new Error(message),{status});
@@ -14,9 +15,10 @@ export function styleSamples(state,excludeId){
 export function editSamples(state,excludeId,max=2){
  return state.items.filter(i=>i.id!==excludeId&&i.aiOriginal&&String(i.draft||'').trim()&&editedEnough(i.aiOriginal,i.draft)).slice(-max).map(i=>({title:i.title,before:String(i.aiOriginal).slice(0,1200),after:String(i.draft).slice(0,1200)}));
 }
+export function lineRule(state){const p=lineProfile(state);return '\n[줄바꿈 호흡] 써즈 글은 모바일 중앙정렬 기준으로 한 줄이 짧다: 한 줄 '+p.maxLen+'자 안팎(최대 '+(p.maxLen+4)+'자), 문장마다 줄을 바꾸고, 2~4줄마다 빈 줄로 문단을 나눈다. 한 줄에 두 문장을 붙이지 않는다.\n';}
 export function voiceBlock(state,excludeId){
  const rules=voiceRulesText(state),edits=editSamples(state,excludeId);
- return (rules?'\n[써즈가 직접 답한 말투 규칙 — 샘플보다 우선]\n'+rules+'\n':'')
+ return lineRule(state)+(rules?'\n[써즈가 직접 답한 말투 규칙 — 샘플보다 우선]\n'+rules+'\n':'')
   +(edits.length?'\n[써즈가 AI 초안을 고친 예 — 고친 쪽이 정답. 같은 방향으로 쓴다]\n'+edits.map(e=>'■ '+e.title+'\n<AI 초안 앞부분>\n'+e.before+'\n<써즈가 고친 뒤>\n'+e.after).join('\n\n')+'\n':'');
 }
 export function aiPrompt(job,state){

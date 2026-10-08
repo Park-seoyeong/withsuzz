@@ -50,3 +50,37 @@ export async function formattingDocument(state,item,hash,body=item.draft||''){
  return {itemId:item.id,draftHash,profileId:profile?.id||null,profileName:profile?.name||null,blocks,hasCustomFormatting:custom,stalePlan:!!item.formatting&&!active,bodyMappingVerified:!active||baseOffset>=0,notice:'서식 미리보기와 네이버 실제 적용 결과는 별도로 확인합니다. 모르는 글자 크기·색은 편집기 기본값을 유지합니다.'};
 }
 export function formattingOverview(state){return {profiles:state.formattingProfiles||[],studies:(state.formattingStudies||[]).slice(0,5)};}
+
+// ───────── 줄 길이(중앙정렬 호흡) ─────────
+// 써즈님이 실제 발행한 글(확장이 읽어 온 본문, 줄바꿈 보존)에서 한 줄 글자 수를 재어 ‘한 줄 최대 N자’를 정한다. 설정에 직접 적은 값이 있으면 그게 우선.
+export function lineProfile(state){
+ const manual=Number(state?.settings?.lineLength)||0;
+ const rows=(state?.blogFeed?.rows||[]).filter(r=>r.readAt&&String(r.text||'').includes('\n'));
+ const lens=[];
+ for(const r of rows.slice(0,30)){for(const l of String(r.text).split('\n')){const t=l.trim();if(t.length<4||t.length>120||/^##\s/.test(t))continue;lens.push([...t].length);}}
+ lens.sort((a,b)=>a-b);
+ const q=f=>lens.length?lens[Math.min(lens.length-1,Math.floor((lens.length-1)*f))]:0;
+ const learned=lens.length>=40?Math.max(14,Math.min(60,q(.8))):0;
+ return {maxLen:manual||learned||26,typical:lens.length?q(.5):0,learned,manual,samples:lens.length,posts:rows.length,align:state?.settings?.alignCenter===false?'left':'center'};
+}
+// 원고를 ‘한 줄 최대 maxLen자’로 다시 줄바꿈: 문장 끝(. ! ? 요 다)에서 먼저 끊고, 그래도 길면 쉼표·띄어쓰기에서 끊는다. ‘## ’ 소제목·빈 줄·URL·표 줄은 그대로.
+export function reflowLines(text,maxLen=26){
+ const n=Math.max(12,Number(maxLen)||26);
+ const chars=t=>[...t].length;
+ const splitSentences=t=>{const out=[];let buf='';const toks=t.split(/(?<=[.!?…])\s+|(?<=[요다죠네까]\s)/);for(const tk of toks){if(!tk)continue;buf+=buf&&!/\s$/.test(buf)?' '+tk:tk;if(/[.!?…]$/.test(buf.trim())||/[요다죠네까]$/.test(buf.trim())){out.push(buf.trim());buf='';}}if(buf.trim())out.push(buf.trim());return out;};
+ const wrap=sent=>{const lines=[];let cur='';for(const w of sent.split(/\s+/)){if(!w)continue;const next=cur?cur+' '+w:w;if(chars(next)<=n){cur=next;continue;}if(cur)lines.push(cur);cur=w;}if(cur)lines.push(cur);
+  // 쉼표 뒤에서 끊는 게 자연스러우면 그쪽을 우선: 너무 짧은 꼬리(5자 미만)는 앞 줄에 붙인다.
+  for(let i=lines.length-1;i>0;i--){if(chars(lines[i])<5&&chars(lines[i-1]+' '+lines[i])<=n+4){lines[i-1]+=' '+lines[i];lines.splice(i,1);}}
+  // 그래도 꼬리가 6자 미만이면 앞 줄의 마지막 낱말을 내려 꼬리를 채운다(‘걸려요.’만 남는 줄 방지).
+  for(let i=lines.length-1;i>0;i--){let guard=0;while(chars(lines[i])<6&&lines[i-1].includes(' ')&&guard++<3){const ws=lines[i-1].split(' ');const w=ws.pop();lines[i-1]=ws.join(' ');lines[i]=w+' '+lines[i];}}return lines;};
+ return String(text||'').replace(/\r/g,'').split(/\n[ \t]*\n+/).map(block=>{
+  const t=block.trim();if(!t)return '';
+  if(/^##\s+\S/.test(t)&&!t.includes('\n'))return t;
+  const lines=t.split('\n').map(l=>l.trim()).filter(Boolean);
+  // 이미 짧게 끊어져 있으면(모든 줄이 n자 이내) 그대로 둔다.
+  if(lines.every(l=>chars(l)<=n+2))return lines.join('\n');
+  const out=[];
+  for(const l of lines){if(/^https?:\/\//.test(l)||l.includes(' | ')||/^[①-⑳•\-·]/.test(l)&&chars(l)<=n+10){out.push(l);continue;}for(const sent of splitSentences(l))out.push(...wrap(sent));}
+  return out.join('\n');
+ }).join('\n\n').trim();
+}
