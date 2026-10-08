@@ -22,21 +22,26 @@ function chunked(db, feed = () => null) {
     const meta = await db.doc(META).get();
     if (!meta.exists) return { rev: 0, doc: null, parts: [] };
     const m = meta.data();
+    let fallback = null;
     for (let attempt = 0; attempt < 3; attempt++) {
       const snap = await db.collection(META + '/chunks').limit(1000).get();
       const parts = [];
       for (const d of snap.docs) { const n = Number(d.id.slice(1)); if (n < m.n) parts[n] = d.data().s; }
       const doc = parts.length === m.n && !parts.includes(undefined) ? parts.join('') : null;
       if (doc !== null && (!m.hash || m.hash === await digest(doc))) return { rev: m.rev, doc, parts };
+      // 조각이 다 있고 JSON으로 읽히면 복구 후보로 둔다(다른 창의 저장이 조각 하나만 덮어쓴 경우). 재시도 뒤에도 안 맞으면 이걸로 연다.
+      if (doc !== null && !fallback) { try { JSON.parse(doc); fallback = { rev: m.rev, doc, parts, repaired: true }; } catch {} }
       await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
     }
+    if (fallback) { console.warn('workspace: 저장 조각이 메타와 달라 복구 모드로 열었어요. 다음 저장 때 다시 맞춥니다.'); return fallback; }
     throw Object.assign(new Error('저장된 자료를 읽는 중 다른 창의 저장과 겹쳤어요. 잠시 뒤 다시 열어 주세요.'), { status: 409 });
   }
   async function current() { if (cache) return cache; if (!loading) loading = load().then(c => { cache = c; loading = null; return c; }, e => { loading = null; throw e; }); return loading; }
   async function write(rev, doc) {
     const parts = []; for (let i = 0; i < doc.length; i += CHUNK) parts.push(doc.slice(i, i + CHUNK));
+    // 조각은 항상 전부 다시 쓴다: 다른 창이 그사이 조각 하나를 바꿔 두었으면 ‘안 바뀌었다’고 건너뛴 조각이 메타와 어긋나 다음 열기에 실패했기 때문.
     const old = cache?.parts || [];
-    for (let i = 0; i < parts.length; i++) if (parts[i] !== old[i]) await db.doc(META + '/chunks/c' + String(i).padStart(4, '0')).set({ s: parts[i] });
+    for (let i = 0; i < parts.length; i++) if (parts[i] !== old[i] || cache?.repaired) await db.doc(META + '/chunks/c' + String(i).padStart(4, '0')).set({ s: parts[i] });
     ownRev = Math.max(ownRev, rev);
     await db.doc(META).set({ rev, n: parts.length, hash: await digest(doc), size: enc.encode(doc).length, at: new Date().toISOString() });
     for (let i = parts.length; i < old.length; i++) await db.doc(META + '/chunks/c' + String(i).padStart(4, '0')).delete();
