@@ -23,14 +23,16 @@ function chunked(db, feed = () => null) {
     if (!meta.exists) return { rev: 0, doc: null, parts: [] };
     const m = meta.data();
     let fallback = null;
+    // 조각 이름: 세대(gen)가 있으면 "<gen>-c0000", 예전 자료는 "c0000". 한 번의 저장은 새 세대 이름으로 조각을 전부 쓴 뒤 메타만 바꾸므로 두 창이 겹쳐도 섞이지 않는다.
+    const prefix = m.gen ? m.gen + '-c' : 'c';
     for (let attempt = 0; attempt < 3; attempt++) {
       const snap = await db.collection(META + '/chunks').limit(1000).get();
       const parts = [];
-      for (const d of snap.docs) { const n = Number(d.id.slice(1)); if (n < m.n) parts[n] = d.data().s; }
+      for (const d of snap.docs) { if (!d.id.startsWith(prefix) || (!m.gen && d.id.includes('-'))) continue; const n = Number(d.id.slice(prefix.length)); if (n < m.n) parts[n] = d.data().s; }
       const doc = parts.length === m.n && !parts.includes(undefined) ? parts.join('') : null;
-      if (doc !== null && (!m.hash || m.hash === await digest(doc))) return { rev: m.rev, doc, parts };
+      if (doc !== null && (!m.hash || m.hash === await digest(doc))) return { rev: m.rev, doc, parts, gen: m.gen || '' };
       // 조각이 다 있고 JSON으로 읽히면 복구 후보로 둔다(다른 창의 저장이 조각 하나만 덮어쓴 경우). 재시도 뒤에도 안 맞으면 이걸로 연다.
-      if (doc !== null && !fallback) { try { JSON.parse(doc); fallback = { rev: m.rev, doc, parts, repaired: true }; } catch {} }
+      if (doc !== null && !fallback) { try { JSON.parse(doc); fallback = { rev: m.rev, doc, parts, gen: m.gen || '', repaired: true }; } catch {} }
       await new Promise(r => setTimeout(r, 400 + Math.random() * 400));
     }
     if (fallback) { console.warn('workspace: 저장 조각이 메타와 달라 복구 모드로 열었어요. 다음 저장 때 다시 맞춥니다.'); return fallback; }
@@ -39,13 +41,15 @@ function chunked(db, feed = () => null) {
   async function current() { if (cache) return cache; if (!loading) loading = load().then(c => { cache = c; loading = null; return c; }, e => { loading = null; throw e; }); return loading; }
   async function write(rev, doc) {
     const parts = []; for (let i = 0; i < doc.length; i += CHUNK) parts.push(doc.slice(i, i + CHUNK));
-    // 조각은 항상 전부 다시 쓴다: 다른 창이 그사이 조각 하나를 바꿔 두었으면 ‘안 바뀌었다’고 건너뛴 조각이 메타와 어긋나 다음 열기에 실패했기 때문.
-    const old = cache?.parts || [];
-    for (let i = 0; i < parts.length; i++) if (parts[i] !== old[i] || cache?.repaired) await db.doc(META + '/chunks/c' + String(i).padStart(4, '0')).set({ s: parts[i] });
+    // 새 세대 이름으로 조각 전부를 먼저 쓰고, 마지막에 메타가 그 세대를 가리킨다. 다른 창이 동시에 저장해도 한 세대 안의 조각은 한 창이 쓴 것뿐이라 섞이지 않는다.
+    const gen = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    for (let i = 0; i < parts.length; i++) await db.doc(META + '/chunks/' + gen + '-c' + String(i).padStart(4, '0')).set({ s: parts[i] });
     ownRev = Math.max(ownRev, rev);
-    await db.doc(META).set({ rev, n: parts.length, hash: await digest(doc), size: enc.encode(doc).length, at: new Date().toISOString() });
-    for (let i = parts.length; i < old.length; i++) await db.doc(META + '/chunks/c' + String(i).padStart(4, '0')).delete();
-    cache = { rev, doc, parts };
+    await db.doc(META).set({ rev, n: parts.length, gen, hash: await digest(doc), size: enc.encode(doc).length, at: new Date().toISOString() });
+    const prev = cache?.gen || '', prevN = cache?.parts?.length || 0;
+    cache = { rev, doc, parts, gen };
+    // 이전 세대(또는 예전 이름 c0000…) 조각은 뒤에서 조용히 지운다. 실패해도 자료에는 영향 없음.
+    (async () => { for (let i = 0; i < prevN; i++) await db.doc(META + '/chunks/' + (prev ? prev + '-c' : 'c') + String(i).padStart(4, '0')).delete().catch(() => {}); })();
   }
   // 다른 창·기기에서 저장하면 다음 요청 때 새 자료를 읽는다.
   db.doc(META).onSnapshot(s => {
