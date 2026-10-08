@@ -106,3 +106,4 @@
 .chara .hat{transform-box:fill-box;transform-origin:bottom center}
 
 .chara-img{object-fit:contain;image-rendering:pixelated;image-rendering:crisp-edges;max-width:100%}.character img.chara-img{height:190px;animation:breathe 4s ease-in-out infinite;filter:drop-shadow(0 6px 3px #7b9ab415)}.levelup-chara img.chara-img{height:170px}
+.chara-fallback{display:contents}
