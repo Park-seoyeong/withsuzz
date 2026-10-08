@@ -55,7 +55,7 @@ export function formattingOverview(state){return {profiles:state.formattingProfi
 // 써즈님이 실제 발행한 글(확장이 읽어 온 본문, 줄바꿈 보존)에서 한 줄 글자 수를 재어 ‘한 줄 최대 N자’를 정한다. 설정에 직접 적은 값이 있으면 그게 우선.
 export function lineProfile(state){
  const manual=Number(state?.settings?.lineLength)||0;
- const rows=(state?.blogFeed?.rows||[]).filter(r=>r.readAt&&String(r.text||'').includes('\n'));
+ const rows=(state?.blogFeed?.rows||[]).filter(r=>r.readAt&&String(r.text||'').includes('\n')&&looksLikeBody(r.text));
  const lens=[];
  for(const r of rows.slice(0,30)){for(const l of String(r.text).split('\n')){const t=l.trim();if(t.length<4||t.length>120||/^##\s/.test(t))continue;lens.push([...t].length);}}
  lens.sort((a,b)=>a-b);
@@ -83,4 +83,31 @@ export function reflowLines(text,maxLen=26){
   for(const l of lines){if(/^https?:\/\//.test(l)||l.includes(' | ')||/^[①-⑳•\-·]/.test(l)&&chars(l)<=n+10){out.push(l);continue;}for(const sent of splitSentences(l))out.push(...wrap(sent));}
   return out.join('\n');
  }).join('\n\n').trim();
+}
+
+// ───────── 블로그 본문 골라내기 ─────────
+// 확장이 읽어 온 PostView 글자에는 광고·사이드바·글 목록이 섞여 있다. 프레임('----') 단위로 나눠 한국어 산문이 가장 많은 조각을 고르고, 인사말 앞과 댓글·공감 뒤를 잘라 본문만 남긴다.
+const BODY_JUNK=/^(AD|광고|더 알아보기|삭제|네이버|네이버 로그인|글 제목 \| 작성일|공유하기|신고하기|URL 복사|이웃추가|구독하기|목록|이전|다음|\(\d+\)|\s*\|\s*(\|\s*)*)$/;
+const BODY_LINE=/[가-힣]{2,}/;
+const PROSE_END=/(요|다|죠|네요|니다|까요|세요|거든요|잖아요|더라고요|데요)[.!?~♡♥)]*\s*$/;
+export function blogBody(text){
+ const raw=String(text||'').replace(/\r/g,'');
+ const segs=raw.split(/\n-{4,}\n/).map(seg=>seg.split('\n').map(l=>l.replace(/\s+$/,'')).filter(l=>!BODY_JUNK.test(l.trim())));
+ const score=lines=>lines.filter(l=>{const t=l.trim();return BODY_LINE.test(t)&&t.length>=8&&t.length<=90&&PROSE_END.test(t)&&!/\d{1,3}(,\d{3})+원|리뷰 \d+|^공지 /.test(t);}).length;
+ let best=segs[0]||[],bestScore=-1;for(const seg of segs){const sc=score(seg);if(sc>bestScore){best=seg;bestScore=sc;}}
+ let lines=best;
+ // 인사말(안녕하세요·써즈입니다)이 앞쪽 절반 안에 있으면 그 앞은 머리글·광고로 보고 버린다.
+ const hello=lines.findIndex(l=>/안녕하세요|써즈입니다|써즈예요|써즈에요/.test(l));
+ if(hello>0&&hello<lines.length*.5)lines=lines.slice(hello);
+ // 꼬리: 댓글·공감·이 블로그·태그·글 목록부터 자른다.
+ const tail=lines.findIndex((l,i)=>i>5&&/^(댓글|공감|이 블로그|태그\s*$|태그 편집|이웃추가|관련 글|인기 글|전체보기|카테고리|\s*공지 )/.test(l.trim()));
+ if(tail>0)lines=lines.slice(0,tail);
+ return lines.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+// 본문다운가: 한국어 산문 줄이 8줄 이상이고 전체 글자의 절반 이상이 그런 줄에 있어야 한다.
+export function looksLikeBody(text){
+ const lines=String(text||'').split('\n').map(l=>l.trim()).filter(Boolean);
+ const prose=lines.filter(l=>BODY_LINE.test(l)&&PROSE_END.test(l)&&l.length>=8);
+ const chars=lines.reduce((a,l)=>a+l.length,0),proseChars=prose.reduce((a,l)=>a+l.length,0);
+ return prose.length>=8&&chars>0&&proseChars/chars>=0.35;
 }

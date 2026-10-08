@@ -1,3 +1,4 @@
+import {looksLikeBody} from './formatting.mjs';
 // 콘텐츠 스튜디오: 블로그 글 하나 → SNS 묶음, 주제 하나 → 시리즈 기획, 상품 여러 개 → 비교 글.
 // AI가 만든 문구는 '초안'으로만 저장하고, 게시는 써즈님이 각 앱에서 직접 한다. 경험·숫자·날짜를 지어내지 않도록 프롬프트에서 막는다.
 const st_text = (v, n = 2000) => String(v ?? '').trim().slice(0, n);
@@ -164,7 +165,7 @@ export function styleSources(state) {
   const prompts = (state.prompts || []).filter(p => !p.archived && p.text);
   // 발행한 글: 사이트에 원고가 남은 글 + 확장이 RSS로 읽어 온 실제 발행 본문(말투의 가장 확실한 샘플).
   const own = (state.items || []).filter(i => i.status === '게시됨' && String(i.draft || '').trim().length > 300);
-  const feed = (state.blogFeed?.rows || []).filter(r => String(r.text || '').trim().length > 300 && !own.some(i => i.title === r.title)).map(r => ({title: r.title, draft: r.text, updatedAt: r.publishedAt || state.blogFeed.checkedAt}));
+  const feed = (state.blogFeed?.rows || []).filter(r => String(r.text || '').trim().length > 300 && (!r.readAt || looksLikeBody(r.text)) && !own.some(i => i.title === r.title)).map(r => ({title: r.title, draft: r.text, updatedAt: r.publishedAt || state.blogFeed.checkedAt}));
   const posts = [...feed.slice(0, 10).reverse(), ...own];
   // 써즈님이 AI 초안을 고친 글: 발행 전이라도 글자 3% 이상 바뀌었으면 취향 신호로 쓴다.
   const edits = (state.items || []).filter(i => i.aiOriginal && String(i.draft || '').trim() && editedEnough(i.aiOriginal, i.draft));

@@ -1,5 +1,5 @@
 import {editedEnough,voiceRulesText} from './studio.mjs';
-import {lineProfile} from './formatting.mjs';
+import {lineProfile,looksLikeBody} from './formatting.mjs';
 import {EDITOR_POLICY} from './editor-policy.mjs';
 import Anthropic from '@anthropic-ai/sdk';
 const aiError=(message,status=502)=>Object.assign(new Error(message),{status});
@@ -8,7 +8,7 @@ export const cleanCitations=s=>String(s||'').replace(/cite[^]*|【[^
 // 말투 샘플: 사이트에 원고가 남은 발행 글 + 확장이 RSS로 읽어 온 실제 발행 본문(최신 글부터). 사실은 옮기지 않고 말투만 배우게 한다.
 export function styleSamples(state,excludeId){
  const own=state.items.filter(x=>x.id!==excludeId&&x.status==='게시됨'&&String(x.draft||'').trim()).slice(0,2).map(x=>({title:x.title,excerpt:x.draft.slice(0,3000)}));
- const feed=(state.blogFeed?.rows||[]).filter(r=>String(r.text||'').trim().length>300&&!own.some(o=>o.title===r.title)).slice(0,4).map(r=>({title:r.title,excerpt:String(r.text).slice(0,3000),publishedAt:r.publishedAt||''}));
+ const feed=(state.blogFeed?.rows||[]).filter(r=>String(r.text||'').trim().length>300&&(!r.readAt||looksLikeBody(r.text))&&!own.some(o=>o.title===r.title)).slice(0,4).map(r=>({title:r.title,excerpt:String(r.text).slice(0,3000),publishedAt:r.publishedAt||''}));
  return [...feed,...own].slice(0,5);
 }
 // 써즈님이 AI 초안을 직접 고친 글: 무엇을 어떻게 바꿨는지(초안 앞부분 ↔ 고친 뒤 앞부분)를 짧게 붙여 같은 실수를 되풀이하지 않게 한다.

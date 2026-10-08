@@ -195,7 +195,7 @@ test('내 블로그 글 전체 읽기: 목록은 합쳐지고 본문은 채워�
   const sql = new DatabaseSync(':memory:'); sql.exec(readFileSync(new URL('../drizzle/0000_workspace.sql', import.meta.url), 'utf8'));
   const env = {ARTIFACT: '1', DB: {prepare(q) { let a = []; return {bind(...x) { a = x; return this; }, async first() { return sql.prepare(q).get(...a) || null; }, async run() { return {meta: {changes: sql.prepare(q).run(...a).changes}}; }}; }}};
   const call = async (p, b) => { const r = await worker.fetch(new Request('https://t.local' + p, b ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(b)} : {}), env); return r.json(); };
-  const long = '오늘도 함께 떠나는 여행 블로거 써즈입니다. '.repeat(20);
+  const long = Array.from({length: 12}, (_, i) => '오늘도 함께 떠나는 여행 블로거 써즈입니다 ' + i + '번째 줄이에요').join('\n');
   const r1 = (await call('/api/action', {action: 'applyBlogPosts', rows: [{url: 'https://blog.naver.com/withsuzz/224000000001', title: '옛 글 1', publishedAt: '2025-01-02'}, {url: 'https://blog.naver.com/withsuzz/224000000002', title: '옛 글 2', publishedAt: '2025-02-03', text: long}, {url: 'https://evil.example/x', title: '딴 데', text: long}]})).result;
   assert.equal(r1.added, 2); assert.equal(r1.texted, 1); assert.equal(r1.total, 2);
   const r2 = (await call('/api/action', {action: 'applyBlogPosts', rows: [{url: 'https://blog.naver.com/PostView.naver?blogId=withsuzz&logNo=224000000001', title: '옛 글 1', text: long}]})).result;
@@ -221,9 +221,9 @@ test('내 블로그 글 전체 읽기: 목록은 합쳐지고 본문은 채워�
 
 test('줄 길이: 발행 글에서 배운 길이로 원고를 문장 단위로 다시 줄바꿈한다', async () => {
   const {lineProfile, reflowLines} = await import('../worker/formatting.mjs');
-  const rows = Array.from({length: 3}, (_, i) => ({url: 'https://blog.naver.com/withsuzz/22400000000' + i, title: 't' + i, readAt: 'x', text: Array.from({length: 20}, (_, k) => '오늘도 함께 떠나는 여행 블로거 써즈입니다 ' + k).join('\n')}));
+  const rows = Array.from({length: 3}, (_, i) => ({url: 'https://blog.naver.com/withsuzz/22400000000' + i, title: 't' + i, readAt: 'x', text: Array.from({length: 20}, (_, k) => '오늘도 함께 떠나는 여행 블로거 써즈예요 ' + k + '번째 줄이에요').join('\n')}));
   const p = lineProfile({settings: {}, blogFeed: {rows}});
-  assert.ok(p.samples >= 40 && p.learned >= 20 && p.learned <= 26, JSON.stringify(p)); assert.equal(p.maxLen, p.learned); assert.equal(p.align, 'center');
+  assert.ok(p.samples >= 40 && p.learned >= 28 && p.learned <= 34, JSON.stringify(p)); assert.equal(p.maxLen, p.learned); assert.equal(p.align, 'center');
   assert.equal(lineProfile({settings: {lineLength: 30}, blogFeed: {rows}}).maxLen, 30);
   assert.equal(lineProfile({settings: {}, blogFeed: {rows: []}}).maxLen, 26);
   const body = '## 1. 가는 법\n\n서울역에서 KTX를 타면 전주역까지 1시간 반쯤 걸려요. 역에서 한옥마을까지는 버스로 20분 정도인데요, 택시를 타면 더 빨라요!\n\nhttps://example.com/x\n짧은 줄';
@@ -232,4 +232,14 @@ test('줄 길이: 발행 글에서 배운 길이로 원고를 문장 단위로 �
   assert.equal(lines[0], '## 1. 가는 법'); assert.ok(lines.every(l => [...l].length <= 28), out); assert.ok(out.includes('https://example.com/x'));
   assert.ok(lines.filter(Boolean).length >= 5, out); assert.doesNotMatch(out, /걸려요\. 역에서/, '문장 끝에서 줄을 바꾼다');
   assert.equal(reflowLines('이미 짧은 줄\n또 짧은 줄', 24), '이미 짧은 줄\n또 짧은 줄');
+});
+
+test('블로그 본문 골라내기: 광고·글 목록 프레임을 버리고 인사말부터 댓글 앞까지만 남긴다', async () => {
+  const {blogBody, looksLikeBody} = await import('../worker/formatting.mjs');
+  const ad = '복잡한 통로 안내는 한 번에!\n\n킨코스코리아\n더 알아보기\nAD\n\n----\n\n네이버\n잠깐! 주목할 만한 상품들이에요.\n광고\n\n[액션캠대여] 인천공항 오즈모 포켓4 콤보\n\n7,900원\n리뷰 232\n\n----\n\n';
+  const body = Array.from({length: 12}, (_, i) => '오늘도 함께 떠나는 여행 블로거 써즈입니다 ' + i + '번째 줄이에요').join('\n');
+  const raw = ad + '블로그 메뉴\n' + body + '\n댓글 3\n공감\n이 블로그 여행 카테고리 글\n공지 상하이 유람선 예약 | 2026. 6. 30.';
+  const out = blogBody(raw);
+  assert.ok(out.startsWith('오늘도 함께'), out.slice(0, 60)); assert.ok(!out.includes('AD') && !out.includes('7,900원') && !out.includes('댓글 3'), out);
+  assert.equal(looksLikeBody(out), true); assert.equal(looksLikeBody(ad), false);
 });
