@@ -788,7 +788,7 @@ function renderWeek(){
     for (const row of notion.values()){
       if (row.day!==d || linkedPostFor(row.id)) continue;
       const label = (row.platform==="인스타"?"[인스타] ":"")+row.title;
-      chips.push(el("a",{class:"chip s-other",href:notionLink(row.id),target:"_blank",rel:"noopener",title:"원고 파일 없음 · 노션에서 열기"},label));
+      chips.push(el("a",{class:"chip s-other"+(row.status==="게시됨"?" s-published":(row.day<today?" s-late":"")),href:notionLink(row.id),target:"_blank",rel:"noopener",title:"원고 파일 없음 · 노션에서 열기"},label));
     }
     const bc = blogCount(d), over = bc > MAX_PER_DAY;
     days.append(el("div",{class:"day"+(d===today?" today":"")+(over?" over":""),title:over?"블로그 글이 하루 "+MAX_PER_DAY+"편을 넘어요":null},
