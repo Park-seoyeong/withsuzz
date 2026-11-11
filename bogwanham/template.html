@@ -456,7 +456,7 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
         <div class="memo">
           <textarea id="order-text" placeholder="팀에게 시킬 일을 적어요. 예: 다음 주 빈 날에 넣을 중국 원고 주제 3개"></textarea>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="pbtn" type="button" id="order-save">업무지시 보내기</button><span class="hint2" id="order-note"></span></div>
-          <p class="next-note">다음 확인 예정: 10:30/14:30/17:30</p>
+          <p class="next-note"><a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="누르면 '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-right:6px">클로드 열어 처리 요청</a>다음 확인 예정: 10:30/14:30/17:30</p>
         </div>
         <div id="order-filters" style="display:grid;gap:6px"></div>
         <div class="fill"><ul class="hl" id="order-list"></ul></div>
@@ -1563,8 +1563,14 @@ async function addIdea(k, btn, after){
   if (!mcp){ btn.textContent = "노션 연결 안 됨"; return; }
   btn.disabled = true; btn.textContent = "추가 중…";
   try{
-    await mcp.callTool("Notion","notion-create-pages",{parent:{type:"data_source_id", data_source_id:"3173bc48-9771-8143-81a8-000b606bdf00"}, pages:[{properties:{"게시물 제목":k, "상태":"아이디어", "플랫폼":"블로그"}}]},{cache:false});
-    btn.textContent = "노션에 추가됨"; if (after) after();
+    const res = await mcp.callTool("Notion","notion-create-pages",{parent:{type:"data_source_id", data_source_id:"3173bc48-9771-8143-81a8-000b606bdf00"}, pages:[{properties:{"게시물 제목":k, "상태":"아이디어", "플랫폼":"블로그"}}]},{cache:false});
+    const m = notionText(res).match(/[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}/i);
+    const id = m ? m[0].replace(/-/g,"").toLowerCase() : "";
+    if (id){ (HOME.ideaIds = HOME.ideaIds || {})[k] = id; }
+    btn.textContent = "노션에 추가됨";
+    // 추가하자마자 바로 원고 쓰기를 요청할 수 있게 같은 입력창을 붙임
+    if (id && btn.parentNode && !after) btn.parentNode.append(writeControl({id, title:k, region:"", type:""}));
+    if (after) after();
   }catch(e){ btn.disabled = false; btn.textContent = "다시 시도"; }
 }
 function pickItem(c){
@@ -1981,7 +1987,8 @@ function renderSeason(){
     const dup = similarTo(t, titles);
     const btn = el("button",{class:"sbtn",type:"button",disabled:!!dup,title:dup?"비슷한 제목: "+dup:null}, dup?"이미 있어요":"노션에 아이디어로 추가");
     if (!dup) btn.addEventListener("click",()=>addIdea(t, btn, ()=>{ HOME.addedIdeas.add(t); renderSeason(); }));
-    return el("div",{class:"stopic"}, el("div",{class:"row"}, el("b",{},t), field==="전체"?el("span",{class:"tag wait"},f):null), btn);
+    const iid = HOME.ideaIds && HOME.ideaIds[t];
+    return el("div",{class:"stopic"}, el("div",{class:"row"}, el("b",{},t), field==="전체"?el("span",{class:"tag wait"},f):null), iid ? el("span",{class:"hint2"},"노션에 추가됨") : btn, iid ? writeControl({id:iid, title:t, region:"", type:""}) : null);
   })));
   box.replaceChildren(...kids);
 }
@@ -2104,6 +2111,8 @@ document.getElementById("home-search").addEventListener("input", renderSearch);
 document.getElementById("home-search").addEventListener("focus", renderSearch);
 document.getElementById("bell-btn").addEventListener("click", ()=>{ const p = document.getElementById("bell-pop"); p.hidden = !p.hidden; });
 document.getElementById("menu-btn").addEventListener("click", ()=>showView("vault"));
+(function(){ const a = document.getElementById("order-open"); if (!a) return; const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); a.href = (t && t.href) || "#";
+  a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText("업무지시 확인해"); a.textContent = "복사됨 · 붙여 넣고 보내세요"; setTimeout(()=>{ a.textContent = "클로드 열어 처리 요청"; }, 4000); }catch(e){} }); })();
 document.getElementById("cal-prev").addEventListener("click", ()=>{ HOME.calMonth = addMonths(HOME.calMonth,-1); renderCalendar(); renderSeason(); });
 document.getElementById("cal-next").addEventListener("click", ()=>{ HOME.calMonth = addMonths(HOME.calMonth,1); renderCalendar(); renderSeason(); });
 document.getElementById("cal-today").addEventListener("click", ()=>{ HOME.calMonth = kstToday().slice(0,7); renderCalendar(); renderSeason(); });
