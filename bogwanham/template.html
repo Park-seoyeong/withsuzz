@@ -508,6 +508,12 @@ body{font-size:16px}
 .toss{max-width:1000px;margin:0 auto;width:100%}
 .hello{font-size:24px;font-weight:700;letter-spacing:-.02em;line-height:1.4;margin:8px 4px 16px;color:var(--ink)}
 .hello em{font-style:normal;color:var(--st-todo)}
+.report{gap:12px}.report .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}
+.report .rrow{display:grid;gap:4px;padding:12px 14px;border-radius:16px;background:var(--bg);min-width:0}
+.report .rrow b{font-size:13px;color:var(--muted)}.report .rrow .v{font-size:15px;line-height:1.5;color:var(--ink)}
+.report .rrow .v em{font-style:normal;font-weight:800;color:#5B7DC4}.report .rrow.wide{grid-column:1/-1}
+.report .ri{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px;border:0;background:none;width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--ink)}
+@media (max-width:720px){.report .rgrid{grid-template-columns:1fr}}
 .tcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 .tcol{display:grid;gap:14px;min-width:0}
 .tcard{background:var(--surface);border-radius:24px;padding:20px;box-shadow:var(--shadow-s);display:grid;gap:10px;min-width:0}
@@ -645,6 +651,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     <div class="vhome view" id="view-home">
     <div class="toss" id="toss-home">
       <div class="hellorow"><span class="hchar" id="hello-char"></span><h2 class="hello" id="hello"></h2></div>
+      <section class="tcard report" id="t-report" aria-label="오늘 현황과 보고"></section>
       <div class="tcols">
         <div class="tcol">
           <section class="tcard" id="t-now" aria-label="지금 할 일"></section>
@@ -2517,7 +2524,7 @@ const GUIDE_CARDS = [
     "A 정보·이슈 / B 날씨 / C 정보 비교 / D 후기·장소 / E 후기·제품. 체험단은 D·E에 덧붙이는 옵션.",
     "제목 블록(노란 영문 라벨 → 제목 2줄 → written by 써즈 → 짧은 선), 인사는 \"안녕하세요, 여행 블로거 써즈입니다.\" 한 줄.",
     "섹션은 CHAPTER 01 + 남색 제목, 인용구·소제목은 글당 1번(Q&A가 있으면 '자주 묻는 질문'만).",
-    "Q&A 답변은 한 줄로 끝내지 않고 2~3문장(이유·조건·대안까지).",
+    "Q&A 답변은 짧게 1~2문장, 한 줄 25자 안팎에서 줄을 끊어요(긴 한 줄 금지).",
     "하이라이트: 가격·조건 연노랑, 좋은 점 하늘, 핵심 한 줄 핑크(2~3곳), 주의는 파랑 굵게. 본문 글씨 #141414.",
     "본문에 스티커·사진·지도·링크카드 자리 표시나 작업 메모를 넣지 않아요."]},
   {name:"CPA(제휴) 글 규칙", file:"써즈_CPA글_구성가이드.md", pts:[
@@ -2825,6 +2832,25 @@ function stepBar(it){
 }
 function dday(it){ return it.deadline ? "★ ~"+md(it.deadline)+" 마감" : (it.day ? md(it.day)+" 발행" : "날짜 미정"); }
 
+// 홈 ⓪ 오늘 현황·보고 (자기 전에 한 번에 보는 카드)
+function renderHomeReport(){
+  const box = document.getElementById("t-report"); if (!box) return;
+  const t = kstToday(), tm = addDays(t,1), today = itemsOnDay(t), pub = today.filter(i=>i.published), tmr = itemsOnDay(tm).filter(i=>!i.published);
+  const vis = visitInfo(), vs = (HOME.stats && HOME.stats.visitors) || [], yd = vs.find(x=>x.date===addDays(t,-1));
+  let visTxt = "데이터 없음";
+  if (vis.n!=null && !isNaN(vis.n)){ visTxt = "오늘 "+num(vis.n)+"명"; if (yd && yd.cnt!=null){ const d = vis.n-yd.cnt; visTxt += " · 어제 "+num(yd.cnt)+"명 ("+(d>=0?"+":"")+num(d)+")"; } }
+  const late = POSTS.filter(p=>isLate(p.id)).length;
+  let week = 0; for (let i=1;i<=7;i++) week += itemsOnDay(addDays(t,i)).filter(x=>!x.published).length;
+  const waiting = HOME.ordersState==="ok" ? HOME.orders.filter(o=>!o.done).length : null, stuck = (()=>{ try{ return blockers().length; }catch(e){ return 0; } })();
+  const rows = [
+    el("div",{class:"rrow"}, el("b",{},"오늘 발행"), el("div",{class:"v"}, notionState==="ok" ? el("span",{}, el("em",{}, pub.length+"편"), pub.length ? " · "+pub.map(i=>i.title).join(" / ").slice(0,70) : " (아직 없어요)") : "노션 불러오는 중…")),
+    el("div",{class:"rrow"}, el("b",{},"방문자"), el("div",{class:"v"}, visTxt)),
+    el("div",{class:"rrow wide"}, el("b",{},"내일 할 일 ("+md(tm)+")"), tmr.length ? el("div",{}, ...tmr.slice(0,4).map(i=>el("button",{class:"ri",type:"button",onclick:()=>openDetail(i.key)}, stageChip(i), el("span",{}, i.title)))) : el("div",{class:"v"}, notionState==="ok" ? "내일 잡힌 원고가 없어요" : "노션 불러오는 중…")),
+    el("div",{class:"rrow"}, el("b",{},"미발행 현황"), el("div",{class:"v"}, "날짜 지난 것 ", el("em",{}, late+"편"), " · 앞으로 7일 안 ", el("em",{}, week+"편"))),
+    el("div",{class:"rrow"}, el("b",{},"AI 팀"), el("div",{class:"v"}, waiting==null ? "데이터 없음" : "대기 중 업무지시 "+waiting+"건", stuck ? " · 막힌 것 "+stuck+"건" : " · 막힌 것 없음")),
+  ];
+  box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("통계","mini"), "오늘 현황·보고"), el("small",{}, md(t))), el("div",{class:"rgrid"}, ...rows), homeMeetLine());
+}
 // 홈 ① 인사 + 지금 할 일
 function renderHomeNow(){
   const hello = document.getElementById("hello"), box = document.getElementById("t-now"); if (!hello || !box) return;
@@ -2965,9 +2991,9 @@ function homeMeetLine(){
 function renderHomeAsk(){
   const box = document.getElementById("t-ask"); if (!box) return;
   box.replaceChildren(el("button",{class:"ask",type:"button",onclick:()=>openOrderModal()}, el("span",{},"팀에게 시킬 일 적기"), el("b",{},"보내기")),
-    el("a",{class:"tiny",href:"#stats",onclick:(e)=>{ e.preventDefault(); showView("stats"); }}, avatar("통계","mini"), (visitInfo().n==null||isNaN(visitInfo().n) ? "오늘 방문자 보기 ›" : "오늘 방문자 "+num(visitInfo().n)+"명 ›")), homeMeetLine());
+    el("a",{class:"tiny",href:"#stats",onclick:(e)=>{ e.preventDefault(); showView("stats"); }}, avatar("통계","mini"), (visitInfo().n==null||isNaN(visitInfo().n) ? "오늘 방문자 보기 ›" : "오늘 방문자 "+num(visitInfo().n)+"명 ›")));
 }
-function renderToss(){ for (const f of [renderHomeNow, renderHomeLeft, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
+function renderToss(){ for (const f of [renderHomeReport, renderHomeNow, renderHomeLeft, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
 
 // 더보기·원고 화면 위 바로가기
 function renderMoreBanner(){
@@ -3112,7 +3138,7 @@ async function loadMeetings(){
     list.sort((a,b)=>String(a.date).localeCompare(String(b.date)) || (a.slot==="am"?-1:1)-(b.slot==="am"?-1:1));
     M.list = list; M.state = list.length ? "ok" : "none"; M.idx = Math.max(0, list.length-1);
   }catch(e){ M.state = "off"; }
-  renderMeet(); renderMeetAlert(); renderBell(); try{ renderHomeAsk(); }catch(e){}
+  renderMeet(); renderMeetAlert(); renderBell(); try{ renderHomeAsk(); renderHomeReport(); }catch(e){}
 }
 function renderMeetAlert(){
   const box = document.getElementById("meet-alert"); if (!box) return;
@@ -3158,7 +3184,7 @@ function renderMeet(keepScroll){
     el("div",{class:"chat"}, ...y.lines.map(l=>{ const c = castOf(l.who); return el("div",{class:"msg m-"+l.who}, avatar(c?c.img:"원고"), el("div",{}, el("span",{class:"nm"},l.who), el("br"), el("span",{class:"bub"},l.text))); }))))));
   kids.push(note);
   box.replaceChildren(...kids);
-  try{ renderHomeAsk(); }catch(e){}
+  try{ renderHomeAsk(); renderHomeReport(); }catch(e){}
   const ch = document.getElementById("chat"); if (ch && animating) ch.scrollTop = ch.scrollHeight;
   if (animating && shown>0 && shown<=total){ const l = x.lines[shown-1]; HOME.speak = {who:l.who, text:l.text, until:Date.now()+1900}; if (stageOn()){ stageSync(); setTimeout(stageSync, 2000); } }
 }
