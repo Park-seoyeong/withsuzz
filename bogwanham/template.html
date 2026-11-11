@@ -329,6 +329,16 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .ci .cn{display:inline-block;width:6px;height:6px;border-radius:50%;background:#E58AA0;margin-right:3px;vertical-align:1px}
 .ci .dl{font-size:10px;margin:0 3px 0 0}
 .cal-more{font-size:10.5px;color:var(--muted);padding-left:4px}
+.nopost-box>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
+.nopost-box>summary::-webkit-details-marker{display:none}
+.nopost-box>summary h2{margin:0}
+.nopost-box>summary::before{content:"▸";color:var(--muted)}
+.nopost-box[open]>summary::before{content:"▾"}
+#nopost{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow:auto;margin-top:10px}
+#nopost .card{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;padding:7px 12px}
+#nopost .card-title{flex:1 1 220px;min-width:0;font-size:13px}
+#nopost .wform{flex:0 0 auto}
+#nopost .wform:has(textarea){flex:1 1 100%}
 .undated{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
 .undated h4{margin:0 0 8px;font:700 13px var(--round)}
 .undated ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
@@ -550,13 +560,10 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
     <div class="cards" id="archive"></div>
   </section>
 
-  <section class="archive" aria-labelledby="nopost-title">
-    <div class="week-head">
-      <h2 id="nopost-title">원고 파일 없는 노션 항목</h2>
-      <span class="hint">노션에만 있고 원고가 아직 없는 글이에요(날짜 지난 건 뺐어요). "원고 쓰기"를 누르면 클로드에게 업무지시가 가요.</span>
-    </div>
+  <details class="archive nopost-box" id="nopost-box">
+    <summary><h2 id="nopost-title">원고 파일 없는 노션 항목</h2><span class="hint">눌러서 펼치기 · 노션에만 있고 원고가 아직 없는 글이에요(날짜 지난 건 뺐어요). "원고 쓰기"를 누르면 클로드에게 업무지시가 가요.</span></summary>
     <div class="cards" id="nopost"></div>
-  </section>
+  </details>
 
   <div class="main">
     <section class="listbox" aria-label="원고 목록">
@@ -1390,7 +1397,7 @@ function renderNoPost(){
     el("b",{class:"card-title"}, r.title),
     el("div",{class:"row",style:"display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"},
       el("span",{class:"tag"}, r.day ? md(r.day) : "날짜 미정"), r.region ? el("span",{class:"tag"}, r.region) : null, r.type ? el("span",{class:"tag"}, r.type) : null,
-      el("a",{class:"sbtn",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션")),
+      el("a",{class:"sbtn",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션열기")),
     writeControl(r))), rows.length>60 ? el("p",{class:"hint"},"외 "+(rows.length-60)+"편은 노션에서 확인해 주세요.") : null);
 }
 function renderTodo(){
