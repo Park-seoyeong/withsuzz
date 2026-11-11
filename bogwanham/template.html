@@ -548,6 +548,7 @@ body{font-size:16px}
 .vact{display:grid;gap:8px;margin-top:10px;color:var(--ink);font-weight:500}.vact .muted{color:var(--ink)}
 .tools2{background:var(--surface);border-radius:20px;padding:12px 16px;box-shadow:var(--shadow-s)}.tools2 summary{cursor:pointer;font-weight:700}.tools2 .btnrow{margin:10px 0}
 .hl li{font-size:15px}
+.sc.c-gray{background:var(--sunk);color:var(--muted)}.flow3{display:flex;gap:6px}.warnline{margin:0;color:#B5473F;font-size:14px;font-weight:600}
 @media (max-width:980px){.tcols{grid-template-columns:1fr}.toss{max-width:680px}}
 @media (max-width:720px){
   body{padding-bottom:84px}
@@ -1239,6 +1240,7 @@ async function loadNotion(refresh){
     notionState = (e && e.code==="not_granted") ? "denied" : "off";
   }
   renderNotionNote(); rerender(); if (!editing()) renderViewer();
+  try{ autoPublish(); }catch(e){}
 }
 
 // ===================== 동방.zip 메인 홈 =====================
@@ -1428,9 +1430,9 @@ function cleanOrder(text){
   const bare = t.match(/https?:\/\/\S+/); if (bare){ if (!link) link = bare[0]; t = t.replace(/https?:\/\/\S+/g,""); }
   t = t.replace(/<\/?[a-z][^>]*>/gi,"").replace(/\b[0-9a-f]{32}\b/gi,"");
   const parts = t.split("|").map(x=>x.trim()).filter(x=>x && x!=="-");
-  const m = (parts[0]||"").match(/^(원고 작성|원고 수정|말투 기록 반영|규칙 추가)\s*:\s*(.*)$/);
+  const m = (parts[0]||"").match(/^(원고 작성|원고 수정|원고 임시저장|말투 기록 반영|규칙 추가)\s*:\s*(.*)$/);
   if (m){
-    const rest = parts.slice(1).filter(x=>!/^적용 가이드/.test(x) && !/^구성·경험|^가이드라인|^메인:|^서브:|^사진 메모|^링크 자리/.test(x));
+    const rest = parts.slice(1).filter(x=>!/^적용 가이드/.test(x) && !/^구성·경험|^가이드라인|^메인:|^서브:|^사진 메모|^링크 자리|^아티팩트|^사진 자리|^써즈 사진/.test(x));
     return {kind:m[1], title:m[2]||"(제목 없음)", sub: m[1]==="원고 수정" ? rest.filter(x=>!/^\d{4}-\d{2}-\d{2}_/.test(x)).slice(0,2).join(" · ") : "", link};
   }
   return {kind:"", title:parts.join(" · ") || t.trim(), sub:"", link};
@@ -2652,9 +2654,36 @@ function mkItem(p, r){
   const published = r ? r.status==="게시됨" : !!(s && s.status==="published");
   const order = r ? writeOrderFor(r) : null;
   const steps = stepsOf(p);
-  const cur = published ? 6 : !p ? 2 : !steps.photo ? 3 : !steps.draft ? 4 : 5;
-  return {key: p ? "p:"+p.id : "r:"+r.id, post:p, row:r, title, day, published, order, steps, cur, deadline:(p&&p.deadline)||"", writing: !p && !!order};
+  const aside = p ? asideState(asideOrderFor(p)) : null;
+  const drafted = !!(aside && aside.state==="drafted");
+  const cur = published ? 6 : !p ? 2 : drafted ? (steps.draft ? 5 : 4) : !steps.photo ? 3 : !steps.draft ? 4 : 5;
+  return {key: p ? "p:"+p.id : "r:"+r.id, post:p, row:r, title, day, published, order, steps, cur, aside, drafted, deadline:(p&&p.deadline)||"", writing: !p && !!order};
 }
+// 어사이드 '원고 임시저장' 업무지시와 그 진행(하위 블록)을 읽어 상태로
+function normT(s){ return String(s||"").replace(/[\s\p{P}\p{S}]/gu,"").toLowerCase(); }
+function asideOrderFor(p){
+  if (!p) return null; const nt = normT(p.title);
+  return [...HOME.orders].reverse().find(o=>/^원고 임시저장\s*:/.test(o.text) && normT(o.text).includes(nt)) || null;
+}
+function asideState(o){
+  if (!o) return null;
+  const all = o.results.map(r=>r.text).join("\n"), work = o.working||"";
+  const dm = all.match(/임시저장함\s*\(([^)]*)\)\s*([^\n]*)/);
+  if (dm) return {state:"drafted", text:"임시저장함 ("+dm[1]+") "+(dm[2]||"").trim(), order:o};
+  if (/계정\s*불일치/.test(all)) return {state:"blocked", kind:"account", text:"계정 불일치로 보류", order:o};
+  if (/로그인\s*풀림|로그인[^\n]*(필요|해제|안\s*돼)/.test(all)) return {state:"blocked", kind:"login", text:"네이버 로그인이 풀렸어요", order:o};
+  if (/보류/.test(all)) return {state:"blocked", kind:"hold", text:"어사이드가 보류했어요", order:o};
+  if (o.done) return {state:"drafted", text:"임시저장 완료", order:o};
+  if (work) return {state:"working", text:"어사이드 작업 중", when:(work.match(/(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})/)||[])[1]||"", order:o};
+  return {state:"waiting", text:"대기 · 다음 확인은 최대 30분 안", order:o};
+}
+// 최근 2시간 안에 어사이드 업무기록이 있는지(없으면 노트북이 꺼져 있을 수 있어요). 기록을 못 읽었으면 null
+function asideAlive(){
+  if (HOME.logState!=="ok") return null;
+  const cut = Date.now() - 2*3600e3;
+  return HOME.log.map(parseLogLine).some(x=>x.who==="어사이드" && x.when && whenToMs(x.when) > cut);
+}
+function asideNote(a){ return a && (a.state==="waiting"||a.state==="working") && asideAlive()===false ? "노트북이 꺼져 있을 수 있어요 (최근 2시간 어사이드 기록 없음)" : ""; }
 function itemOf(key){
   const k = String(key||"");
   if (k.startsWith("p:")){ const p = byId.get(k.slice(2)); return p ? mkItem(p, st(p.id).row) : null; }
@@ -2670,12 +2699,17 @@ function itemsOnDay(t){
 function stageChip(it){
   if (it.published) return el("span",{class:"sc c-mint"},"완료");
   if (!it.post && !it.order) return el("span",{class:"sc c-blue"},"할 일");
+  if (it.cur===3 && it.aside && it.aside.state!=="blocked") return el("span",{class:"sc c-pink"}, it.aside.state==="working" ? "사진 작업 중" : "사진 대기");
+  if (it.cur===3 && it.aside) return el("span",{class:"sc c-amber"},"막힘");
   return el("span",{class:"sc c-pink"}, STAGES[it.cur-1]+(it.cur===2?" 중":""));
 }
+function dayQuota(items){ const done = items.filter(i=>i.published).length; return Math.max(0, MAX_PER_DAY - done); }
+function keepToday(items){ return items.filter(i=>!i.published).sort((a,b)=>b.cur-a.cur || (a.deadline||"9999").localeCompare(b.deadline||"9999")).slice(0, dayQuota(items)); }
 function pickNow(){
   const t = kstToday();
-  let c = itemsOnDay(t).filter(i=>!i.published);
-  if (!c.length) c = POSTS.filter(p=>isLate(p.id)).map(p=>mkItem(p, st(p.id).row));
+  const today = itemsOnDay(t);
+  let c = keepToday(today);
+  if (!c.length && !today.some(i=>!i.published)) c = POSTS.filter(p=>isLate(p.id)).map(p=>mkItem(p, st(p.id).row));
   c.sort((a,b)=>b.cur-a.cur || (a.deadline||"9999").localeCompare(b.deadline||"9999"));
   return c[0] || null;
 }
@@ -2690,13 +2724,14 @@ function dday(it){ return it.deadline ? "★ ~"+md(it.deadline)+" 마감" : (it.
 // 홈 ① 인사 + 지금 할 일
 function renderHomeNow(){
   const hello = document.getElementById("hello"), box = document.getElementById("t-now"); if (!hello || !box) return;
-  const t = kstToday(), left = itemsOnDay(t).filter(i=>!i.published).length;
-  hello.replaceChildren(...["써즈님, ", ...(left>0 ? ["오늘은 ", el("em",{},"원고 "+Math.min(left,MAX_PER_DAY)+"편"), "만 올리면 돼요"] : [itemsOnDay(t).length ? "오늘 올릴 원고는 다 끝났어요" : "오늘은 올릴 원고가 없어요"])]);
+  const t = kstToday(), today = itemsOnDay(t), left = today.filter(i=>!i.published).length, quota = dayQuota(today), show = Math.min(left, quota);
+  hello.replaceChildren(...["써즈님, ", ...(show>0 ? ["오늘은 ", el("em",{},"원고 "+show+"편"), "만 올리면 돼요"] : [today.length ? (left>0 ? "오늘 상한 "+MAX_PER_DAY+"편은 다 올렸어요" : "오늘 올릴 원고는 다 끝났어요") : "오늘은 올릴 원고가 없어요"])]);
   const it = pickNow();
   if (!it){ box.replaceChildren(el("div",{class:"tlabel2"},"지금 할 일"), el("div",{class:"big"},"지금 할 일이 없어요"), el("p",{class:"muted"},"빈 날에 넣을 원고는 더보기의 ‘뭘 넣지’에서 골라요."),
       el("button",{class:"tbtn",type:"button",onclick:()=>showView("more")},"더보기에서 찾기")); return; }
   const need = it.cur>=3 && !it.published;
-  const sub = it.writing ? "클로드가 쓰는 중이에요" : !it.post ? "구성·경험을 적어 보내면 클로드가 써요" : it.cur===3 ? "원고는 끝났어요. 사진을 정해 주세요" : it.cur===4 ? "사진까지 끝났어요. 임시저장을 확인해 주세요" : "확인까지 끝났어요. 발행만 남았어요";
+  const aNote = it.cur===3 && it.aside ? it.aside.text+(asideNote(it.aside) ? " · "+asideNote(it.aside) : "") : "";
+  const sub = aNote ? aNote : it.writing ? "클로드가 쓰는 중이에요" : !it.post ? "구성·경험을 적어 보내면 클로드가 써요" : it.cur===3 ? "원고는 끝났어요. 사진을 맡기거나 정해 주세요" : it.cur===4 ? (it.drafted ? it.aside.text+". 확인해 주세요" : "사진까지 끝났어요. 임시저장을 확인해 주세요") : "확인까지 끝났어요. 발행만 남았어요";
   box.replaceChildren(el("div",{class:"tlabel2"},"지금 할 일", need ? el("span",{class:"sc c-pink"},"확인 필요") : null),
     el("div",{class:"big"}, it.title), el("div",{class:"muted"}, sub+" · "+dday(it)), ...stepBar(it),
     el("button",{class:"tbtn",type:"button",onclick:()=>openDetail(it.key)}, it.writing ? "진행 상황 보기" : STAGE_BTN[it.cur]||"열기"));
@@ -2707,11 +2742,12 @@ function renderHomeLeft(){
   const t = kstToday(), items = itemsOnDay(t), done = items.filter(i=>i.published).length;
   const kids = [el("div",{class:"tlabel2"},"오늘 남은 원고", el("small",{}, items.length ? done+"/"+items.length+"편 완료" : ""))];
   if (!items.length) kids.push(el("p",{class:"muted"}, notionState==="loading" ? "노션 불러오는 중…" : "오늘 날짜 항목이 없어요."));
-  const rest = items.filter(i=>!i.published).sort((a,b)=>b.cur-a.cur);
+  const unpub = items.filter(i=>!i.published), rest = keepToday(items), extra = unpub.length - rest.length;
   kids.push(...rest.map(i=>el("button",{class:"titem",type:"button",onclick:()=>openDetail(i.key)}, stageChip(i), el("span",{class:"t"}, i.title, el("small",{}, dday(i))), el("span",{class:"chev"},"›"))));
-  if (items.length && !rest.length) kids.push(el("p",{class:"muted"},"오늘 건 모두 발행했어요."));
-  if (items.length > MAX_PER_DAY){
-    kids.push(el("div",{class:"overbox"}, el("b",{},"오늘 "+items.length+"편은 많아요"), el("span",{},"하루 "+MAX_PER_DAY+"편이 현실 상한이에요."),
+  if (items.length && !unpub.length) kids.push(el("p",{class:"muted"},"오늘 건 모두 발행했어요."));
+  else if (items.length && !rest.length) kids.push(el("p",{class:"muted"},"오늘 상한 "+MAX_PER_DAY+"편은 이미 발행했어요."));
+  if (extra > 0){
+    kids.push(el("div",{class:"overbox"}, el("b",{},"나머지 "+extra+"편은 옮기기 추천"), el("span",{},"하루 "+MAX_PER_DAY+"편이 현실 상한이에요. 오늘 "+items.length+"편이 잡혀 있어요."),
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>openMovePreview(box)},MAX_PER_DAY+"편만 남기고 나머지 빈 날로 옮기기")));
   }
   box.replaceChildren(...kids);
@@ -2724,7 +2760,7 @@ function moveFreeDays(n){
 }
 function planMoves(){
   const t = kstToday(), items = itemsOnDay(t);
-  const keep = [...items].sort((a,b)=>(b.published-a.published) || b.cur-a.cur).slice(0, MAX_PER_DAY).map(i=>i.key);
+  const keep = keepToday(items).map(i=>i.key);
   const movers = items.filter(i=>!keep.includes(i.key) && !i.published);
   const days = moveFreeDays(movers.length), load = {};
   const plan = [];
@@ -2765,8 +2801,13 @@ function blockers(){
     if (dismissed.includes(id)) return;
     out.push({id, kind:"log", title: x.who+"가 막혔어요", sub: x.what.slice(0,60), who:x.who, what:x.what});
   });
+  for (const it of POSTS.map(p=>mkItem(p, st(p.id).row))){
+    const a = it.aside; if (!a || a.state!=="blocked" || it.published) continue;
+    const id = "aside|"+it.key+"|"+a.kind; if (dismissed.includes(id)) continue;
+    out.push({id, kind:"aside", title:a.text, sub:it.title+" · "+(a.kind==="account" ? "노트북 네이버를 withsuzz 계정으로 바꿔 주세요" : "노트북에서 네이버에 QR 로그인해 주세요"), key:it.key, order:a.order});
+  }
   for (const it of itemsOnDay(kstToday())){
-    if (!it.published && it.cur===3 && it.post){ const id = "photo|"+it.key+"|"+kstToday(); if (!dismissed.includes(id)) out.push({id, kind:"photo", title:"사진이 아직 안 정해졌어요", sub:it.title, key:it.key}); }
+    if (!it.published && it.cur===3 && it.post && !it.aside){ const id = "photo|"+it.key+"|"+kstToday(); if (!dismissed.includes(id)) out.push({id, kind:"photo", title:"사진이 아직 안 정해졌어요", sub:it.title, key:it.key}); }
   }
   return out;
 }
@@ -2777,8 +2818,8 @@ function renderHomeBlock(){
   box.replaceChildren(el("div",{class:"tlabel2"},"AI 팀이 막혔어요"), ...list.slice(0,3).map(b=>{
     const msg = el("span",{class:"hint2"});
     const mine = el("button",{class:"tbtn amber2",type:"button",onclick:()=>{ lsSet("dongbang.dismissed", [...(lsGet("dongbang.dismissed",[])||[]), b.id].slice(-50)); renderHomeBlock(); }},"직접 할게");
-    const act = b.kind==="photo"
-      ? el("button",{class:"tbtn",type:"button",onclick:()=>openDetail(b.key)},"고르기")
+    const act = b.kind==="photo" || b.kind==="aside"
+      ? el("button",{class:"tbtn",type:"button",onclick:()=>openDetail(b.key)}, b.kind==="photo" ? "맡기기·고르기" : "해결하러 가기")
       : el("button",{class:"tbtn",type:"button",onclick:async(e)=>{ const x = e.currentTarget; x.disabled = true; msg.textContent = "보내는 중…";
           try{ await pushOrder(b.who==="지피티"?"지피티":"어사이드","다시 시도: "+b.what.replace(/[|]/g,"/").slice(0,120)); msg.textContent = "다시 시도를 요청했어요."; renderOrders(); renderBell(); }catch(err){ x.disabled = false; msg.textContent = failText(err); } }},"다시 시도");
     return el("div",{class:"alertc"}, el("div",{class:"t"}, b.title, el("small",{}, b.sub)), el("div",{class:"btnrow"}, act, mine, msg));
@@ -2826,14 +2867,35 @@ function renderDetail(){
   const info = {
     1: m ? "메인 "+((m.main||{}).kw||"-")+" · 서브 "+(m.subs||[]).length+"개" : (it.order||p ? "키워드 정해짐" : "리포트에서 자동으로 가져와요"),
     2: p ? "원고 있음 · 말투가이드 적용" : it.writing ? (it.order.done ? "작성 완료" : "클로드가 쓰는 중이에요") : "구성·경험을 적어 보내면 클로드가 써요",
-    3: it.steps.photo ? "사진 준비 완료" : "사진을 정해야 해요",
-    4: it.steps.draft ? "임시저장 확인함" : "네이버 임시저장을 확인해요",
+    3: it.drafted||it.steps.photo ? (it.drafted ? "어사이드가 사진까지 넣었어요" : "사진 직접 준비") : (it.aside ? it.aside.text : "사진 자리를 채워야 해요"),
+    4: it.steps.draft ? "임시저장 확인함" : (it.drafted ? it.aside.text : "네이버 임시저장을 확인해요"),
     5: it.published ? "발행됨" : "발행하면 블로그 목록과 대조해 자동으로 완료 처리해요"};
   const open = {};
   const actions = {
     2: ()=> it.writing ? [el("p",{class:"muted"},"다음 자동 처리(10:40·14:40·17:40) 때 써요. 끝나면 이 화면에 원고가 열려요."), (it.order.results.find(x=>x.url) ? el("a",{class:"tbtn ghost",href:it.order.results.find(x=>x.url).url,target:"_blank",rel:"noopener"},"진행 보기") : null)]
       : [el("button",{class:"tbtn",type:"button",onclick:()=>openWrite(r)},"원고 쓰기")],
-    3: ()=>[el("p",{class:"muted"},"써즈 사진과 무료 사진을 정해 두면 임시저장 때 같이 넣어요. 다 정했으면 눌러 주세요."), el("button",{class:"tbtn",type:"button",onclick:async(e)=>{ e.currentTarget.disabled = true; await setStep(p,"photo",true); }},"사진 준비 끝"), p.artifact ? el("a",{class:"tbtn ghost",href:p.artifact,target:"_blank",rel:"noopener"},"원고 보면서 고르기") : null],
+    3: ()=>{
+      const a = it.aside, own = el("button",{class:"tbtn ghost",type:"button",onclick:async(e)=>{ e.currentTarget.disabled = true; await setStep(p,"photo",true); }},"내 사진 직접 고를게");
+      const requestBody = ()=>{
+        const chap = (p.html.match(/CHAPTER\s*0?\d/g)||[]).length, n = chap ? chap+1 : 4;
+        return {n, make:(memo)=>"원고 임시저장: "+String(p.title).replace(/[|]/g,"/")+" | 아티팩트 "+(p.artifact||"-")+" | 사진 자리 "+n+"곳 | 써즈 사진 있으면 "+(String(memo||"").replace(/\s*\n+\s*/g," ").replace(/[|]/g,"/").trim()||"-")};
+      };
+      if (a && a.state!=="blocked"){
+        const order = ["waiting","working","drafted"], idx = order.indexOf(a.state);
+        const flow = el("div",{class:"flow3"}, ...["대기","작업 중","완료"].map((n,i)=>el("span",{class:"sc "+(i<idx?"c-mint":i===idx?"c-pink":"c-gray")}, n)));
+        return [flow, el("p",{class:"muted"}, a.state==="waiting" ? "어사이드가 30분마다 확인해요. 다음 확인 때 시작해요." : "어사이드가 사진을 찾아 네이버에 임시저장하는 중이에요"+(a.when ? " ("+a.when+" 시작)" : "")+"."), asideNote(a) ? el("p",{class:"warnline"}, asideNote(a)) : null, own];
+      }
+      if (a && a.state==="blocked"){
+        const msg2 = el("span",{class:"hint2"}), rb = requestBody();
+        const retry = el("button",{class:"tbtn",type:"button",onclick:async(e)=>{ e.currentTarget.disabled = true; msg2.textContent = "보내는 중…"; try{ await pushOrder("어사이드", rb.make("")); msg2.textContent = "다시 맡겼어요."; renderOrders(); renderBell(); }catch(err){ e.currentTarget.disabled = false; msg2.textContent = failText(err); } }},"로그인 후 다시 시도");
+        return [el("p",{class:"warnline"}, a.text+". "+(a.kind==="account" ? "노트북 네이버를 withsuzz 계정으로 바꿔 주세요." : "노트북에서 네이버에 QR 로그인해 주세요.")), retry, own, msg2];
+      }
+      const memo = el("input",{type:"text",class:"tmemo","aria-label":"써즈 사진 메모",placeholder:"써즈 사진이 있으면 메모(선택) 예: 폴더 ‘노량진’ 4장"});
+      const rb = requestBody(), msg2 = el("span",{class:"hint2"});
+      const ask = el("button",{class:"tbtn",type:"button",disabled:!p.artifact,onclick:async(e)=>{ const x = e.currentTarget; x.disabled = true; msg2.textContent = "보내는 중…";
+        try{ await pushOrder("어사이드", rb.make(memo.value)); msg2.textContent = "맡겼어요. 다음 확인 때(최대 30분) 시작해요."; renderOrders(); renderBell(); renderToss(); }catch(err){ x.disabled = false; msg2.textContent = failText(err); } }},"어사이드에게 사진 찾기 맡기기");
+      return [el("p",{class:"muted"},"사진 자리 "+rb.n+"곳에 무료·공식 사진을 찾아 네이버에 임시저장해 줘요."+(p.artifact ? "" : " (이 원고는 아티팩트가 아직 없어서 맡길 수 없어요)")), memo, ask, own, msg2];
+    },
     4: ()=>[el("p",{class:"muted"},"네이버 글쓰기의 임시저장 목록에서 이 글을 열어 확인해요. 고칠 곳이 있으면 ‘고칠 곳 있어요’로 보내요."), el("a",{class:"tbtn",href:"https://blog.naver.com/withsuzz?Redirect=Write",target:"_blank",rel:"noopener",onclick:()=>{ setStep(p,"draft",true); }},"네이버에서 열어 보기"), el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.tab = "fb"; showView("coach"); }},"고칠 곳 있어요")],
     5: ()=>{ const yes = el("button",{class:"tbtn",type:"button"},"발행 완료로 바꾸기");
       yes.addEventListener("click",()=>{ const ok = el("button",{class:"tbtn",type:"button"},"네, 발행했어요"), no = el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ msg.textContent = ""; }},"취소");
@@ -2852,6 +2914,52 @@ function renderDetail(){
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.tab = "fb"; showView("coach"); }},"문단 피드백")), editControl(p)) : null;
   box.replaceChildren(el("div",{class:"dtop"}, back, topChip), el("div",{class:"ttl"}, it.title), el("div",{class:"meta"}, meta),
     el("section",{class:"tcard"}, ...rows, msg), ...[tools, (r ? el("a",{class:"tiny",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션에서 열기 ›") : null)].filter(Boolean));
+}
+
+
+// ===== 발행 자동 반영: 블로그 RSS 제목 대조 =====
+// 1) 브라우저에서 RSS를 직접 읽어 보고(막히면 건너뜀) 2) 보관함 db 'rss'(예약 작업이 채움)와 합쳐서 대조해요.
+async function loadRssLive(){
+  try{
+    const ctl = new AbortController(); const to = setTimeout(()=>ctl.abort(), 8000);
+    const res = await fetch("https://rss.blog.naver.com/withsuzz.xml",{signal:ctl.signal}); clearTimeout(to);
+    if (!res.ok) throw new Error("http "+res.status);
+    const xml = new DOMParser().parseFromString(await res.text(),"text/xml");
+    const items = [...xml.querySelectorAll("item")].map(i=>({title:(i.querySelector("title")||{}).textContent||"", url:((i.querySelector("link")||{}).textContent||"").trim(), date:(()=>{ const d = new Date((i.querySelector("pubDate")||{}).textContent||""); return isNaN(d) ? "" : new Date(d.getTime()+9*3600e3).toISOString().slice(0,10); })(), category:(i.querySelector("category")||{}).textContent||""})).filter(x=>x.url&&x.title);
+    if (!items.length) throw new Error("empty");
+    for (const x of items) if (!rssItems.has(x.url)) rssItems.set(x.url, x);
+    HOME.rssLive = "ok";
+  }catch(e){ HOME.rssLive = "off"; }
+  autoPublish();
+}
+function rssDate(x){ const d = String(x.date||x.pubDate||"").slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : (isNaN(Date.parse(x.date)) ? "" : new Date(Date.parse(x.date)+9*3600e3).toISOString().slice(0,10)); }
+function titleMatch(a, b){
+  const x = normT(a), y = normT(b); if (!x || !y) return false;
+  if (x===y) return true;
+  const [s,l] = x.length<y.length ? [x,y] : [y,x];
+  return s.length>=8 && l.includes(s) && s.length/l.length >= 0.75;
+}
+HOME.autoPub = new Set();
+async function autoPublish(){
+  if (notionState!=="ok" || !rssItems.size) return;
+  const t = kstToday(), done = [];
+  const cands = [];
+  for (const r of notion.values()){ if (isBlog(r) && r.status!=="게시됨" && r.day && r.day<=addDays(t,1)) cands.push({row:r, post:linkedPostFor(r.id), title:r.title, since:addDays(r.day,-14)}); }
+  for (const p of POSTS){ const s = st(p.id); if (s.row || s.status==="published" || s.status==="hold") continue; cands.push({row:null, post:p, title:p.title, since:p.written||"2000-01-01"}); }
+  for (const c of cands){
+    const key = c.row ? "r:"+c.row.id : "p:"+c.post.id;
+    if (HOME.autoPub.has(key)) continue;
+    const hit = [...rssItems.values()].find(x=>{ const d = rssDate(x); return (!d || d>=c.since) && (titleMatch(c.title, x.title) || (c.post && titleMatch(c.post.title, x.title))); });
+    if (!hit) continue;
+    HOME.autoPub.add(key);
+    try{
+      if (c.post) await changeStatus(c.post.id,"published");
+      else { await updateNotion(c.row.id, {"상태":"게시됨"}); c.row.status = "게시됨"; }
+      done.push(c.title);
+    }catch(e){ HOME.autoPub.delete(key); }
+    if (done.length>=5) break;
+  }
+  if (done.length){ rerender(); try{ note("블로그에서 발행을 확인해 자동으로 완료 처리했어요: "+done.join(", ")); }catch(e){} }
 }
 
 // ===== 회의록 채팅창 (노션 '동방 회의록' JSON: 07:40·23:00 예약 작업이 씀) =====
@@ -2982,8 +3090,9 @@ selected = (visible()[0]||{}).id || null; renderList(); renderViewer();
 (async()=>{
   try{ mcp = await window.claude?.use?.("mcp"); }catch(e){ mcp = null; }
   try{ db = await window.claude?.use?.("db"); }catch(e){ db = null; }
-  loadHome();
+  loadHome(); loadRssLive();
   setInterval(()=>{ if (mcp && !document.hidden) loadOrders(); }, 60000);
+  setInterval(()=>{ if (!document.hidden) loadRssLive(); }, 30*60000);
   if (!db){ note("저장소에 연결하지 못했어요. 바꾼 내용이 이 화면에서만 바뀌어요."); loadNotion(false); return; }
   const timer = setTimeout(()=>{ if(!dbReady) note("저장소 응답이 늦어요. 잠시 뒤 새로고침해 보세요."); }, 10000);
   let first = true;
@@ -2996,6 +3105,7 @@ selected = (visible()[0]||{}).id || null; renderList(); renderViewer();
   db.collection("rss").onSnapshot(snap=>{
     rssItems.clear();
     for (const d of snap.docs){ const x = d.data()||{}; if (x.url) rssItems.set(x.url, x); }
+    try{ autoPublish(); }catch(e){}
     if (!editing()) renderViewer();
   }, ()=>{});
 })();
