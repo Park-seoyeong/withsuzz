@@ -651,11 +651,11 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     <div class="vhome view" id="view-home">
     <div class="toss" id="toss-home">
       <div class="hellorow"><span class="hchar" id="hello-char"></span><h2 class="hello" id="hello"></h2></div>
+      <section class="tcard" id="t-left" aria-label="오늘 원고 리스트"></section>
       <section class="tcard report" id="t-report" aria-label="오늘 현황과 보고"></section>
       <div class="tcols">
         <div class="tcol">
           <section class="tcard" id="t-now" aria-label="지금 할 일"></section>
-          <section class="tcard" id="t-left" aria-label="오늘 남은 원고"></section>
         </div>
         <div class="tcol">
           <section class="tcard warn" id="t-block" aria-label="AI 팀이 막혔어요" hidden></section>
@@ -2884,12 +2884,12 @@ function renderHomeNow(){
 function renderHomeLeft(){
   const box = document.getElementById("t-left"); if (!box) return;
   const t = kstToday(), items = itemsOnDay(t), done = items.filter(i=>i.published).length;
-  const kids = [el("div",{class:"tlabel2"},"오늘 남은 원고", el("small",{}, items.length ? done+"/"+items.length+"편 완료" : ""))];
+  const kids = [el("div",{class:"tlabel2"},"오늘 원고 리스트 · "+md(t), el("small",{}, items.length ? done+"/"+items.length+"편 완료" : ""))];
   if (!items.length) kids.push(el("p",{class:"muted"}, notionState==="loading" ? "노션 불러오는 중…" : "오늘 날짜 항목이 없어요."));
   const unpub = items.filter(i=>!i.published), rest = keepToday(items), extra = unpub.length - rest.length;
-  kids.push(...rest.map(i=>el("button",{class:"titem",type:"button",onclick:()=>openDetail(i.key)}, stageChip(i), el("span",{class:"t"}, i.title, el("small",{}, dday(i))), el("span",{class:"chev"},"›"))));
+  const shown = [...items].sort((x,y)=>(x.published?1:0)-(y.published?1:0) || y.cur-x.cur);
+  kids.push(...shown.map(i=>el("button",{class:"titem",type:"button",onclick:()=>openDetail(i.key)}, stageChip(i), el("span",{class:"t"}, i.title, el("small",{}, dday(i))), el("span",{class:"chev"},"›"))));
   if (items.length && !unpub.length) kids.push(el("p",{class:"muted"},"오늘 건 모두 발행했어요."));
-  else if (items.length && !rest.length) kids.push(el("p",{class:"muted"},"오늘 상한 "+MAX_PER_DAY+"편은 이미 발행했어요."));
   if (extra > 0){
     kids.push(el("div",{class:"overbox"}, el("b",{},"나머지 "+extra+"편은 옮기기 추천"), el("span",{},"하루 "+MAX_PER_DAY+"편이 현실 상한이에요. 오늘 "+items.length+"편이 잡혀 있어요."),
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>openMovePreview(box)},MAX_PER_DAY+"편만 남기고 나머지 빈 날로 옮기기")));
