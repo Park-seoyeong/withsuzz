@@ -1005,8 +1005,9 @@ function failText(e){
   return "저장하지 못했어요 ("+(c||"오류")+"). 잠시 뒤 다시 해 보세요.";
 }
 
-function renderViewer(){
+function renderViewer(force){
   const v = document.getElementById("viewer");
+  if (!force && v.querySelector('.wform[data-open="1"]')) return;   // 입력창을 열어 둔 동안은 자동 새로고침으로 닫지 않음
   const p = byId.get(selected);
   if (!p){ v.replaceChildren(el("div",{class:"panel"},el("p",{class:"hint"},"왼쪽에서 원고를 고르면 네이버에 붙여넣을 본문이 여기 보여요."))); return; }
   const s = st(p.id);
@@ -1052,7 +1053,7 @@ function renderViewer(){
   );
 }
 
-function select(id){ selected = id; renderWeek(); renderList(); renderViewer(); }
+function select(id){ selected = id; renderWeek(); renderList(); renderViewer(true); }
 function editing(){ const a = document.activeElement; return a && a.id && a.id.startsWith("f-"); }
 
 async function loadNotion(refresh){
@@ -1398,6 +1399,7 @@ function openPost(p){ showView("vault"); select(p.id); goto("viewer"); }
 
 function renderNoPost(){
   const box = document.getElementById("nopost"); if (!box) return;
+  if (box.querySelector('.wform[data-open="1"]')) return;
   const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !(r.day && r.day<today)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
   document.getElementById("nopost-title").textContent = "원고 파일 없는 노션 항목 "+rows.length+"편";
   if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"원고가 없는 항목이 없어요.")); return; }
@@ -1409,6 +1411,8 @@ function renderNoPost(){
     writeControl(r))), rows.length>60 ? el("p",{class:"hint"},"외 "+(rows.length-60)+"편은 노션에서 확인해 주세요.") : null);
 }
 function renderTodo(){
+  const tl = document.getElementById("todo-list");
+  if (tl && tl.querySelector('.wform[data-open="1"]')) return;   // 입력창을 열어 둔 동안은 60초 새로고침이 입력을 지우지 않게
   renderNoPost();
   const ul = document.getElementById("todo-list"); ul.replaceChildren();
   const t = kstToday();
@@ -1872,16 +1876,17 @@ function editControl(p){
     const how = ta("어떻게 고칠까요? 예: 도입을 더 짧게, 경험 얘기를 앞으로, 이 표는 빼기","수정 요청 내용",3);
     const send = el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:12px"},"클로드에게 보내기");
     const closeBtn = el("button",{class:"sbtn",type:"button","aria-label":"닫기"},"닫기 ✕");
-    closeBtn.addEventListener("click",()=>{ wrap.replaceChildren(open, msg); });
+    closeBtn.addEventListener("click",()=>{ wrap.dataset.open = ""; wrap.replaceChildren(open, msg); renderTodo(); });
     send.addEventListener("click", async ()=>{
       if (!how.value.trim()){ msg.textContent = "어떻게 고칠지 적어 주세요."; how.focus(); return; }
       send.disabled = true; msg.textContent = "업무지시 보내는 중…";
       const clean = (x)=>String(x||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
       const body = "원고 수정: "+clean(p.title)+" | "+clean(p.file)+" | "+scope.value+" | "+(clean(target.value)||"-")+" | "+clean(how.value)+" | "+(p.artifact||"-");
-      try{ await pushOrder("클로드", body); msg.textContent = "보냈어요. 다음 자동 처리(10:40·14:40·17:40) 때 고쳐요."; renderOrders(); renderTeam(); renderBell(); renderOffice(); setTimeout(()=>wrap.replaceChildren(open, msg), 2500); }
+      try{ await pushOrder("클로드", body); wrap.dataset.open = ""; msg.textContent = "보냈어요. 다음 자동 처리(10:40·14:40·17:40) 때 고쳐요."; renderOrders(); renderTeam(); renderBell(); renderOffice(); setTimeout(()=>wrap.replaceChildren(open, msg), 2500); }
       catch(e){ send.disabled = false; msg.textContent = failText(e); }
     });
     wrap.replaceChildren(el("label",{class:"hint2"},"범위 ",scope), target, pick, how, el("div",{class:"row",style:"display:flex;gap:6px;flex-wrap:wrap;align-items:center"}, send, closeBtn), msg); how.focus();
+    wrap.dataset.open = "1";
   });
   wrap.append(open, msg);
   return wrap;
@@ -1905,7 +1910,7 @@ function writeControl(row){
       send.disabled = true; msg.textContent = "업무지시 보내는 중…";
       const clean = (s)=>String(s||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
       const body = "원고 작성: "+clean(row.title)+" | "+(clean(row.region)||"-")+" | "+(clean(row.type)||"-")+" | "+row.id+" | "+(clean(memo.value)||"-")+" | 구성·경험: "+(clean(flow.value)||"-")+" | 가이드라인: "+(clean(guide.value)||"-")+" | 적용 가이드: "+writeGuides(row).join(" + ");
-      try{ await pushOrder("클로드", body); renderOrders(); renderTeam(); renderBell(); renderOffice(); renderTodo(); }
+      try{ await pushOrder("클로드", body); wrap.dataset.open = ""; renderOrders(); renderTeam(); renderBell(); renderOffice(); renderTodo(); }
       catch(e){ send.disabled = false; msg.textContent = failText(e); }
     });
     const file = el("input",{type:"file",accept:".txt,.md,.docx,.csv,.html,.json","aria-label":"가이드라인 파일",style:"font-size:11px;max-width:100%"});
@@ -1918,8 +1923,8 @@ function writeControl(row){
     });
     const fileRow = el("label",{class:"hint2",style:"display:flex;flex-wrap:wrap;gap:6px;align-items:center"}, "가이드라인 파일 첨부 ", file);
     const closeBtn = el("button",{class:"sbtn",type:"button","aria-label":"닫기"},"닫기 ✕");
-    closeBtn.addEventListener("click",()=>{ wrap.replaceChildren(open, msg); msg.textContent = ""; });
-    wrap.replaceChildren(flow, guide, fileRow, memo, el("div",{class:"row",style:"display:flex;gap:6px;align-items:center;flex-wrap:wrap"}, send, closeBtn), msg); flow.focus();
+    closeBtn.addEventListener("click",()=>{ wrap.dataset.open = ""; wrap.replaceChildren(open, msg); msg.textContent = ""; renderTodo(); });
+    wrap.replaceChildren(flow, guide, fileRow, memo, el("div",{class:"row",style:"display:flex;gap:6px;align-items:center;flex-wrap:wrap"}, send, closeBtn), msg); flow.focus(); wrap.dataset.open = "1";
   });
   wrap.append(open, msg);
   return wrap;
