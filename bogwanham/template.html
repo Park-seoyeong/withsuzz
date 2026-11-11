@@ -178,7 +178,7 @@ a.chip{text-decoration:none}
 .ring .fg.below{stroke:var(--p-coral)}
 .ring .tgt{stroke:#4A5568;stroke-width:2}
 .ring text{font:700 15px var(--sans);fill:#4A5568}
-.home-grid{display:grid;grid-template-columns:250px minmax(0,1fr) minmax(0,1fr) 300px;grid-template-areas:"order office office side" "log todo what kw";gap:18px;align-items:start}
+.home-grid{display:grid;grid-template-columns:250px minmax(0,1fr) minmax(0,1fr) 300px;grid-template-areas:"order todo todo side" "log office office what" "log office office kw";gap:18px;align-items:start}
 .hcard{background:var(--surface);border:1px solid var(--line);border-radius:26px;box-shadow:var(--shadow-s);padding:16px;display:grid;gap:12px;min-width:0;align-content:start}
 .hcard-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
 .hcard-head h3{margin:0;font:700 15px/1.3 var(--round);color:var(--ink);letter-spacing:.08em}
@@ -264,14 +264,14 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .tchip.rest{background:var(--sunk);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
 .home-sep{display:flex;align-items:center;gap:12px;color:var(--muted);font:700 13px var(--round);letter-spacing:.24em;margin-top:8px}
 .home-sep::before,.home-sep::after{content:"";flex:1;border-top:2px dotted var(--line)}
-@media (max-width:1100px){.home-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"office office" "todo side" "what kw" "order log"}}
+@media (max-width:1100px){.home-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"todo side" "office office" "what kw" "order log"}}
 @media (max-width:720px){
   .office-wrap{display:grid;gap:6px}
   .office-wrap .bubble{position:static;transform:none;animation:none;white-space:normal;justify-self:start}
   .searchbox{grid-column:1/-1;grid-row:2}
   .hero{grid-template-columns:1fr;border-radius:24px 24px 48px 48px;padding:18px 20px 22px}
   .hero h2{font-size:18px}
-  .home-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"office" "todo" "what" "side" "order" "log" "kw"}
+  .home-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"todo" "office" "what" "side" "order" "log" "kw"}
   .quick{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;justify-content:stretch}
   .quick a{width:auto;font-size:11px;padding:6px 0}
   .quick span.ic{width:40px;height:40px;font-size:17px}
@@ -424,6 +424,25 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
   .cal-cell .dn{font-size:10px}
 }
 @media (prefers-reduced-motion:reduce){.tw,.heart,.cchip.working .frame,.msg{animation:none}.tw{border:0;width:auto}.spr{transition:none}}
+/* ---- 2026-11-11 가독성·일관성 보정 ---- */
+:root{--muted:#5A6577}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--muted:#B8C3D6}}
+:root[data-theme="dark"]{--muted:#B8C3D6}
+.hint2,.office-note,.next-note,.pl .txt small,.nums div,.stat span,.stat em,.sbtn,.htabs button,.pager,.profile .who span,.tchip,.undated li a,.undated li button{font-size:13px}
+.tag,.tchip em,.nums div small,.ring,.cal-dow,.cal-cell .dn,.deco{font-size:12px}
+.hl li,.empty2,table.kw,.kw-sum{font-size:14px}
+table.kw th{font-size:12px}
+.otitle{font-size:15px;line-height:1.45;font-weight:700;color:var(--ink)}
+.btnrow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.btnrow>.wform{display:contents}
+.fresh{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.fresh.old{color:#8A6D1F}
+.tag.gray{background:var(--sunk);color:var(--muted)}
+.tag.work{background:var(--p-lav);color:#4A5568}
+.pl.solved{opacity:.65}
+.overwarn{margin:4px 0 0;font-size:14px;font-weight:700;color:#B5473F}
+h4.sub{margin:10px 0 2px;font-size:14px;color:var(--ink)}
+.office-wrap{max-width:520px;margin-left:auto;margin-right:auto}
 </style>
 
 <div class="page">
@@ -469,7 +488,6 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
         <div class="team" id="team" aria-label="오늘의 팀"></div>
         <div class="cast" id="cast" aria-label="캐릭터 4명 상태"></div>
         <div class="office-wrap" id="office"></div>
-        <p class="office-note">캐릭터는 장식이고, 말풍선 숫자만 진짜 데이터예요.</p>
         <div class="meet" id="meet"></div>
       </section>
 
@@ -526,8 +544,8 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
     </div>
   </section>
   <section class="subpage view" id="view-stats" hidden>
-  <section class="hero phero"><div><div class="hero-k">BLOG STATS</div><h2>블로그 통계</h2><p>방문자·유입 흐름 상세 분석 (준비 중)</p></div></section>
-<section class="hcard"><div class="soon" id="soon-stats"></div></section></section>
+  <section class="hero phero"><div><div class="hero-k">BLOG STATS</div><h2>블로그 통계</h2><p>방문자·이웃과 유입 키워드 흐름을 한눈에 봐요.</p></div></section>
+<section class="hcard"><div id="soon-stats"></div></section></section>
   <section class="subpage view" id="view-keywords" hidden>
   <section class="hero phero"><div><div class="hero-k">KEYWORDS</div><h2>유입 키워드</h2><p>어사이드가 매일 아침 정리하는 오늘의 키워드 추천이에요.</p></div></section>
 <section class="hcard"><div id="soon-kw"></div></section></section>
@@ -693,7 +711,7 @@ function st(id){
   }
   return {status: l.status||"todo", day: l.day||"", memo: l.memo||"", notion: l.notion||"", row: null};
 }
-function isLate(id){ const s = st(id); return s.status==="todo" && s.day && s.day < kstToday(); }
+function isLate(id){ const s = st(id); return (s.status==="todo" || s.status==="scheduled") && s.day && s.day < kstToday(); }
 function linkedPostFor(notionId){ for (const p of POSTS) if ((local[p.id]||{}).notion===notionId) return p; return null; }
 
 // 하루 블로그 글 수: 노션 항목(인스타 제외, 빈 플랫폼 포함) + 노션에 안 이어진 원고
@@ -704,7 +722,7 @@ function blogCount(d){
   for (const p of POSTS){ const s = st(p.id); if (!s.row && s.day===d && s.status!=="hold") n++; }
   return n;
 }
-const MAX_PER_DAY = 3;
+const MAX_PER_DAY = 2;   // 매니저와 합의한 현실 상한: 하루 2편
 
 // 할인·이벤트 마감 표시: 제목 앞 ★, 제목 옆 작은 "~11/19". 마감 지나면 연한 코랄
 function titleWithDeadline(p){
@@ -741,13 +759,13 @@ function renderNotionNote(){
 
 function renderCounts(){
   const ids = POSTS.map(p=>p.id);
-  const todo = ids.filter(i=>st(i).status==="todo").length;
+  const todo = unpublishedCount();
   const late = ids.filter(isLate).length;
   const ws = weekStart(kstToday()), we = addDays(ws,6);
   const week = ids.filter(i=>{const s=st(i); return s.day>=ws && s.day<=we && s.status!=="hold";}).length;
   document.getElementById("counts").replaceChildren(
-    el("span",{class:"count"},"미발행",el("b",{},String(todo))),
-    el("span",{class:"count"+(late?" warn":"")},"날짜 지남",el("b",{},String(late))),
+    el("span",{class:"count",title:"원고 파일이 있는데 아직 발행하지 않은 것(일정 있음·없음, 예약 포함)"},"미발행",el("b",{},String(todo))),
+    el("span",{class:"count"+(late?" warn":""),title:"날짜가 지났는데 아직 발행 안 한 원고"},"날짜 지남",el("b",{},String(late))),
     el("span",{class:"count"},"이번 주 원고",el("b",{},String(week))),
     el("span",{class:"count"},"전체 원고",el("b",{},String(ids.length)))
   );
@@ -820,7 +838,7 @@ function inArchive(p){
   const s = st(p.id);
   if (s.status==="published" || s.status==="hold") return false;
   if (!s.day) return true;
-  return s.status==="todo" && s.day < kstToday();
+  return (s.status==="todo" || s.status==="scheduled") && s.day < kstToday();
 }
 function renderArchive(){
   const box = document.getElementById("archive"); box.replaceChildren();
@@ -1091,6 +1109,21 @@ const PER = 4;
 function hm(){ const d = new Date(Date.now()+9*3600e3); return md(d.toISOString().slice(0,10))+" "+d.toISOString().slice(11,16); }
 function num(n){ return n==null||n===""||isNaN(n) ? "–" : Number(n).toLocaleString("ko-KR"); }
 // 이웃·누적: 통계 페이지 값이 비면 키워드 페이지 blogPublic 값
+// 오늘 방문자: 통계 페이지와 키워드 페이지 중 더 늦게 갱신된 쪽 값을 쓴다(둘 다 같은 날짜일 때)
+function visitInfo(){
+  const t = kstToday(), c = (HOME.stats && HOME.stats.current) || {}, b = (HOME.kw && HOME.kw.blogPublic) || {};
+  const cands = [];
+  if (c.todayVisitors!=null) cands.push({n:c.todayVisitors, at:Date.parse(HOME.stats && HOME.stats.updatedAt)||0});
+  if (b.todayVisitors!=null && b.date===t) cands.push({n:b.todayVisitors, at:Date.parse(HOME.kw && HOME.kw.updatedAt)||0});
+  cands.sort((x,y)=>y.at-x.at);
+  return cands[0] || {n:null, at:0};
+}
+function freshTag(at){
+  if (!at) return null;
+  const hhmm = new Date(at).toLocaleTimeString("ko-KR",{timeZone:"Asia/Seoul",hour:"2-digit",minute:"2-digit",hour12:false});
+  const old = Date.now()-at > 3*3600e3;
+  return el("small",{class:"fresh"+(old?" old":"")}, "갱신 "+hhmm+(old?" · 오래됨":""));
+}
 function pubVal(k){ const b = HOME.kw && HOME.kw.blogPublic; if (b && b[k]!=null && b[k]!=="") return b[k]; const c = (HOME.stats && HOME.stats.current) || {}; return c[k]!=null && c[k]!=="" ? c[k] : null; }
 function notionText(res){ const p = res && res.payload; if (typeof p==="string") return p; if (p && typeof p.text==="string") return p.text; const c = res && res.content && res.content[0]; return (c && c.text) || ""; }
 // 코드 블록이 여러 조각이면 하나씩 읽어 보고, 안 되면 순서대로 이어 붙여 읽는다
@@ -1127,6 +1160,7 @@ function pager(boxId, page, total, onMove){
 async function fetchNotionPage(id){ return notionText(await mcp.callTool("Notion","notion-fetch",{id},{cache:false})); }
 
 // 숫자 모음(말풍선·프로필·한 줄)
+// 미발행 = 원고 파일이 있고 아직 게시되지 않은 것(보류 제외). 홈·보관함 모두 이 함수 하나로 센다
 function unpublishedCount(){ return POSTS.filter(p=>{const s=st(p.id); return s.status==="todo"||s.status==="scheduled";}).length; }
 function todayBlogRows(){ const t = kstToday(); return [...notion.values()].filter(r=>r.day===t && isBlog(r)); }
 function chinaShare(ym){ let total=0, china=0; for (const r of notion.values()){ if (!r.day || r.day.slice(0,7)!==ym || !isBlog(r)) continue; total++; if (r.region==="중국") china++; } return {total, china, pct: total?Math.round(china*100/total):0, target: chinaTarget(ym)}; }
@@ -1169,7 +1203,8 @@ function renderOneLine(){
     el("div",{}, el("span",{class:"hero-k"},"TODAY · "+md(t)+" ("+DAYNAMES[weekday(t)]+")"),
       el("h2",{},"오늘의 한 줄"),
       el("p",{}, el("span",{},"오늘 발행 ",el("b",{},total+"편")),
-        u ? el("span",{},"가장 급한 마감 ★ ",el("b",{},shortTitle(u.title,18))," ~"+md(u.deadline)) : el("span",{},"급한 ★ 마감 없음"))),
+        u ? el("span",{},"가장 급한 마감 ★ ",el("b",{},shortTitle(u.title,18))," ~"+md(u.deadline)) : el("span",{},"급한 ★ 마감 없음")),
+      total>MAX_PER_DAY ? el("p",{class:"overwarn"},"오늘 "+total+"편은 많아요. 하루 "+MAX_PER_DAY+"편이 현실 상한이니 밀린 원고(날짜 지남 "+POSTS.filter(p=>isLate(p.id)).length+"편)부터 먼저 올려요.") : null),
     el("div",{class:"rings"},
       ring(total?done*100/total:0, "오늘 발행", done+"/"+total+"편 완료", false, null),
       ring(cs.pct, "이번 달 중국", cs.china+"/"+cs.total+"편"+(cs.target!=null?" · 목표 "+cs.target+"%":""), below, cs.target)));
@@ -1181,7 +1216,7 @@ function renderProfile(){
     avatar("profile","big"),
     el("div",{class:"who"}, el("b",{},"써즈 동방장"), el("span",{},"써즈의 동네방네 · withsuzz")),
     el("div",{class:"nums"},
-      el("div",{},el("b",{},num(c.todayVisitors)),"오늘 방문자"),
+      el("div",{},el("b",{},num(visitInfo().n)),"오늘 방문자", freshTag(visitInfo().at)),
       el("div",{},el("b",{},num(pubVal("neighbors"))),"이웃"),
       el("div",{},el("b",{},num(pubVal("totalVisitors"))),"누적 방문자"),
       el("div",{},el("b",{},String(unpublishedCount())),"미발행 원고")));
@@ -1218,16 +1253,15 @@ function renderStats(){
   const c = s.current || {};
   const vis = (s.visitors||[]).filter(v=>v && v.date).sort((a,b)=>a.date.localeCompare(b.date));
   const y = vis.find(v=>v.date===addDays(t,-1));
-  const today = c.todayVisitors;
-  const diff = (today!=null && y) ? today - y.cnt : null;
+  const vi = visitInfo(), today = vi.n;
   box.replaceChildren(
     el("div",{class:"statgrid"},
-      el("div",{class:"stat"},el("span",{},"오늘 방문자"),el("b",{},num(today)),el("em",{class:diff==null?"":(diff>=0?"up":"down")}, diff==null?"어제 기록 없음":"어제 "+num(y.cnt)+" 대비 "+(diff>=0?"+":"")+num(diff))),
+      el("div",{class:"stat"},el("span",{},"오늘 방문자"),el("b",{},num(today)),el("em",{}, y ? "어제 하루 전체 "+num(y.cnt)+" (오늘은 지금까지)" : "어제 기록 없음"), freshTag(vi.at)),
       el("div",{class:"stat"},el("span",{},"이웃"),el("b",{},num(pubVal("neighbors")))),
       el("div",{class:"stat",style:"grid-column:1/-1"},el("span",{},"누적 방문자"),el("b",{},num(pubVal("totalVisitors"))))),
     el("div",{}, el("p",{class:"hint2"},"최근 30일 방문자"), sparkline(vis.slice(-30))),
     pubRow,
-    el("p",{class:"hint2"},"오늘 방문자는 기록한 시각까지의 수예요"+(s.updatedAt?" · 갱신 "+new Date(s.updatedAt).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"")+"."));
+    el("p",{class:"hint2"},"오늘 방문자는 갱신 시각까지의 수라서 어제 하루 전체와 바로 비교하지 않아요."));
 }
 
 // ===== AI 팀: 클로드 · 지피티 · 어사이드 (노션 '동방 업무지시'로 일을 주고받음) =====
@@ -1241,10 +1275,24 @@ const TEAM_CLS = Object.fromEntries(TEAM.map(t=>[t.key,t.cls]));
 const CHECK_TIMES = ["10:30","14:30","17:30"];
 function teamBadge(k){ return k==="자동" ? el("span",{class:"tbadge t-auto"},"배정 중") : el("span",{class:"tbadge "+(TEAM_CLS[k]||"t-claude")}, k||"클로드"); }
 function teamDot(k){ return k==="자동" ? el("span",{class:"frame sm tdot t-auto","aria-hidden":"true"},"…") : el("span",{class:"frame sm tdot "+(TEAM_CLS[k]||"t-claude"),"aria-hidden":"true"}, (k||"클로드").slice(0,1)); }
-function orderState(o){ return o.done ? "완료" : o.owner==="자동" ? "배정 중" : (o.results.length ? "진행" : "대기"); }
+function orderState(o){ return o.done ? "완료" : o.working ? "처리 중" : o.owner==="자동" ? "배정 중" : (o.results.length ? "진행" : "대기"); }
 HOME.orderFilter = "전체"; HOME.ownerFilter = "전체";
 // 원고 작성 업무지시는 "원고 작성: 제목 | 구분 | 유형 | 노션 항목 id | 메모 | 적용 가이드: …" 형식이라 목록에는 제목까지만 보여 준다
-function orderShow(text){ const m = String(text).match(/^(원고 작성:\s*[^|]*?)\s*(?:\||$)/); return m ? m[1] : text; }
+function orderShow(text){ return cleanOrder(text).title; }
+// 업무지시 한 줄을 읽기 좋게: 링크 원문·<p>·노션 id·'-' 빈 칸을 지우고 주제만 크게, 링크는 버튼으로
+function cleanOrder(text){
+  let t = String(text), link = "";
+  const mdl = t.match(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/); if (mdl){ link = mdl[1]; t = t.replace(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g,""); }
+  const bare = t.match(/https?:\/\/\S+/); if (bare){ if (!link) link = bare[0]; t = t.replace(/https?:\/\/\S+/g,""); }
+  t = t.replace(/<\/?[a-z][^>]*>/gi,"").replace(/\b[0-9a-f]{32}\b/gi,"");
+  const parts = t.split("|").map(x=>x.trim()).filter(x=>x && x!=="-");
+  const m = (parts[0]||"").match(/^(원고 작성|원고 수정)\s*:\s*(.*)$/);
+  if (m){
+    const rest = parts.slice(1).filter(x=>!/^적용 가이드/.test(x) && !/^구성·경험|^가이드라인/.test(x));
+    return {kind:m[1], title:m[2]||"(제목 없음)", sub: m[1]==="원고 수정" ? rest.filter(x=>!/^\d{4}-\d{2}-\d{2}_/.test(x)).slice(0,2).join(" · ") : "", link};
+  }
+  return {kind:"", title:parts.join(" · ") || t.trim(), sub:"", link};
+}
 function orderWriteInfo(o){ const m = String(o.text).match(/^원고 작성:\s*([^|]*?)\s*\|[^|]*\|[^|]*\|\s*([0-9a-f]{32})\s*\|/i); return m ? {title:m[1], notionId:m[2].toLowerCase()} : null; }
 
 function parseOrders(text){
@@ -1260,7 +1308,9 @@ function parseOrders(text){
     }
     const child = raw.match(/^(?:\t|\s{2,})+(?:[-*]\s+(?:\[[ xX]\]\s+)?)?(.+)$/);
     if (child && cur){
-      const line = unesc(child[1]).trim(); if (!line) continue;
+      const line = unesc(child[1]).replace(/<\/?[a-z][^>]*>/gi,"").trim(); if (!line) continue;
+      if (/^클로드에 요청함/.test(line)) continue;
+      if (/^처리 중/.test(line)){ cur.working = line; continue; }
       const link = line.match(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/) || line.match(/(https?:\/\/\S+)/);
       cur.results.push(link ? {text: line.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,"$1"), url: link[2]||link[1]} : {text: line});
       continue;
@@ -1272,7 +1322,7 @@ function parseOrders(text){
 
 function renderOrderFilters(){
   const box = document.getElementById("order-filters");
-  const tabs = el("div",{class:"htabs",style:"flex-wrap:wrap"}, ...["전체","배정 중","대기","진행","완료"].map(k=>el("button",{type:"button","aria-pressed":String(HOME.orderFilter===k),onclick:()=>{HOME.orderFilter=k; renderOrderFilters(); renderOrders();}},k)));
+  const tabs = el("div",{class:"htabs",style:"flex-wrap:wrap"}, ...["전체","배정 중","대기","처리 중","진행","완료"].map(k=>el("button",{type:"button","aria-pressed":String(HOME.orderFilter===k),onclick:()=>{HOME.orderFilter=k; renderOrderFilters(); renderOrders();}},k)));
   const sel = el("select",{"aria-label":"담당 필터",style:"border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--ink)",onchange:(e)=>{HOME.ownerFilter=e.target.value; renderOrders();}},
     ...["전체","클로드","지피티","어사이드"].map(k=>el("option",{value:k,selected:HOME.ownerFilter===k}, k==="전체"?"담당 전체":k)));
   box.replaceChildren(tabs, sel);
@@ -1285,10 +1335,11 @@ function renderOrders(){
   for (const o of list.slice(0,40)){
     const m = o.text.match(/^(.*?)\s*·\s*(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})$/);
     const stt = orderState(o);
-    const res = o.results.map(r=>el("small",{class:"res"}, "결과 ", r.url ? el("a",{href:r.url,target:"_blank",rel:"noopener"},"결과 보기") : r.text));
+    const res = o.results.map(r=>el("small",{class:"res"}, r.url ? el("a",{class:"sbtn",href:r.url,target:"_blank",rel:"noopener"},"원고 보기") : r.text));
+    const c = cleanOrder(m?m[1]:o.text);
     ul.append(el("li",{class:"pl tall"}, teamDot(o.owner),
-      el("span",{class:"txt"}, orderShow(m?m[1]:o.text), el("small",{}, teamBadge(o.owner), m?" · "+m[2]:""), ...res),
-      el("span",{class:"tag "+(stt==="완료"?"done":stt==="진행"?"":"wait")}, stt)));
+      el("span",{class:"txt"}, el("b",{class:"otitle"}, c.title), c.sub ? el("small",{}, c.sub) : null, el("small",{}, teamBadge(o.owner), c.kind ? " · "+c.kind : "", m?" · "+m[2]:"", o.working ? " · "+o.working : ""), c.link ? el("a",{class:"sbtn",href:c.link,target:"_blank",rel:"noopener"},"원고 보기") : null, ...res),
+      el("span",{class:"tag "+(stt==="완료"?"done":stt==="처리 중"?"work":stt==="진행"?"":"wait")}, stt)));
   }
 }
 async function pushOrder(owner, body){
@@ -1324,7 +1375,10 @@ async function loadOrders(){
 
 // 업무기록 한 줄: "MM/DD HH:MM · [클로드] 내용" (옛 형식 "MM/DD HH:MM · 클로드 · 내용"도 읽음)
 function parseLogLine(l){
-  let m = l.match(/^(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})\s*·\s*\[(클로드|지피티|어사이드|Aside|GPT)\]\s*(.*)$/i);
+  l = String(l).replace(/\[([^\]]+)\]\((?:https?:|http%)[^)]*\)/g,"$1").replace(/\s+/g," ").trim();
+  let m = l.match(/^\[?(\d{4})-(\d{2})-(\d{2})[ T](\d{1,2}):(\d{2})\]?\s*(?:·\s*)?\[(클로드|지피티|어사이드|Aside|GPT)\]\s*(.*)$/i);
+  if (m) return {when:m[2]+"/"+m[3]+" "+String(m[4]).padStart(2,"0")+":"+m[5], who:normWho(m[6]), what:m[7]};
+  m = l.match(/^(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})\s*·\s*\[(클로드|지피티|어사이드|Aside|GPT)\]\s*(.*)$/i);
   if (m) return {when:m[1], who:normWho(m[2]), what:m[3]};
   m = l.match(/^(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})\s*·\s*([^·]+?)\s*·\s*(.*)$/);
   if (m) return {when:m[1], who:normWho(m[2]), what:m[3]};
@@ -1340,10 +1394,14 @@ function renderLog(){
   const ul = document.getElementById("log-list"); ul.replaceChildren();
   if (HOME.logState!=="ok"){ ul.append(el("li",{class:"empty2"}, HOME.logState==="loading"?"불러오는 중…":"업무기록 페이지를 읽지 못했어요.")); return; }
   if (!HOME.log.length){ ul.append(el("li",{class:"empty2"},"아직 기록이 없어요.")); return; }
-  for (const l of HOME.log.slice(-20).reverse()){
-    const x = parseLogLine(l);
-    ul.append(el("li",{class:"pl tall"}, teamDot(x.who), el("span",{class:"txt"}, x.what, el("small",{}, teamBadge(x.who), x.when?" · "+x.when:"")), /실패/.test(x.what)?el("span",{class:"tag coral"},"실패"):el("span",{class:"tag done"},"완료")));
-  }
+  const all = HOME.log.map(parseLogLine);
+  const recent = all.slice(-20);
+  recent.reverse().forEach((x,i,arr)=>{
+    const fail = /실패/.test(x.what);
+    // 이후에 같은 담당이 실패 아닌 기록을 남겼으면 '해결됨'으로 보고 회색으로
+    const idx = all.indexOf(x), solved = fail && all.slice(idx+1).some(y=>y.who===x.who && !/실패/.test(y.what));
+    ul.append(el("li",{class:"pl tall"+(solved?" solved":"")}, teamDot(x.who), el("span",{class:"txt"}, x.what, el("small",{}, teamBadge(x.who), x.when?" · "+x.when:"")), fail ? (solved ? el("span",{class:"tag gray"},"해결됨") : el("span",{class:"tag coral"},"실패")) : el("span",{class:"tag done"},"완료")));
+  });
 }
 function renderTeam(){
   const box = document.getElementById("team"); if (!box) return;
@@ -1377,7 +1435,7 @@ async function loadStats(){
     if (!s) throw {code:"no_json"};
     HOME.stats = s; HOME.statsState = "ok";
   }catch(e){ HOME.statsState = "off"; }
-  renderStats(); renderProfile(); renderOffice();
+  renderStats(); renderStatsView(); renderProfile(); renderOffice();
 }
 async function loadReport(){
   if (!DONGBANG.pages.kwReport){ HOME.repState = "none"; return; }
@@ -1393,7 +1451,11 @@ function reportView(full){
   const r = HOME.rep, box = el("div",{class:"rep"});
   if (HOME.repState==="loading"){ box.append(el("p",{class:"empty2"},"불러오는 중…")); return box; }
   if (HOME.repState==="off"){ box.append(el("p",{class:"empty2"},"키워드 리포트 페이지를 읽지 못했어요.")); return box; }
-  if (!reportToday()){ box.append(el("p",{class:"empty2"},"오늘 키워드 리포트 없음")); return box; }
+  if (!reportToday()){
+    box.append(el("p",{class:"empty2"},"오늘 키워드 리포트 없음"));
+    box.append(el("p",{class:"hint2"}, (r && r.date ? "마지막 리포트 "+r.date+" · " : "아직 받은 리포트가 없어요 · ")+"다음 리포트는 내일 07:00 이후에 들어와요."));
+    return box;
+  }
   box.append(el("p",{class:"kw-sum"}, r.date+" 리포트 ", el("b",{}, r.top5.length+"개 추천"), r.backlog && r.backlog.total!=null ? " · 쌓인 원고 "+r.backlog.total+"편" : ""));
   if (r.message) box.append(el("p",{class:"hint2"}, r.message));
   const list = el("div",{class:"hl"});
@@ -1422,7 +1484,57 @@ function reportView(full){
   }
   return box;
 }
-function renderReportFull(){ const b = document.getElementById("soon-kw"); if (b) b.replaceChildren(reportView(true)); }
+// 키워드 화면: '오늘 추천'(Aside 7시 리포트) / '유입 키워드'(노션 유입 키워드 일간·월간 100개)
+HOME.kvTab = "rec"; HOME.kvKind = "daily"; HOME.kvPage = 0;
+function kwFull(kind, per, page){
+  const latest = latestKwItems(kind);
+  if (!latest) return {note: HOME.kwState==="loading" ? "불러오는 중…" : "이 기간 데이터가 아직 없어요.", rows:[], pages:1, head:null};
+  const items = (latest.items||[]).slice().sort((a,b)=>(a.rank||0)-(b.rank||0));
+  const pages = Math.max(1, Math.ceil(items.length/per));
+  return {rows: items.slice(page*per, page*per+per), pages, latest, total: items.length};
+}
+function kwTableEl(rows){
+  return el("table",{class:"kw"}, el("thead",{},el("tr",{},el("th",{},"순위"),el("th",{},"키워드"),el("th",{style:"text-align:right"},"비중 · 추정"))),
+    el("tbody",{}, ...rows.map(x=>el("tr",{},el("td",{},String(x.rank??"")),el("td",{},x.keyword),el("td",{class:"n"}, el("b",{class:"share"}, x.share!=null ? x.share+"%" : "–"), x.countEst!=null ? el("small",{class:"est"},"≈"+num(x.countEst)+"회") : null)))));
+}
+function renderKeywordsView(){
+  const b = document.getElementById("soon-kw"); if (!b) return;
+  const tabs = el("div",{class:"htabs"}, ...[["rec","오늘 추천"],["in","유입 키워드"]].map(([k,l])=>el("button",{type:"button","aria-pressed":String(HOME.kvTab===k),onclick:()=>{HOME.kvTab=k; HOME.kvPage=0; renderKeywordsView();}},l)));
+  if (HOME.kvTab==="rec"){ b.replaceChildren(tabs, reportView(true)); return; }
+  const kinds = el("div",{class:"htabs"}, ...[["daily","일간"],["monthly","월간"]].map(([k,l])=>el("button",{type:"button","aria-pressed":String(HOME.kvKind===k),onclick:()=>{HOME.kvKind=k; HOME.kvPage=0; renderKeywordsView();}},l)));
+  if (HOME.kwState!=="ok"){ b.replaceChildren(tabs, el("p",{class:"empty2"}, HOME.kwState==="loading"?"불러오는 중…":"유입 키워드 페이지를 읽지 못했어요.")); return; }
+  const per = 25, d = kwFull(HOME.kvKind, per, HOME.kvPage), L = d.latest;
+  if (!L){ b.replaceChildren(tabs, kinds, el("p",{class:"empty2"}, d.note)); return; }
+  HOME.kvPage = Math.min(HOME.kvPage, d.pages-1);
+  const lbl = HOME.kvKind==="daily" ? md(L.date) : Number(String(L.month).slice(5,7))+"월";
+  const pg = el("div",{class:"pager",style:"margin:0"}, el("span",{}, (HOME.kvPage*per+1)+"–"+Math.min(d.total,(HOME.kvPage+1)*per)+"위 / "+d.total),
+    el("button",{type:"button","aria-label":"이전",disabled:HOME.kvPage<=0,onclick:()=>{HOME.kvPage--;renderKeywordsView();}},"‹"),
+    el("button",{type:"button","aria-label":"다음",disabled:HOME.kvPage>=d.pages-1,onclick:()=>{HOME.kvPage++;renderKeywordsView();}},"›"));
+  b.replaceChildren(tabs, kinds,
+    el("p",{class:"kw-sum"}, lbl+" 조회수 ", el("b",{},num(L.channelViews)), " · 검색 유입 ", el("b",{},L.searchRate!=null?L.searchRate+"%":"–")),
+    pg, kwTableEl(d.rows.length?d.rows:[]), el("p",{class:"hint2"},"비중은 채널 조회수 대비, ≈는 추정이에요(네이버가 실제 건수는 안 줘요)."));
+}
+function renderReportFull(){ renderKeywordsView(); }
+// 통계 화면: 방문자·이웃 + 유입 키워드 일간·월간 상위
+function renderStatsView(){
+  const b = document.getElementById("soon-stats"); if (!b) return;
+  const vi = visitInfo(), s = HOME.stats;
+  const vis = ((s && s.visitors)||[]).filter(v=>v && v.date).sort((a,b)=>a.date.localeCompare(b.date));
+  const kids = [el("div",{class:"statgrid"},
+    el("div",{class:"stat"},el("span",{},"오늘 방문자"),el("b",{},num(vi.n)), freshTag(vi.at)),
+    el("div",{class:"stat"},el("span",{},"이웃"),el("b",{},num(pubVal("neighbors")))),
+    el("div",{class:"stat",style:"grid-column:1/-1"},el("span",{},"누적 방문자"),el("b",{},num(pubVal("totalVisitors")))))];
+  kids.push(el("div",{}, el("p",{class:"hint2"},"최근 30일 방문자"), sparkline(vis.slice(-30))));
+  for (const [kind,name] of [["daily","일간 유입 키워드 TOP 10"],["monthly","월간 유입 키워드 TOP 10"]]){
+    const L = latestKwItems(kind);
+    kids.push(el("h4",{class:"sub"}, name+(L?" · "+(kind==="daily"?md(L.date):Number(String(L.month).slice(5,7))+"월"):"")));
+    if (!L){ kids.push(el("p",{class:"empty2"}, HOME.kwState==="loading"?"불러오는 중…":"데이터가 아직 없어요.")); continue; }
+    kids.push(el("p",{class:"kw-sum"}, "조회수 ", el("b",{},num(L.channelViews)), " · 검색 유입률 ", el("b",{},L.searchRate!=null?L.searchRate+"%":"–")));
+    kids.push(kwTableEl((L.items||[]).slice().sort((a,b)=>(a.rank||0)-(b.rank||0)).slice(0,10)));
+  }
+  kids.push(el("button",{class:"pbtn",type:"button",onclick:()=>{HOME.kvTab="in"; showView("keywords"); renderKeywordsView();}},"유입 키워드 전체 100개 보기"));
+  b.replaceChildren(...kids);
+}
 
 async function loadKeywords(){
   if (!DONGBANG.pages.keywords){ HOME.kwState = "none"; renderKeywords(); return; }
@@ -1431,7 +1543,7 @@ async function loadKeywords(){
     HOME.kw = k;
     HOME.kwState = !k ? "none" : (k.status==="waiting" || !((k.daily||[]).length || (k.monthly||[]).length)) ? "waiting" : "ok";
   }catch(e){ HOME.kwState = "off"; }
-  renderKeywords(); renderOffice(); renderProfile(); renderStats();
+  renderKeywords(); renderKeywordsView(); renderStatsView(); renderOffice(); renderProfile(); renderStats();
 }
 
 async function copyPost(p, statusEl){
@@ -1472,23 +1584,32 @@ function renderTodo(){
     const p = it.post, r = it.row;
     const done = r ? r.status==="게시됨" : st(p.id).status==="published";
     const msg = el("span",{class:"hint2"});
-    const chk = el("input",{type:"checkbox",checked:done,"aria-label":"발행 완료",onchange:async(e)=>{
-      const on = e.target.checked; msg.textContent = "저장 중…";
+    const apply = async(on, box)=>{
+      msg.textContent = "저장 중…";
       try{
         if (p && (st(p.id).row || !r)) await changeStatus(p.id, on?"published":"todo");
         else if (r){ if (!mcp) throw {code:"notion_off"}; await updateNotion(r.id, {"상태": on?"게시됨":"예약됨"}); r.status = on?"게시됨":"예약됨"; rerender(); }
-        msg.textContent = on ? "발행 완료로 바꿨어요." : "되돌렸어요.";
-      }catch(err){ e.target.checked = !on; msg.textContent = failText(err); }
+        box.checked = on; msg.textContent = on ? "발행 완료로 바꿨어요." : "되돌렸어요.";
+      }catch(err){ box.checked = !on; msg.textContent = failText(err); }
+    };
+    // 실수로 누르기 쉬워서 '발행 완료'는 한 번 더 확인해요(되돌리기는 바로)
+    const chk = el("input",{type:"checkbox",checked:done,"aria-label":"발행 완료",onchange:(e)=>{
+      const box = e.target, on = box.checked;
+      if (!on){ apply(false, box); return; }
+      box.checked = false;
+      const yes = el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:13px"},"네, 발행했어요"), no = el("button",{class:"sbtn",type:"button"},"취소");
+      yes.addEventListener("click",()=>apply(true, box)); no.addEventListener("click",()=>{ msg.textContent = ""; });
+      msg.replaceChildren("정말 발행 완료로 바꿀까요? ", yes, no);
     }});
     const title = (r && r.title) || p.title;
     ul.append(el("li",{},
-      el("div",{class:"row"}, r && !isBlog(r) ? el("span",{class:"tag pink"},"인스타") : el("span",{class:"tag"},"블로그"), el("label",{class:"row",style:"gap:4px;font-size:12px"}, chk, "발행 완료"), p && p.deadline ? el("span",{class:"tag coral"},"★ ~"+md(p.deadline)) : null),
+      el("div",{class:"row"}, r && !isBlog(r) ? el("span",{class:"tag pink"},"인스타") : el("span",{class:"tag"},"블로그"), el("label",{class:"row",style:"gap:4px;font-size:13px"}, chk, "발행 완료"), p && p.deadline ? el("span",{class:"tag coral"},"★ ~"+md(p.deadline)) : null),
       el("span",{style:"font-weight:600"}, title),
-      el("div",{class:"row"},
+      el("div",{class:"btnrow"},
         p ? el("button",{class:"sbtn",type:"button",onclick:()=>openPost(p)},"원고 열기") : (r ? el("a",{class:"sbtn",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션열기") : null),
-        p ? el("button",{class:"sbtn",type:"button",onclick:()=>copyPost(p,msg)},"본문복사") : null),
-      p ? editControl(p) : null,
-      (!p && r) ? writeControl(r) : null,
+        p ? el("button",{class:"sbtn",type:"button",onclick:()=>copyPost(p,msg)},"본문복사") : null,
+        p ? editControl(p) : null,
+        (!p && r) ? writeControl(r) : null),
       msg));
   }
 }
@@ -2085,7 +2206,7 @@ function renderTools(){
     : el("div",{class:"tool off"}, el("span",{class:"ic",style:"background:"+t.bg},t.ic), el("b",{},t.name), el("span",{class:"d"},t.desc+" (주소 준비 중)"))));
 }
 function renderSoon(){
-  for (const [id, img, h, p] of [["soon-stats","통계","통계 상세 분석","상세 분석 페이지 준비 중이에요. 지금은 홈의 '오늘 블로그 통계' 카드에서 오늘 숫자를 볼 수 있어요."]]){
+  for (const [id, img, h, p] of []){
     const b = document.getElementById(id); if (!b) continue;
     b.replaceChildren(avatar(img,"big"), el("h3",{},h), el("p",{},p), el("button",{class:"pbtn",type:"button",onclick:()=>showView("home")},"홈으로"));
   }
@@ -2186,7 +2307,7 @@ function renderBell(){
 }
 
 function renderHome(){ renderOneLine(); renderOffice(); renderProfile(); renderStats(); renderTodo(); renderWhat(); renderCalendar(); renderSeason(); renderBell(); }
-function loadHome(){ if (!mcp){ HOME.statsState=HOME.ordersState=HOME.logState=HOME.seasonState="off"; HOME.meet.state="off"; HOME.repState="off"; if (HOME.kwState==="loading") HOME.kwState="off"; renderHome(); renderOrders(); renderLog(); renderKeywords(); renderReportFull(); renderMeet(); return; } loadStats(); loadOrders(); loadLog(); loadKeywords(); loadReport(); loadSeason(); loadMeetings(); }
+function loadHome(){ if (!mcp){ HOME.statsState=HOME.ordersState=HOME.logState=HOME.seasonState="off"; HOME.meet.state="off"; HOME.repState="off"; if (HOME.kwState==="loading") HOME.kwState="off"; renderHome(); renderOrders(); renderLog(); renderKeywords(); renderReportFull(); renderStatsView(); renderMeet(); return; } loadStats(); loadOrders(); loadLog(); loadKeywords(); loadReport(); loadSeason(); loadMeetings(); }
 
 renderQuick(); renderOrders(); renderLog(); renderKeywords(); renderHome(); renderTools(); renderSoon(); renderMeet(); watchMeet();
 document.getElementById("order-save").addEventListener("click", saveOrder);
