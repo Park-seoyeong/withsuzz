@@ -315,6 +315,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .cal-cell.over{border-color:var(--over-line);background:var(--over-bg)}
 .cal-cell .dn{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
 .cal-cell .dn b{font-weight:700;color:var(--ink)}
+.ci.sponsor{color:#4B2F9E;font-weight:800;box-shadow:inset 0 0 0 1.5px #B9A6EB}
 .ci{display:block;width:100%;text-align:left;border:0;border-radius:8px;padding:2px 5px;font-size:11px;line-height:1.35;color:#4A5568;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none;background:var(--p-lav)}
 .ci.s-published{background:var(--p-mint)}.ci.s-scheduled{background:var(--p-sky)}.ci.s-todo{background:var(--p-lav)}
 .ci.insta{box-shadow:inset 0 0 0 1px var(--p-pink)}
@@ -323,6 +324,11 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .ci .cn{display:inline-block;width:6px;height:6px;border-radius:50%;background:#E58AA0;margin-right:3px;vertical-align:1px}
 .ci .dl{font-size:10px;margin:0 3px 0 0}
 .cal-more{font-size:10.5px;color:var(--muted);padding-left:4px}
+.undated{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+.undated h4{margin:0 0 8px;font:700 13px var(--round)}
+.undated ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.undated li a,.undated li button{border:0;border-radius:999px;padding:4px 11px;font-size:12px;background:var(--p-lav);color:#4A5568;text-decoration:none;cursor:pointer}
+.undated li.sponsor a,.undated li.sponsor button{color:#4B2F9E;font-weight:800;box-shadow:inset 0 0 0 1.5px #B9A6EB}
 .cal-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted)}
 .cal-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
 .season{max-height:760px;grid-template-rows:none}
@@ -354,12 +360,15 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .heart:nth-child(2){animation-delay:.5s;margin-left:14px}.heart:nth-child(3){animation-delay:1.1s;margin-left:-14px}
 @keyframes float{0%{transform:translateY(0) scale(.7);opacity:0}20%{opacity:1}100%{transform:translateY(-34px) scale(1.15);opacity:0}}
 .spr{position:absolute;transform:translate(-50%,-100%);transition:left 1.8s ease-in-out,top 1.8s ease-in-out;z-index:2}
+.spr.talking{z-index:6}
 .spr .body{width:100%;background-repeat:no-repeat}
 .spr.moving .body{animation:bob .38s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4%)}}
 .spr .bubble{position:absolute;left:50%;bottom:100%;top:auto;transform:translateX(-50%);animation:none;font-size:11px;padding:2px 9px;background:rgba(255,255,255,.78);border-color:rgba(226,232,242,.8);box-shadow:var(--shadow-s);pointer-events:none;white-space:nowrap;max-width:none;width:max-content;margin-bottom:2px}
 .spr .bubble[hidden]{display:none}
 .spr{cursor:pointer}
+.office img.scene.occ{position:absolute;inset:0;z-index:3;pointer-events:none}
+.spr .bubble{z-index:5}
 /* 회의록 채팅창 */
 .meet{display:grid;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
 .meet-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
@@ -490,6 +499,7 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
           <div class="cal-nav"><button type="button" id="cal-prev" aria-label="이전 달">‹</button><button type="button" id="cal-today">오늘</button><button type="button" id="cal-next" aria-label="다음 달">›</button></div></div>
         <div class="cal" id="cal"></div>
         <div class="cal-legend" id="cal-legend"></div>
+        <div class="undated" id="cal-undated"></div>
       </section>
       <section class="hcard season" aria-labelledby="h-season">
         <div class="hcard-head"><h3 id="h-season">시즌 소재 추천</h3><span class="deco">✿</span></div>
@@ -590,7 +600,7 @@ const DONGBANG = {
   // 윗줄 ①앉아 일하기 ②서 있기 ③왼쪽 걷기 / 아랫줄 ④오른쪽 걷기 ⑤손 흔들기 ⑥두 팔 들고 기뻐하기. poses 값은 [열,행] 목록.
   stage: {
     spots: {
-      "책상1":{x:23.6,y:56},"책상2":{x:66.4,y:53},"책상3":{x:16,y:88},"책상4":{x:73.5,y:96},   // 책상 4개(의자 위치)
+      "책상1":{x:21.5,y:55},"책상2":{x:66,y:53},"책상3":{x:17,y:86},"책상4":{x:71,y:94},   // 책상 4개(의자 위치)
       "회의1":{x:42,y:63},"회의2":{x:60,y:60},"회의3":{x:46,y:77},"회의4":{x:58,y:76},         // 둥근 러그 위 흰 테이블 둘레
       "소파":{x:47,y:45},"화이트보드":{x:91,y:47},"티코너":{x:12,y:76},
       "러그1":{x:36,y:83},"러그2":{x:54,y:89},"러그3":{x:63,y:73},"러그4":{x:45,y:72}   // 가구에 안 겹치는 빈 바닥(산책·기쁨 표시용)
@@ -600,11 +610,18 @@ const DONGBANG = {
     idleSpots: ["러그1","러그2","러그3","러그4"],   // 쉴 때 자기 책상에 앉아 있다가 가끔 이 바닥으로 산책
     celebrate: "러그2",
     walkMs: 2200,   // 한 곳에서 다른 곳으로 걷는 시간
+    // 책상 앞부분(상판)만 오려 캐릭터 위에 덮는 모양: 그림 전체 기준 % 좌표 [x,y]. 캐릭터가 책상 뒤에 앉은 것처럼 보임
+    occluders: [
+      [[20.5,42.8],[26,40.6],[33,40.6],[33,49.2],[30,48.4],[21,45.4]],
+      [[64.5,40.3],[70,38],[76,37.2],[76,46.6],[73,46.4],[65,43.2]],
+      [[16.5,80.8],[26,74.2],[30,73],[48,81.5],[48,100],[30,100],[24,92],[17,84.5]],
+      [[68.5,79.2],[79,74.2],[85,72.5],[100,72.5],[100,100],[74.5,100],[74.5,86],[70,83.5]]
+    ],
     sprites: {
       "토끼":   {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
       "고양이": {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
-      "여우":   {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
-      "햄스터": {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}}
+      "여우":   {cols:3, rows:2, scale:12.8, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
+      "햄스터": {cols:3, rows:2, scale:13.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}}
     }
   },
   // 툴 페이지 링크 카드. href가 비어 있으면 '주소 준비 중'으로 흐리게 보여요.
@@ -1656,7 +1673,10 @@ function ensureStage(){
     const finish = (url, w, h)=>{ if (!url) return; body.style.backgroundImage = "url("+url+")"; body.style.backgroundSize = (cfg.cols*100)+"% "+(cfg.rows*100)+"%"; body.style.aspectRatio = ((w/cfg.cols)/(h/cfg.rows)).toFixed(4); setPose(c.who,"idle"); };
     if (cfg.chroma) chromaKey(src, finish); else { const im = new Image(); im.onload = ()=>finish(src, im.naturalWidth, im.naturalHeight); im.src = src; }
   }
+  const bgSrc = imgOf("stageBg");
+  for (const poly of (DONGBANG.stage.occluders||[])) root.append(el("img",{class:"scene occ",src:bgSrc,alt:"",style:"clip-path:polygon("+poly.map(([x,y])=>x+"% "+y+"%").join(",")+")"}));
   clearInterval(STAGE.wander); STAGE.wander = setInterval(wanderIdle, 12000);
+  clearInterval(STAGE.chat); STAGE.chat = setInterval(chatter, 45000); setTimeout(chatter, 9000);
 }
 function setPose(who, pose){
   const e = STAGE.els[who]; if (!e) return; clearInterval(e.timer); e.pose = pose;
@@ -1684,6 +1704,7 @@ function stageSync(){
     else if (s.state==="working"){ cls += " working"; kids = bubbleContent(c, s, ""); }
     else if (s.state==="done"){ cls += " done"; kids = bubbleContent(c, s, ""); }
     else if (HOME.peek===c.who){ cls += " peek"; kids = [c.role+" 담당 · ", el("b",{}, vals[c.key]||"")]; }
+    e.spr.classList.toggle("talking", !!kids);
     e.bub.className = cls; e.bub.hidden = !kids; e.bub.replaceChildren(...(kids||[]));
     if (s.state==="working"){ e.arrive = "work"; moveChar(c.who, st.desks[c.who]); }
     else if (s.state==="meeting"){ e.arrive = "meet"; moveChar(c.who, st.meetSpots[i % st.meetSpots.length]); }
@@ -1694,6 +1715,54 @@ function stageSync(){
       if (away) e.arrive = "idle"; else { e.arrive = "work"; if (STAGE.spot[c.who]!==st.desks[c.who]) moveChar(c.who, st.desks[c.who]); }
     }
   });
+}
+
+// 캐릭터 성격(역할 페르소나일 뿐 별도 에이전트 아님). 가끔 한두 마디 조언·추천·응원·분석. 숫자는 읽어 온 데이터에서만.
+const PERSONA = {
+  "토끼":   {trait:"다정한 응원형 동방장", style:"응원"},
+  "고양이": {trait:"꼼꼼하고 츤데레인 일정 담당", style:"일정 점검"},
+  "여우":   {trait:"차분한 숫자 분석가", style:"분석"},
+  "햄스터": {trait:"호기심 많은 추천러", style:"추천"}
+};
+function tipsFor(who){
+  const t = kstToday(), ym = t.slice(0,7), out = [];
+  const un = unpublishedCount(), cs = chinaShare(ym), dl = urgentDeadline();
+  const c = (HOME.stats && HOME.stats.current) || {};
+  const vis = ((HOME.stats && HOME.stats.visitors)||[]).filter(v=>v&&v.date).sort((a,b)=>a.date.localeCompare(b.date));
+  const y = vis.find(v=>v.date===addDays(t,-1));
+  if (who==="토끼"){
+    const n = todayBlogRows().length;
+    if (n) out.push("오늘 올릴 글이 "+n+"편이에요. 한 편씩 천천히 가요, 파이팅! 🌷");
+    if (un) out.push("미발행이 "+un+"편 쌓여 있어요. 오늘 한 편만 올려도 충분히 잘한 거예요!");
+    out.push("쓴 글이 쌓이는 만큼 블로그가 단단해져요. 오늘도 수고했어요 ✨");
+  }
+  if (who==="고양이"){
+    if (dl) out.push("마감 있는 글은 '"+shortTitle(dl.title||dl.id,16)+"'(" +dl.deadline.slice(5).replace("-","/")+")이에요. 잊지 말아요.");
+    if (cs.total) out.push("이번 달 중국 글 비중은 "+cs.pct+"%("+cs.china+"/"+cs.total+")."+(cs.target?" 목표 "+cs.target+"%까지 신경 써요.":""));
+    out.push("날짜 없는 글은 캘린더에 안 보여요. 일정부터 잡아 둬요, 흥.");
+  }
+  if (who==="여우"){
+    if (c.todayVisitors!=null && y) out.push("오늘 방문자 "+num(c.todayVisitors)+"명, 어제는 "+num(y.cnt)+"명이었어요. "+(c.todayVisitors>=y.cnt?"어제보다 같거나 많아요.":"아직 어제보다 적지만 하루가 안 끝났어요."));
+    else if (c.todayVisitors!=null) out.push("오늘 방문자는 "+num(c.todayVisitors)+"명이에요. 어제 기록은 아직 없어요.");
+    else out.push("방문자 데이터는 아직 없어요. 데이터 없음이라고 말해 두죠.");
+  }
+  if (who==="햄스터"){
+    const k = latestKwItems("daily"); const it = k && (k.items||[])[0];
+    if (it) out.push("요즘 유입 1위 키워드는 '"+it.keyword+"'예요. 비슷한 글 한 편 어때요?");
+    else out.push("유입 키워드는 아직 준비 중이에요. 오면 바로 알려줄게요!");
+    const m = HOME.season && HOME.season.months && HOME.season.months[ym], tr = m && m.topics && m.topics["여행"];
+    if (tr && tr.length) out.push("이번 달 여행 소재로 '"+shortTitle(tr[Math.floor(Math.random()*tr.length)],22)+"' 어때요?");
+  }
+  return out;
+}
+function chatter(){
+  if (!stageOn() || !STAGE.root || document.hidden || HOME.view!=="home") return;
+  if (HOME.speak && Date.now()<HOME.speak.until) return;
+  const S = charStates(), idle = DONGBANG.cast.filter(c=>S[c.who].state==="idle" || S[c.who].state==="working");
+  if (!idle.length) return;
+  const c = idle[Math.floor(Math.random()*idle.length)], tips = tipsFor(c.who); if (!tips.length) return;
+  HOME.speak = {who:c.who, text:tips[Math.floor(Math.random()*tips.length)], until:Date.now()+6500};
+  stageSync(); setTimeout(stageSync, 6700);
 }
 function wanderIdle(){
   if (!stageOn() || !STAGE.root) return; const S = charStates(), st = DONGBANG.stage;
@@ -1748,12 +1817,30 @@ function calItemsFor(d){
   for (const p of POSTS){ const s = st(p.id); if (s.row || s.day!==d || s.status==="hold") continue; out.push({title:p.title, status:s.status, china:isChinaPost(p), insta:false, post:p, row:null}); }
   return out;
 }
+function undatedItems(){
+  const out = [];
+  for (const r of notion.values()){ if (r.day || !isBlog(r) || r.status==="게시됨") continue; out.push({title:r.title, post:linkedPostFor(r.id), row:r, sp:r.type==="협찬"}); }
+  for (const p of POSTS){ const s = st(p.id); if (s.row || s.day || s.status==="published" || s.status==="hold") continue; out.push({title:p.title, post:p, row:null, sp:false}); }
+  return out;
+}
+function renderUndated(){
+  const box = document.getElementById("cal-undated"); if (!box) return;
+  const list = undatedItems(), MAX = 40;
+  const lis = list.slice(0,MAX).map(it=>{
+    const ic = it.post ? el("button",{type:"button",title:"원고 열기",onclick:()=>openPost(it.post)}, shortTitle(it.title,26))
+                       : el("a",{href:notionLink(it.row.id),target:"_blank",rel:"noopener",title:"원고 파일 없음, 노션에서 열기"}, shortTitle(it.title,26));
+    return el("li",{class:it.sp?"sponsor":""}, ic);
+  });
+  if (list.length>MAX) lis.push(el("li",{class:"hint2"},"외 "+(list.length-MAX)+"편 (원고보관함에서 보기)"));
+  box.replaceChildren(el("h4",{},"날짜 안 정해진 원고 "+list.length+"편"), list.length ? el("ul",{}, ...lis) : el("p",{class:"hint2"},"날짜가 비어 있는 원고가 없어요."));
+}
 function renderCalendar(){
   const box = document.getElementById("cal"); if (!box) return;
   const ym = HOME.calMonth, today = kstToday(), cur = today.slice(0,7);
   const y = Number(ym.slice(0,4)), m = Number(ym.slice(5,7));
   document.getElementById("h-cal").textContent = (ym===cur ? "이번 달" : m+"월")+" 블로그 캘린더";
-  document.getElementById("cal-sub").textContent = y+"년 "+m+"월";
+  let mp = 0; for (let dd=1; dd<=new Date(Date.UTC(y, m, 0)).getUTCDate(); dd++) mp += blogCount(ym+"-"+String(dd).padStart(2,"0"));
+  document.getElementById("cal-sub").textContent = y+"년 "+m+"월 · "+(ym===cur?"이번 달 ":m+"월 ")+mp+"포";
   const first = ym+"-01", startDow = weekday(first), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const weeks = Math.ceil((startDow+days)/7), kids = DAYNAMES.map((n,i)=>el("div",{class:"cal-dow"+(i===0?" sun":"")}, n));
   for (let i=0; i<weeks*7; i++){
@@ -1763,7 +1850,8 @@ function renderCalendar(){
     const chips = items.slice(0,MAXV).map(it=>{
       const sm = seasonMonth({title:it.title, file:""}), p = it.post;
       const kidsC = [it.china ? el("i",{class:"cn",title:"중국 글"}) : null, p && p.deadline ? el("span",{class:"star"},"★") : null, p && p.deadline ? el("span",{class:"dl"},"~"+md(p.deadline)) : null, sm ? seasonEmoji(sm)+" " : null, (it.insta?"[인] ":"")+it.title];
-      const cls = "ci s-"+it.status+(it.insta?" insta":"")+(p ? dlClass(p) : "");
+      const ty = (it.row && it.row.type) || (p && st(p.id).row && st(p.id).row.type) || "";
+      const cls = "ci s-"+it.status+(it.insta?" insta":"")+(ty==="협찬"?" sponsor":"")+(p ? dlClass(p) : "");
       const tip = it.title+" · "+SHORT[it.status]+(p&&p.deadline?" · 마감 "+md(p.deadline):"");
       return p ? el("button",{class:cls,type:"button",title:tip,onclick:()=>openPost(p)},...kidsC)
                : el("a",{class:cls,href:notionLink(it.row.id),target:"_blank",rel:"noopener",title:tip+" · 원고 파일 없음, 노션에서 열기"},...kidsC);
@@ -1772,10 +1860,10 @@ function renderCalendar(){
       el("div",{class:"dn"}, el("b",{}, String(Number(d.slice(8,10)))), bc?el("span",{}, bc+"편"):null),
       ...chips, items.length>MAXV ? el("span",{class:"cal-more"},"+"+(items.length-MAXV)+"편") : null));
   }
-  box.replaceChildren(...kids);
+  box.replaceChildren(...kids); renderUndated();
   document.getElementById("cal-legend").replaceChildren(
     el("span",{},el("i",{style:"background:var(--p-mint)"}),"게시됨"), el("span",{},el("i",{style:"background:var(--p-sky)"}),"예약됨"), el("span",{},el("i",{style:"background:var(--p-lav)"}),"아이디어"),
-    el("span",{},"★ 마감"), el("span",{},el("i",{style:"background:#E58AA0;width:6px;height:6px"}),"중국 글"), el("span",{},"🌸☀️🍁❄️ 시즌"), el("span",{},el("i",{style:"background:var(--over-bg);box-shadow:inset 0 0 0 1.5px var(--over-line)"}),"하루 3편 넘음"), el("span",{},"날짜 없는 원고는 안 나와요"));
+    el("span",{},"★ 마감"), el("span",{class:"sponsor-leg"},"체험단·협찬 글은 진한 보라"), el("span",{},el("i",{style:"background:#E58AA0;width:6px;height:6px"}),"중국 글"), el("span",{},"🌸☀️🍁❄️ 시즌"), el("span",{},el("i",{style:"background:var(--over-bg);box-shadow:inset 0 0 0 1.5px var(--over-line)"}),"하루 3편 넘음"), el("span",{},"날짜 없는 원고는 안 나와요"));
 }
 
 // ===== 시즌 소재 추천: 노션 '시즌별 소재 추천 (월별)' JSON을 읽음 =====
