@@ -241,7 +241,10 @@ a.chip{text-decoration:none}
 table.kw{width:100%;border-collapse:collapse;font-size:13px}
 table.kw th{font-size:11px;color:var(--muted);text-align:left;font-weight:600;padding:3px 4px;letter-spacing:.08em}
 table.kw td{padding:4px;border-top:1px dashed var(--line)}
-table.kw td.n{text-align:right;font-variant-numeric:tabular-nums}
+table.kw td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+table.kw .share{font-size:14px}
+table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
+.kw-sum{margin:0;font-size:13px;background:var(--sunk);border-radius:999px;padding:6px 14px}
 /* AI 팀 */
 .t-claude{--tc:var(--p-lav)}.t-gpt{--tc:var(--p-mint)}.t-aside{--tc:var(--p-sky)}
 .tbadge{display:inline-block;border-radius:999px;padding:0 7px;font-size:10.5px;font-weight:700;background:var(--tc);color:#4A5568;vertical-align:1px}
@@ -850,9 +853,15 @@ const PER = 4;
 function hm(){ const d = new Date(Date.now()+9*3600e3); return md(d.toISOString().slice(0,10))+" "+d.toISOString().slice(11,16); }
 function num(n){ return n==null||n===""||isNaN(n) ? "–" : Number(n).toLocaleString("ko-KR"); }
 // 이웃·누적: 통계 페이지 값이 비면 키워드 페이지 blogPublic 값
-function pubVal(k){ const c = (HOME.stats && HOME.stats.current) || {}; if (c[k]!=null && c[k]!=="") return c[k]; const b = HOME.kw && HOME.kw.blogPublic; return b && b[k]!=null && b[k]!=="" ? b[k] : null; }
+function pubVal(k){ const b = HOME.kw && HOME.kw.blogPublic; if (b && b[k]!=null && b[k]!=="") return b[k]; const c = (HOME.stats && HOME.stats.current) || {}; return c[k]!=null && c[k]!=="" ? c[k] : null; }
 function notionText(res){ const p = res && res.payload; if (typeof p==="string") return p; if (p && typeof p.text==="string") return p.text; const c = res && res.content && res.content[0]; return (c && c.text) || ""; }
-function jsonBlock(text){ const m = text.match(/```(?:json)?\s*\n([\s\S]*?)\n```/); if (!m) return null; try{ return JSON.parse(m[1].replace(/\\([_~*\[\]])/g,"$1")); }catch(e){ return null; } }
+// 코드 블록이 여러 조각이면 하나씩 읽어 보고, 안 되면 순서대로 이어 붙여 읽는다
+function jsonBlock(text){
+  const parts = [...text.matchAll(/```(?:json)?[ \t]*\n([\s\S]*?)\n?```/g)].map(m=>m[1]);
+  const tryParse = (t)=>{ try{ return JSON.parse(t); }catch(e){ try{ return JSON.parse(t.replace(/\\([_~*\[\]])/g,"$1")); }catch(e2){ return null; } } };
+  for (const p of parts){ const v = tryParse(p.trim()); if (v && typeof v==="object") return v; }
+  return parts.length > 1 ? (tryParse(parts.map(p=>p.trim()).join("")) || tryParse(parts.join("\n"))) : null;
+}
 function unesc(s){ return s.replace(/\\([~*_\[\]()#>`|-])/g,"$1"); }
 function goto(id){ const t = document.getElementById(id); if (t) t.scrollIntoView({behavior:"smooth",block:"start"}); }
 function pager(boxId, page, total, onMove){
@@ -1250,28 +1259,48 @@ function renderWhat(){
 }
 
 // 유입 키워드
-const SEASON_WORDS = {봄:["봄","벚꽃","3월","4월","5월","꽃"], 여름:["여름","바다","물놀이","6월","7월","8월","휴가"], 가을:["가을","단풍","9월","10월","11월","추석"], 겨울:["겨울","12월","1월","2월","크리스마스","눈","스키","온천","연말","일루미네이션","설날"]};
-function curSeason(){ const m = Number(kstToday().slice(5,7)); return m>=3&&m<=5?"봄":m>=6&&m<=8?"여름":m>=9&&m<=11?"가을":"겨울"; }
-function nextSeason(){ return {봄:"여름",여름:"가을",가을:"겨울",겨울:"봄"}[curSeason()]; }
-function pickKeywords(){
-  const d = HOME.kw && Array.isArray(HOME.kw.daily) ? [...HOME.kw.daily].sort((a,b)=>String(b.date).localeCompare(String(a.date))) : [];
-  if (!d.length) return [];
-  const today = d[0].items||[], prev = new Map(((d[1]||{}).items||[]).map(x=>[x.keyword,x.count]));
-  const titles = [...[...notion.values()].filter(r=>r.status==="게시됨").map(r=>r.title), ...[...rssItems.values()].map(x=>x.title)].map(s=>String(s).replace(/\s+/g,""));
-  const words = [...SEASON_WORDS[curSeason()], ...SEASON_WORDS[nextSeason()]];
-  const out = [];
-  for (const it of today){
-    const k = String(it.keyword||""); const kk = k.replace(/\s+/g,"");
-    if (!kk) continue;
+// 동방.zip 키워드 뽑기 (페이지와 같은 함수)
+const SEASON_WORDS = {봄:["봄","벚꽃","3월","4월","5월","꽃놀이"], 여름:["여름","바다","물놀이","6월","7월","8월","휴가"], 가을:["가을","단풍","9월","10월","11월","추석"], 겨울:["겨울","12월","1월","2월","크리스마스","일루미네이션","스키","시즌권","온천","연말","눈꽃","설날"]};
+function normKw(s){ return String(s).toLowerCase().replace(/\s+/g,""); }
+function kwTokens(s){ return String(s).toLowerCase().split(/\s+/).filter(Boolean); }
+function titleHas(titles, kw){ const toks = kwTokens(kw); return titles.some(t=>{ const ns = t.replace(/\s+/g,""); return toks.every(w=>ns.includes(w)); }); }
+function titleNear(titles, kw){ const toks = kwTokens(kw); if (toks.length<2) return false; const need = Math.ceil(toks.length/2); return titles.some(t=>{ const ns = t.replace(/\s+/g,""); return toks.filter(w=>ns.includes(w)).length >= need; }); }
+function hasWord(k, w){ return /^\d+월$/.test(w) ? new RegExp("(^|[^0-9])"+w).test(k) : k.includes(w); }
+function pickFrom(daily, monthly, titlesRaw, monthNum){
+  const titles = titlesRaw.map(t=>String(t).toLowerCase().replace(/\s+/g," "));
+  const titlesNs = titles.map(t=>t.replace(/\s+/g,""));
+  const seasonNow = monthNum>=3&&monthNum<=5?"봄":monthNum>=6&&monthNum<=8?"여름":monthNum>=9&&monthNum<=11?"가을":"겨울";
+  const seasonNext = {봄:"여름",여름:"가을",가을:"겨울",겨울:"봄"}[seasonNow];
+  // 지금 달(11월)은 이미 다 쓴 계절이라, 다음 달·다음 계절 위주로 본다
+  const words = [...new Set([...SEASON_WORDS[seasonNext], (monthNum%12+1)+"월", ((monthNum+1)%12+1)+"월", "겨울"].filter(w=>!(w===monthNum+"월")))];
+  const monthSet = new Set((monthly||[]).map(x=>normKw(x.keyword)));
+  const seen = new Set(), out = [];
+  for (const it of daily){
+    const k = String(it.keyword||"").trim(), n = normKw(k);
+    if (!n || seen.has(n)) continue; seen.add(n);
     const why = [];
-    if (!titles.some(t=>t.includes(kk))) why.push("발행 제목에 없음");
-    const pc = prev.get(k);
-    if (prev.size && (pc==null || it.count > pc)) why.push(pc==null ? "어제 없던 키워드" : "어제보다 +"+(it.count-pc));
-    if (words.some(w=>k.includes(w))) why.push("시즌 키워드");
+    const inTitle = titleHas(titles, k) || titlesNs.some(t=>t.includes(n));
+    const near = !inTitle && titleNear(titles, k);
+    if (!inTitle) why.push(near ? "기존 글과 비슷" : "내 제목에 없음");
+    if (monthSet.size && !monthSet.has(n)) why.push("10월 상위에 없던 새 키워드");
+    if (words.some(w=>hasWord(k,w))) why.push("시즌 키워드");
     if (!why.length) continue;
-    out.push({k, count:it.count, why, score:why.length*100 + (it.count||0)});
+    out.push({k, share:it.share, countEst:it.countEst, why, inTitle, near, score:(inTitle?0:near?100:200) + (why.includes("시즌 키워드")?150:0) + (monthSet.size&&!monthSet.has(n)?30:0) + (it.share||0)*300});
   }
   return out.sort((a,b)=>b.score-a.score).slice(0,10);
+}
+
+
+function pickKeywords(){
+  const d = latestKwItems("daily"), m = latestKwItems("monthly");
+  if (!d) return [];
+  const titles = [
+    ...[...notion.values()].filter(r=>r.status==="게시됨").map(r=>r.title),
+    ...[...rssItems.values()].map(x=>x.title),
+    ...Object.values(GUIDE_CHINA).flat().map(x=>x.title),
+    ...POSTS.filter(p=>st(p.id).status==="published").map(p=>p.title)
+  ];
+  return pickFrom(d.items||[], m ? (m.items||[]) : [], titles, Number(kstToday().slice(5,7)));
 }
 async function addIdea(k, btn){
   if (!mcp){ btn.textContent = "노션 연결 안 됨"; return; }
@@ -1298,16 +1327,20 @@ function renderKeywords(){
     el("button",{type:"button","aria-label":"이전",disabled:HOME.kwPage<=0,onclick:()=>{HOME.kwPage--;renderKeywords();}},"‹"),
     el("button",{type:"button","aria-label":"다음",disabled:HOME.kwPage>=pages-1,onclick:()=>{HOME.kwPage++;renderKeywords();}},"›"));
   const pickBtn = el("button",{class:"pbtn",type:"button",onclick:()=>{HOME.kwPicks = pickKeywords(); renderKeywords();}},"키워드 뽑기");
-  const kids = [el("div",{class:"row",style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap"}, pickBtn, el("span",{class:"hint2"}, latest ? (HOME.kwTab==="daily"?latest.date:latest.month)+" 기준 · 유입수만 있고 검색량은 아직 없어요" : ""))];
+  const kids = [el("div",{class:"row",style:"display:flex;gap:8px;align-items:center;flex-wrap:wrap"}, pickBtn, el("span",{class:"hint2"}, latest ? (HOME.kwTab==="daily"?latest.date:latest.month)+" 기준 · 비중은 채널 조회수 대비, ≈는 추정이에요" : ""))];
+  if (latest && (latest.channelViews!=null || latest.searchRate!=null)){
+    const lbl = HOME.kwTab==="daily" ? (latest.date===addDays(kstToday(),-1) ? "어제" : md(latest.date)) : Number(String(latest.month).slice(5,7))+"월";
+    kids.unshift(el("p",{class:"kw-sum"}, lbl+" 조회수 ", el("b",{},num(latest.channelViews)), " · 검색 유입 ", el("b",{},latest.searchRate!=null?latest.searchRate+"%":"–")));
+  }
   if (HOME.kwPicks){
     kids.push(HOME.kwPicks.length
       ? el("ul",{class:"hl"}, ...HOME.kwPicks.map(c=>{ const b = el("button",{class:"sbtn",type:"button"},"노션에 아이디어로 추가"); b.addEventListener("click",()=>addIdea(c.k,b));
-          return el("li",{}, el("div",{class:"row"}, el("b",{},c.k), el("span",{class:"hint2"},"유입 "+num(c.count))), el("div",{class:"row"}, ...c.why.map(w=>el("span",{class:"tag"},w)), b)); }))
+          return el("li",{}, el("div",{class:"row"}, el("b",{},c.k), el("span",{class:"hint2"}, (c.share!=null?c.share+"%":"")+(c.countEst!=null?" · ≈"+num(c.countEst)+"회":""))), el("div",{class:"row"}, ...c.why.map(w=>el("span",{class:"tag"+(w==="기존 글과 비슷"?" wait":w==="시즌 키워드"?" pink":"")},w)), b)); }))
       : el("p",{class:"empty2"},"조건에 맞는 후보가 없어요."));
   }
   kids.push(items.length
-    ? el("table",{class:"kw"}, el("thead",{},el("tr",{},el("th",{},"순위"),el("th",{},"키워드"),el("th",{style:"text-align:right"},"유입수"))),
-        el("tbody",{}, ...items.slice(HOME.kwPage*per, HOME.kwPage*per+per).map(x=>el("tr",{},el("td",{},String(x.rank??"")),el("td",{},x.keyword),el("td",{class:"n"},num(x.count))))))
+    ? el("table",{class:"kw"}, el("thead",{},el("tr",{},el("th",{},"순위"),el("th",{},"키워드"),el("th",{style:"text-align:right"},"비중"))),
+        el("tbody",{}, ...items.slice(HOME.kwPage*per, HOME.kwPage*per+per).map(x=>el("tr",{},el("td",{},String(x.rank??"")),el("td",{},x.keyword),el("td",{class:"n"}, el("b",{class:"share"}, x.share!=null ? x.share+"%" : "–"), x.countEst!=null ? el("small",{class:"est"},"≈"+num(x.countEst)+"회") : null)))))
     : el("p",{class:"empty2"},"이 기간 데이터가 아직 없어요."));
   body.replaceChildren(...kids);
 }
