@@ -39,6 +39,33 @@ export function extractTitle(html, file) {
 }
 
 const links = JSON.parse(readFileSync(join(here, "artifact-links.json"), "utf8"));
+const deadlines = JSON.parse(readFileSync(join(here, "deadlines.json"), "utf8"));
+
+// 할인·쿠폰·프로모션·예약 마감일 찾기(자동). 축제 운영 기간·무비자 기한은 마감으로 보지 않음.
+const DL_KW = /쿠폰|프로모션|할인|세일|특가|판매|코드|얼리버드|선착순|예매|예약/;
+export function findDeadline(html, written) {
+  const i = html.indexOf('id="post"');
+  const text = html.slice(i < 0 ? 0 : i)
+    .replace(/<(br|\/p|\/div|\/li|\/tr|\/td|\/h\d)[^>]*>/gi, "\n").replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ").replace(/&[a-z]+;/g, " ");
+  const lines = text.split("\n").map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const wy = Number(written.slice(0, 4)), wm = Number(written.slice(5, 7));
+  const found = [];
+  lines.forEach((line, k) => {
+    const near = lines.slice(Math.max(0, k - 2), k + 1).join(" ");
+    if (!DL_KW.test(near)) return;
+    const re = /(?:(\d{4})\s*(?:년\s*|\.\s*))?(\d{1,2})\s*(?:월\s*|[./]\s*)(\d{1,2})\s*일?\s*(?:\([^)]*\)\s*)?(?:\d{1,2}:\d{2}\s*)?(?:까지|마감)/g;
+    let m;
+    while ((m = re.exec(line))) {
+      const mo = +m[2], d = +m[3];
+      if (mo < 1 || mo > 12 || d < 1 || d > 31) continue;
+      let y = m[1] ? +m[1] : wy;
+      if (!m[1] && mo < wm - 3) y++;
+      found.push(`${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    }
+  });
+  return found.sort()[0] || "";
+}
 const files = readdirSync(draftsDir).filter((f) => f.endsWith("_새서식.html")).sort();
 const posts = [];
 for (const file of files) {
@@ -54,6 +81,7 @@ for (const file of files) {
     file: base,
     written: base.slice(0, 10),
     title: extractTitle(html, base),
+    deadline: base in deadlines ? deadlines[base] : findDeadline(html, base.slice(0, 10)),
     artifact: links[base] ? "https://claude.ai/artifact/" + links[base] : "",
     html: body,
   });

@@ -115,6 +115,9 @@ a.chip{text-decoration:none}
 .months{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;font-variant-numeric:tabular-nums}
 .month b{color:var(--fg)}
 .month.below,.month.below b{color:var(--over-fg)}
+.star{color:var(--yellow);margin-right:2px}
+.dl{font-size:11px;color:var(--muted);margin-left:4px;font-weight:400}
+.dl-past .star,.dl-past .dl{color:var(--over-fg)}
 .archive{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:10px}
 .archive h2{font-size:15px;margin:0;font-weight:700}
 .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
@@ -224,6 +227,19 @@ function blogCount(d){
 }
 const MAX_PER_DAY = 3;
 
+// 할인·이벤트 마감 표시: 제목 앞 ★, 제목 옆 작은 "~11/19". 마감 지나면 연한 코랄
+function titleWithDeadline(p){
+  if (!p.deadline) return [p.title];
+  const past = p.deadline < kstToday();
+  return [el("span",{class:"star","aria-label":past?"마감 지남":"마감 있음"},"★"), p.title, el("span",{class:"dl"},"~"+md(p.deadline))];
+}
+// 일정표 칸은 좁아서 날짜를 ★ 바로 뒤에 둔다(제목이 잘려도 마감일은 보이게)
+function chipWithDeadline(p){
+  if (!p.deadline) return [p.title];
+  return [el("span",{class:"star"},"★"), el("span",{class:"dl",style:"margin:0 4px 0 0"},"~"+md(p.deadline)), p.title];
+}
+function dlClass(p){ return p.deadline && p.deadline < kstToday() ? " dl-past" : ""; }
+
 function el(tag, attrs={}, ...kids){
   const e = document.createElement(tag);
   for (const [k,v] of Object.entries(attrs)){
@@ -270,7 +286,7 @@ function renderWeek(){
       const s = st(p.id);
       if (s.day!==d || s.status==="hold") continue;
       const cls = "chip"+(s.status==="published"?" s-published":"")+(s.status==="scheduled"?" s-scheduled":"")+(isLate(p.id)?" s-late":"")+(selected===p.id?" on":"");
-      chips.push(el("button",{class:cls,type:"button",title:p.title,onclick:()=>select(p.id)},p.title));
+      chips.push(el("button",{class:cls+dlClass(p),type:"button",title:p.title+(p.deadline?" (마감 "+md(p.deadline)+")":""),onclick:()=>select(p.id)},...chipWithDeadline(p)));
     }
     for (const row of notion.values()){
       if (row.day!==d || linkedPostFor(row.id)) continue;
@@ -279,7 +295,7 @@ function renderWeek(){
     }
     const bc = blogCount(d), over = bc > MAX_PER_DAY;
     days.append(el("div",{class:"day"+(d===today?" today":"")+(over?" over":""),title:over?"블로그 글이 하루 "+MAX_PER_DAY+"편을 넘어요":null},
-      el("div",{class:"day-label"},el("b",{},DAYNAMES[weekday(d)]),el("span",{},md(d)+(chips.length?" · "+chips.length+"편":"")),over?el("span",{class:"over-note"},"블로그 "+bc+"편 · 3편 넘음"):null),
+      el("div",{class:"day-label"},el("b",{},DAYNAMES[weekday(d)]),el("span",{},md(d)+(bc?" · "+bc+"편":""))),
       el("div",{style:"display:grid;gap:4px;min-width:0"}, chips.length?chips:el("span",{class:"day-label"},"—"))
     ));
   }
@@ -320,6 +336,7 @@ function seasonMonth(p){
   const m = t.match(/(\d{1,2})월/); if (m){ const n = Number(m[1]); if (n>=1 && n<=12) return n; }
   return null;
 }
+function seasonEmoji(m){ return m>=3&&m<=5 ? "🌸" : m>=6&&m<=8 ? "☀️" : m>=9&&m<=11 ? "🍁" : "❄️"; }
 function inArchive(p){
   const s = st(p.id);
   if (s.status==="published" || s.status==="hold") return false;
@@ -355,10 +372,10 @@ function renderArchive(){
       } else { btn.disabled = false; warn.textContent = "날짜를 넣지 못했어요. 아래 원고 칸의 안내를 보세요."; }
     }},"날짜 정하기");
     box.append(el("div",{class:"card"},
-      el("button",{class:"card-title",type:"button",onclick:()=>{select(p.id);document.getElementById("viewer").scrollIntoView({behavior:"smooth",block:"start"});}},p.title),
+      el("button",{class:"card-title"+dlClass(p),type:"button",onclick:()=>{select(p.id);document.getElementById("viewer").scrollIntoView({behavior:"smooth",block:"start"});}},...titleWithDeadline(p)),
       el("div",{class:"card-row"},
         s.day?el("span",{class:"pill late"},"날짜 지남 "+md(s.day)):el("span",{class:"pill todo"},"날짜 미정"),
-        sm?el("span",{class:"pill season"},"시즌 "+sm+"월까지"):null,
+        sm?el("span",{class:"pill season",title:"시즌 "+sm+"월까지"},seasonEmoji(sm)+" ~"+sm+"월"):null,
         el("span",{class:"day-label"},"작성 "+md(p.written)+(s.notion?"":" · 노션 미연결"))),
       el("div",{class:"card-row"}, dayIn, btn),
       warn));
@@ -435,7 +452,7 @@ function renderList(){
   for (const p of rows){
     const s = st(p.id);
     list.append(el("li",{}, el("button",{class:"item",type:"button","aria-current":String(selected===p.id),onclick:()=>select(p.id)},
-      el("span",{class:"item-title"},p.title),
+      el("span",{class:"item-title"+dlClass(p)},...titleWithDeadline(p)),
       el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(p.written)), s.notion?null:el("span",{},"· 노션 미연결"))
     )));
   }
