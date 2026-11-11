@@ -812,7 +812,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
   </section>
 
   <details class="archive nopost-box" id="nopost-box">
-    <summary><h2 id="nopost-title">원고 파일 없는 노션 항목</h2><span class="hint">눌러서 펼치기 · 노션에만 있고 원고가 아직 없는 글이에요(날짜 지난 건 뺐어요). "원고 쓰기"를 누르면 클로드에게 업무지시가 가요.</span></summary>
+    <summary><h2 id="nopost-title">원고 파일 없는 노션 항목</h2><span class="hint">눌러서 펼치기 · 노션에만 있고 원고가 아직 없는 글이에요(날짜 지난 것도 포함, 아래에서 날짜 바꿀 수 있어요). "원고 쓰기"를 누르면 클로드에게 업무지시가 가요.</span></summary>
     <div class="cards" id="nopost"></div>
   </details>
 
@@ -1058,7 +1058,7 @@ function renderMonths(){
 
 // 시즌 원고: 끝나는 달 표시
 function seasonMonth(p){
-  const t = p.title+" "+p.file;
+  const t = p.title+" "+(p.file||"");
   if (/크리스마스|일루미네이션|연말/.test(t)) return 12;
   if (/스키|겨울|눈꽃|온천/.test(t)) return 2;
   const m = t.match(/(\d{1,2})월/); if (m){ const n = Number(m[1]); if (n>=1 && n<=12) return n; }
@@ -1073,6 +1073,11 @@ function inArchive(p){
 }
 
 // 보관함: 날짜 없는 원고(와 날짜 지난 원고)에 추천 날짜 계산
+async function setRowDay(r, d){
+  if (!mcp) throw {code:"notion_off"};
+  await updateNotion(r.id, d ? {"date:게시 날짜:start": d, "date:게시 날짜:is_datetime": 0} : {"date:게시 날짜:start": null});
+  r.day = d;
+}
 function dayHasChina(d, extra){
   if ((extra||[]).some(x=>x.d===d && x.china)) return true;
   return itemsOnDay(d).some(i=>(i.row && i.row.region==="중국") || (i.post && isChinaPost(i.post)));
@@ -1081,9 +1086,9 @@ function planArchive(rows){
   const t = kstToday(), load = {}, plan = [];
   const mine = [];
   const endOf = (p)=>{ const sm = seasonMonth(p); if (!sm) return ""; let y = Number(t.slice(0,4)); if (sm < Number(t.slice(5,7))) return ""; const nx = sm===12 ? (y+1)+"-01-01" : y+"-"+String(sm+1).padStart(2,"0")+"-01"; return addDays(nx,-1); };
-  const order = [...rows].sort((a,b)=>{ const ea = (a.deadline||endOf(a)||"9999"), eb = (b.deadline||endOf(b)||"9999"); return ea.localeCompare(eb) || b.written.localeCompare(a.written); });
+  const order = [...rows].sort((a,b)=>{ const ea = (a.deadline||endOf(a)||"9999"), eb = (b.deadline||endOf(b)||"9999"); return ea.localeCompare(eb) || String(b.written||"").localeCompare(String(a.written||"")); });
   for (const p of order){
-    const china = isChinaPost(p), limit = (p.deadline && p.deadline>=t) ? p.deadline : endOf(p);
+    const china = p.__row ? (p.__row.region==="중국" || /중국|상하이|대련|칭다오|베이징|지난|단둥|하이난|장가계/.test(p.title)) : isChinaPost(p), limit = (p.deadline && p.deadline>=t) ? p.deadline : endOf(p);
     let pick = "";
     for (let i=1;i<=60;i++){
       const d = addDays(t,i);
@@ -1101,17 +1106,17 @@ function planArchive(rows){
 function openArchivePlan(){
   const box = document.getElementById("arch-plan"); if (!box) return;
   if (box.firstChild){ box.replaceChildren(); return; }
-  const rows = POSTS.filter(p=>inArchive(p) && !st(p.id).day);
+  const rows = [...POSTS.filter(p=>inArchive(p) && !st(p.id).day), ...[...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !r.day).map(r=>({title:r.title, file:"", deadline:"", written:"", __row:r}))];
   if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"날짜 없는 원고가 없어요.")); return; }
   const plan = planArchive(rows), can = plan.filter(x=>x.to), msg = el("p",{class:"warnline",role:"status"});
   const apply = el("button",{class:"pbtn",type:"button",disabled:!can.length}, can.length+"편에 추천 날짜 넣기");
   apply.addEventListener("click", async ()=>{
     apply.disabled = true; msg.textContent = "넣는 중…";
-    try{ for (const x of can) await changeDay(x.p.id, x.to); msg.textContent = "다 넣었어요."; box.replaceChildren(); rerender(); }
+    try{ for (const x of can) await (x.p.__row ? setRowDay(x.p.__row, x.to) : changeDay(x.p.id, x.to)); msg.textContent = "다 넣었어요."; box.replaceChildren(); rerender(); }
     catch(e){ apply.disabled = false; msg.textContent = failText(e); }
   });
   box.replaceChildren(el("div",{class:"card"}, el("b",{},"이렇게 넣어요 (아직 안 바꿨어요)"), el("p",{class:"hint"},"하루 "+MAX_PER_DAY+"편 이하, 마감·시즌 끝나기 전, 중국 글은 이틀 연속 안 되게 골랐어요."),
-    ...plan.map(x=>el("div",{class:"card-row"}, el("span",{}, x.p.title), el("b",{}, x.to ? md(x.to)+"("+DAYNAMES[weekday(x.to)]+")" : x.why))), apply, msg));
+    ...plan.map(x=>el("div",{class:"card-row"}, el("span",{}, (x.p.__row?"[파일 없음] ":"")+x.p.title), el("b",{}, x.to ? md(x.to)+"("+DAYNAMES[weekday(x.to)]+")" : x.why))), apply, msg));
 }
 function renderArchive(){
   const box = document.getElementById("archive"); box.replaceChildren();
@@ -1834,17 +1839,32 @@ async function copyPost(p, statusEl){
 }
 function openPost(p){ showView("vault"); select(p.id); goto("viewer"); }
 
+function dayEditor(r){
+  const inp = el("input",{type:"date",value:r.day||"","aria-label":r.title+" 게시 날짜"}), msg = el("span",{class:"hint2",role:"status"});
+  let confirmFor = "";
+  const btn = el("button",{class:"sbtn",type:"button",onclick:async()=>{
+    const d = inp.value; if (!d){ msg.textContent = "날짜를 골라 주세요."; return; }
+    if (d===r.day){ msg.textContent = "이미 이 날짜예요."; return; }
+    const n = blogCount(d);
+    if (n >= MAX_PER_DAY && confirmFor!==d){ confirmFor = d; msg.textContent = md(d)+"에 이미 "+n+"편이에요. 그래도 옮기려면 한 번 더."; return; }
+    btn.disabled = true; msg.textContent = "저장 중…";
+    try{ await setRowDay(r, d); msg.textContent = md(d)+"로 바꿨어요."; rerender(); }catch(e){ msg.textContent = failText(e); }
+    btn.disabled = false;
+  }},"날짜 바꾸기");
+  return el("div",{class:"row",style:"display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"}, inp, btn, msg);
+}
 function renderNoPost(){
   const box = document.getElementById("nopost"); if (!box) return;
   if (box.querySelector('.wform[data-open="1"]')) return;
-  const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !(r.day && r.day<today)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
+  const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
   document.getElementById("nopost-title").textContent = "원고 파일 없는 노션 항목 "+rows.length+"편";
   if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"원고가 없는 항목이 없어요.")); return; }
   box.replaceChildren(...rows.slice(0,60).map(r=>el("div",{class:"card"},
     el("b",{class:"card-title"}, r.title),
     el("div",{class:"row",style:"display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"},
-      el("span",{class:"tag"}, r.day ? md(r.day) : "날짜 미정"), r.region ? el("span",{class:"tag"}, r.region) : null, r.type ? el("span",{class:"tag"}, r.type) : null,
+      el("span",{class:"tag"}, r.day ? (r.day<today ? "날짜 지남 " : "")+md(r.day) : "날짜 미정"), r.region ? el("span",{class:"tag"}, r.region) : null, r.type ? el("span",{class:"tag"}, r.type) : null,
       el("a",{class:"sbtn",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션열기")),
+    dayEditor(r),
     writeControl(r))), rows.length>60 ? el("p",{class:"hint"},"외 "+(rows.length-60)+"편은 노션에서 확인해 주세요.") : null);
 }
 function renderTodo(){
