@@ -1821,16 +1821,19 @@ function writeControl(row){
   const wrap = el("div",{class:"wform"}), msg = el("span",{class:"hint2"});
   const open = el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:12px"},"원고 쓰기");
   open.addEventListener("click",()=>{
-    const memo = el("input",{type:"text",placeholder:"메모(선택)","aria-label":"원고 메모"});
+    const ta = (ph,label)=>el("textarea",{rows:"2",placeholder:ph,"aria-label":label,style:"width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:6px 9px;font:inherit;font-size:12px;resize:vertical"});
+    const flow = ta("내 구성·경험 흐름(선택) 예: 도입 직접 다녀온 얘기 → 방문 순서 → 아쉬운 점","구성·경험 흐름");
+    const guide = ta("가이드라인(선택) 협찬·업체 가이드를 그대로 붙여 넣으세요. 있으면 그 범위 안에서만 써요.","가이드라인");
+    const memo = el("input",{type:"text",placeholder:"기타 메모(선택)","aria-label":"원고 메모"});
     const send = el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:12px"},"클로드에게 보내기");
     send.addEventListener("click", async ()=>{
       send.disabled = true; msg.textContent = "업무지시 보내는 중…";
-      const clean = (s)=>String(s||"").replace(/[|\n]/g,"/").trim();
-      const body = "원고 작성: "+clean(row.title)+" | "+(clean(row.region)||"-")+" | "+(clean(row.type)||"-")+" | "+row.id+" | "+(clean(memo.value)||"-")+" | 적용 가이드: "+writeGuides(row).join(" + ");
+      const clean = (s)=>String(s||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
+      const body = "원고 작성: "+clean(row.title)+" | "+(clean(row.region)||"-")+" | "+(clean(row.type)||"-")+" | "+row.id+" | "+(clean(memo.value)||"-")+" | 구성·경험: "+(clean(flow.value)||"-")+" | 가이드라인: "+(clean(guide.value)||"-")+" | 적용 가이드: "+writeGuides(row).join(" + ");
       try{ await pushOrder("클로드", body); renderOrders(); renderTeam(); renderBell(); renderOffice(); renderTodo(); }
       catch(e){ send.disabled = false; msg.textContent = failText(e); }
     });
-    wrap.replaceChildren(memo, send, msg); memo.focus();
+    wrap.replaceChildren(flow, guide, memo, send, msg); flow.focus();
   });
   wrap.append(open, msg);
   return wrap;
