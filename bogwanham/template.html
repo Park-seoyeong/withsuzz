@@ -806,6 +806,8 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
       <h2 id="archive-title">미발행 원고 보관함</h2>
       <span class="hint">날짜가 없거나, 날짜가 지났는데 아직 안 올린 원고예요. 날짜를 정하면 노션 게시 날짜가 들어가고 일정표로 옮겨 가요.</span>
     </div>
+    <div class="btnrow" style="margin:0 0 10px"><button class="pbtn" type="button" id="arch-suggest">날짜 없는 원고 추천 날짜 넣기</button></div>
+    <div id="arch-plan"></div>
     <div class="cards" id="archive"></div>
   </section>
 
@@ -1068,6 +1070,48 @@ function inArchive(p){
   if (s.status==="published" || s.status==="hold") return false;
   if (!s.day) return true;
   return (s.status==="todo" || s.status==="scheduled") && s.day < kstToday();
+}
+
+// 보관함: 날짜 없는 원고(와 날짜 지난 원고)에 추천 날짜 계산
+function dayHasChina(d, extra){
+  if ((extra||[]).some(x=>x.d===d && x.china)) return true;
+  return itemsOnDay(d).some(i=>(i.row && i.row.region==="중국") || (i.post && isChinaPost(i.post)));
+}
+function planArchive(rows){
+  const t = kstToday(), load = {}, plan = [];
+  const mine = [];
+  const endOf = (p)=>{ const sm = seasonMonth(p); if (!sm) return ""; let y = Number(t.slice(0,4)); if (sm < Number(t.slice(5,7))) return ""; const nx = sm===12 ? (y+1)+"-01-01" : y+"-"+String(sm+1).padStart(2,"0")+"-01"; return addDays(nx,-1); };
+  const order = [...rows].sort((a,b)=>{ const ea = (a.deadline||endOf(a)||"9999"), eb = (b.deadline||endOf(b)||"9999"); return ea.localeCompare(eb) || b.written.localeCompare(a.written); });
+  for (const p of order){
+    const china = isChinaPost(p), limit = (p.deadline && p.deadline>=t) ? p.deadline : endOf(p);
+    let pick = "";
+    for (let i=1;i<=60;i++){
+      const d = addDays(t,i);
+      if (limit && d>limit) break;
+      if (blogCount(d) + (load[d]||0) >= MAX_PER_DAY) continue;
+      if (china && (dayHasChina(d,mine) || dayHasChina(addDays(d,-1),mine) || dayHasChina(addDays(d,1),mine))) continue;
+      pick = d; break;
+    }
+    if (!pick && china){ for (let i=1;i<=60 && !pick;i++){ const d = addDays(t,i); if (limit && d>limit) break; if (blogCount(d)+(load[d]||0) < MAX_PER_DAY) pick = d; } }
+    if (pick){ load[pick] = (load[pick]||0)+1; mine.push({d:pick, china}); }
+    plan.push({p, to:pick, why: pick ? "" : (limit ? "마감·시즌 안에 빈 날이 없어요" : "60일 안에 빈 날이 없어요")});
+  }
+  return plan;
+}
+function openArchivePlan(){
+  const box = document.getElementById("arch-plan"); if (!box) return;
+  if (box.firstChild){ box.replaceChildren(); return; }
+  const rows = POSTS.filter(p=>inArchive(p) && !st(p.id).day);
+  if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"날짜 없는 원고가 없어요.")); return; }
+  const plan = planArchive(rows), can = plan.filter(x=>x.to), msg = el("p",{class:"warnline",role:"status"});
+  const apply = el("button",{class:"pbtn",type:"button",disabled:!can.length}, can.length+"편에 추천 날짜 넣기");
+  apply.addEventListener("click", async ()=>{
+    apply.disabled = true; msg.textContent = "넣는 중…";
+    try{ for (const x of can) await changeDay(x.p.id, x.to); msg.textContent = "다 넣었어요."; box.replaceChildren(); rerender(); }
+    catch(e){ apply.disabled = false; msg.textContent = failText(e); }
+  });
+  box.replaceChildren(el("div",{class:"card"}, el("b",{},"이렇게 넣어요 (아직 안 바꿨어요)"), el("p",{class:"hint"},"하루 "+MAX_PER_DAY+"편 이하, 마감·시즌 끝나기 전, 중국 글은 이틀 연속 안 되게 골랐어요."),
+    ...plan.map(x=>el("div",{class:"card-row"}, el("span",{}, x.p.title), el("b",{}, x.to ? md(x.to)+"("+DAYNAMES[weekday(x.to)]+")" : x.why))), apply, msg));
 }
 function renderArchive(){
   const box = document.getElementById("archive"); box.replaceChildren();
@@ -3303,6 +3347,7 @@ renderOrderFilters(); renderTeam();
 document.getElementById("home-search").addEventListener("input", renderSearch);
 document.getElementById("home-search").addEventListener("focus", renderSearch);
 document.getElementById("bell-btn").addEventListener("click", ()=>{ const p = document.getElementById("bell-pop"); p.hidden = !p.hidden; });
+{ const sb = document.getElementById("arch-suggest"); if (sb) sb.addEventListener("click", openArchivePlan); }
 document.getElementById("menu-btn").addEventListener("click", ()=>showView("vault"));
 (function(){ const a = document.getElementById("order-open"); if (!a) return; const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); a.href = (t && t.href) || "#";
   a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText("업무지시 확인해"); a.textContent = "복사됨 · 붙여 넣고 보내세요"; setTimeout(()=>{ a.textContent = "지금 바로 처리"; }, 4000); }catch(e){} }); })();
