@@ -9,7 +9,7 @@
   --fg:#1b2333; --muted:#5f6b80; --accent:#2f4f86; --accent-fg:#ffffff;
   --yellow:#f2b705; --yellow-soft:#fff6d6;
   --ok:#2e7d4f; --ok-soft:#e3f3ea; --warn:#b4401f; --warn-soft:#fbe6df; --hold:#6b6f7a; --hold-soft:#eceef2;
-  --paper:#ffffff; --paper-line:#dfe4ec;
+  --paper:#ffffff; --paper-line:#dfe4ec; --sched:#6a3fb0; --sched-soft:#efe7fb;
   --display:"Gowun Batang","MaruBuri","Nanum Myeongjo",serif;
   --sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
 }
@@ -18,13 +18,13 @@
   --fg:#e6eaf1; --muted:#9aa5b8; --accent:#9db7e6; --accent-fg:#10151d;
   --yellow:#f2c434; --yellow-soft:#3a3218;
   --ok:#7fd3a0; --ok-soft:#1d3628; --warn:#f19a7e; --warn-soft:#41241c; --hold:#aab0bc; --hold-soft:#2a303a;
-  --paper:#ffffff; --paper-line:#323c4b; color-scheme:dark}}
+  --paper:#ffffff; --paper-line:#323c4b; --sched:#c6a8f5; --sched-soft:#2f2540; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#12161d; --surface:#1a2029; --sunk:#222a35; --line:#323c4b;
   --fg:#e6eaf1; --muted:#9aa5b8; --accent:#9db7e6; --accent-fg:#10151d;
   --yellow:#f2c434; --yellow-soft:#3a3218;
   --ok:#7fd3a0; --ok-soft:#1d3628; --warn:#f19a7e; --warn-soft:#41241c; --hold:#aab0bc; --hold-soft:#2a303a;
-  --paper:#ffffff; --paper-line:#323c4b; color-scheme:dark}
+  --paper:#ffffff; --paper-line:#323c4b; --sched:#c6a8f5; --sched-soft:#2f2540; color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--sans);margin:0}
 .page{max-width:1280px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
@@ -40,6 +40,9 @@ h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-heigh
 .count{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .count b{color:var(--fg);font-weight:700;margin-left:4px}
 .count.warn b{color:var(--warn)}
+.top-right{display:grid;gap:8px;justify-items:end}
+@media (max-width:760px){.top-right{justify-items:start}}
+.sync{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap}
 
 .week{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:10px}
 .week-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
@@ -55,6 +58,9 @@ h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-heigh
 .chip{display:block;width:100%;text-align:left;border:0;border-radius:5px;padding:4px 6px;font-size:12px;line-height:1.35;background:var(--surface);color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip.s-published{background:var(--ok-soft);color:var(--ok);text-decoration:line-through}
 .chip.s-late{background:var(--warn-soft);color:var(--warn)}
+.chip.s-scheduled{background:var(--sched-soft);color:var(--sched)}
+.chip.s-other{background:transparent;color:var(--muted);border:1px dashed var(--line)}
+a.chip{text-decoration:none}
 .chip.on{outline:2px solid var(--accent)}
 @media (max-width:760px){.days{grid-template-columns:1fr}.day{min-height:0;grid-template-columns:72px 1fr;align-items:start}.day-label{flex-direction:column}}
 
@@ -77,6 +83,7 @@ h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-heigh
 .pill{border-radius:4px;padding:0 6px;font-size:12px;font-weight:600;line-height:1.6}
 .pill.todo{background:var(--yellow-soft);color:var(--fg)}
 .pill.published{background:var(--ok-soft);color:var(--ok)}
+.pill.scheduled{background:var(--sched-soft);color:var(--sched)}
 .pill.hold{background:var(--hold-soft);color:var(--hold)}
 .pill.late{background:var(--warn-soft);color:var(--warn)}
 .empty{padding:18px;color:var(--muted);font-size:14px}
@@ -107,7 +114,7 @@ h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-heigh
       <span class="eyebrow">WITHSUZZ · DRAFTS</span>
       <h1>써즈 원고 보관함</h1>
     </div>
-    <div class="counts" id="counts"></div>
+    <div class="top-right"><div class="counts" id="counts"></div><div class="sync"><span id="notion-note">노션 연결 중…</span><button class="ghost" id="notion-refresh" type="button">노션 새로고침</button></div></div>
   </header>
 
   <section class="week" aria-labelledby="week-title">
@@ -133,27 +140,43 @@ h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-heigh
 
     <section class="viewer" id="viewer" aria-live="polite"></section>
   </div>
-  <p class="hint">원고 목록은 drafts 폴더의 새서식 파일 기준이에요(만든 시각 <span id="built">__BUILT__</span>). 새 원고가 생기면 Claude에게 "보관함 새로고침"이라고 하면 다시 올려요.</p>
+  <p class="hint">발행일·상태는 노션 소셜 미디어 플래너가 원본이에요. 여기서 바꾸면 노션도 바뀌고, 점선 칸은 원고 파일이 없는 노션 항목이에요. 원고 목록은 drafts 폴더의 새서식 파일 기준이에요(만든 시각 <span id="built">__BUILT__</span>). 새 원고가 생기면 Claude에게 "보관함 새로고침"이라고 하면 다시 올려요.</p>
 </div>
 
 <script>
 const POSTS = /*__POSTS__*/[];
-const STATUS = {todo:"미발행", published:"발행 완료", hold:"보류"};
+const NOTION_DS = "collection://3173bc48-9771-8143-81a8-000b606bdf00";
+const STATUS = {todo:"아이디어(미발행)", scheduled:"예약됨", published:"게시됨", hold:"보류"};
+const SHORT = {todo:"미발행", scheduled:"예약됨", published:"게시됨", hold:"보류"};
+const TO_NOTION = {todo:"아이디어", scheduled:"예약됨", published:"게시됨"};
+const FROM_NOTION = {"아이디어":"todo", "예약됨":"scheduled", "게시됨":"published"};
 const DAYNAMES = ["일","월","화","수","목","금","토"];
 const byId = new Map(POSTS.map(p => [p.id, p]));
-const state = {}; // id -> {status, day, memo}
-let db = null, dbReady = false, filter = "todo", query = "", selected = null, weekOffset = 0;
+const local = {};          // 보관함 db: id -> {status, day, memo, notion}
+const notion = new Map();  // 노션 page id -> {id, title, day, status, platform}
+let db = null, mcp = null, dbReady = false, notionState = "loading";
+let filter = "todo", query = "", selected = null, weekOffset = 0;
 
-function kstToday(){
-  const d = new Date(Date.now() + 9*3600e3);
-  return d.toISOString().slice(0,10);
-}
+function kstToday(){ return new Date(Date.now() + 9*3600e3).toISOString().slice(0,10); }
 function addDays(iso, n){ const d = new Date(iso+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
 function weekday(iso){ return new Date(iso+"T00:00:00Z").getUTCDay(); }
-function weekStart(iso){ const w = weekday(iso); return addDays(iso, -((w+6)%7)); } // 월요일 시작
+function weekStart(iso){ const w = weekday(iso); return addDays(iso, -((w+6)%7)); }
 function md(iso){ return Number(iso.slice(5,7))+"/"+Number(iso.slice(8,10)); }
-function st(id){ return state[id] || {status:"todo", day:"", memo:""}; }
+function pageIdFromUrl(u){ const m = String(u||"").match(/([0-9a-f]{32})(?:[?#]|$)/i); return m ? m[1].toLowerCase() : ""; }
+function notionLink(id){ return "https://www.notion.so/"+id; }
+
+// 원고 하나의 지금 상태: 노션에 연결돼 있으면 노션 값, 아니면 보관함 값
+function st(id){
+  const l = local[id] || {};
+  const row = l.notion ? notion.get(l.notion) : null;
+  if (row){
+    return {status: l.status==="hold" ? "hold" : (FROM_NOTION[row.status]||"todo"), day: row.day||"", memo: l.memo||"", notion: l.notion, row};
+  }
+  return {status: l.status||"todo", day: l.day||"", memo: l.memo||"", notion: l.notion||"", row: null};
+}
 function isLate(id){ const s = st(id); return s.status==="todo" && s.day && s.day < kstToday(); }
+function linkedPostFor(notionId){ for (const p of POSTS) if ((local[p.id]||{}).notion===notionId) return p; return null; }
+
 function el(tag, attrs={}, ...kids){
   const e = document.createElement(tag);
   for (const [k,v] of Object.entries(attrs)){
@@ -165,7 +188,13 @@ function el(tag, attrs={}, ...kids){
 function pillFor(id){
   if (isLate(id)) return el("span",{class:"pill late"},"날짜 지남");
   const s = st(id).status;
-  return el("span",{class:"pill "+s}, STATUS[s]);
+  return el("span",{class:"pill "+s}, SHORT[s]);
+}
+
+function renderNotionNote(){
+  const n = document.getElementById("notion-note");
+  const map = {loading:"노션 불러오는 중…", ok:"노션과 연결됨 · "+notion.size+"개 항목", off:"노션에 연결하지 못했어요. 보관함 값만 보여요.", denied:"노션 사용을 허락하지 않아 보관함 값만 보여요."};
+  n.textContent = map[notionState] || "";
 }
 
 function renderCounts(){
@@ -174,11 +203,11 @@ function renderCounts(){
   const late = ids.filter(isLate).length;
   const ws = weekStart(kstToday()), we = addDays(ws,6);
   const week = ids.filter(i=>{const s=st(i); return s.day>=ws && s.day<=we && s.status!=="hold";}).length;
-  const box = document.getElementById("counts"); box.replaceChildren(
+  document.getElementById("counts").replaceChildren(
     el("span",{class:"count"},"미발행",el("b",{},String(todo))),
     el("span",{class:"count"+(late?" warn":"")},"날짜 지남",el("b",{},String(late))),
-    el("span",{class:"count"},"이번 주 예정",el("b",{},String(week))),
-    el("span",{class:"count"},"전체",el("b",{},String(ids.length)))
+    el("span",{class:"count"},"이번 주 원고",el("b",{},String(week))),
+    el("span",{class:"count"},"전체 원고",el("b",{},String(ids.length)))
   );
 }
 
@@ -189,14 +218,20 @@ function renderWeek(){
   const days = document.getElementById("days"); days.replaceChildren();
   for (let i=0;i<7;i++){
     const d = addDays(ws,i);
-    const items = POSTS.filter(p=>st(p.id).day===d && st(p.id).status!=="hold");
-    const chips = items.map(p=>{
+    const chips = [];
+    for (const p of POSTS){
       const s = st(p.id);
-      const cls = "chip"+(s.status==="published"?" s-published":"")+(isLate(p.id)?" s-late":"")+(selected===p.id?" on":"");
-      return el("button",{class:cls,type:"button",title:p.title,onclick:()=>select(p.id)},p.title);
-    });
+      if (s.day!==d || s.status==="hold") continue;
+      const cls = "chip"+(s.status==="published"?" s-published":"")+(s.status==="scheduled"?" s-scheduled":"")+(isLate(p.id)?" s-late":"")+(selected===p.id?" on":"");
+      chips.push(el("button",{class:cls,type:"button",title:p.title,onclick:()=>select(p.id)},p.title));
+    }
+    for (const row of notion.values()){
+      if (row.day!==d || linkedPostFor(row.id)) continue;
+      const label = (row.platform==="인스타"?"[인스타] ":"")+row.title;
+      chips.push(el("a",{class:"chip s-other",href:notionLink(row.id),target:"_blank",rel:"noopener",title:"원고 파일 없음 · 노션에서 열기"},label));
+    }
     days.append(el("div",{class:"day"+(d===today?" today":"")},
-      el("div",{class:"day-label"},el("b",{},DAYNAMES[weekday(d)]),el("span",{},md(d)+(items.length?" · "+items.length+"편":""))),
+      el("div",{class:"day-label"},el("b",{},DAYNAMES[weekday(d)]),el("span",{},md(d)+(chips.length?" · "+chips.length+"편":""))),
       el("div",{style:"display:grid;gap:4px;min-width:0"}, chips.length?chips:el("span",{class:"day-label"},"—"))
     ));
   }
@@ -204,7 +239,7 @@ function renderWeek(){
 
 function renderTabs(){
   const tabs = document.getElementById("tabs"); tabs.replaceChildren();
-  for (const [k,label] of [["todo","미발행"],["late","날짜 지남"],["published","발행 완료"],["hold","보류"],["all","전체"]]){
+  for (const [k,label] of [["todo","미발행"],["late","날짜 지남"],["scheduled","예약됨"],["published","게시됨"],["hold","보류"],["all","전체"]]){
     tabs.append(el("button",{class:"tab",type:"button","aria-pressed":String(filter===k),onclick:()=>{filter=k;renderList();renderTabs();}},label));
   }
 }
@@ -214,13 +249,13 @@ function visible(){
   return POSTS.filter(p=>{
     const s = st(p.id);
     if (filter==="late" && !isLate(p.id)) return false;
-    if (["todo","published","hold"].includes(filter) && s.status!==filter) return false;
+    if (["todo","scheduled","published","hold"].includes(filter) && s.status!==filter) return false;
     if (q && !(p.title.toLowerCase().includes(q) || p.file.toLowerCase().includes(q))) return false;
     return true;
   }).sort((a,b)=>{
-    const da = st(a.id).day || "9999", dbb = st(b.id).day || "9999";
-    if (filter==="published") return (st(b.id).day||b.written).localeCompare(st(a.id).day||a.written);
-    return da.localeCompare(dbb) || b.written.localeCompare(a.written);
+    const sa = st(a.id), sb = st(b.id);
+    if (filter==="published") return (sb.day||b.written).localeCompare(sa.day||a.written);
+    return (sa.day||"9999").localeCompare(sb.day||"9999") || b.written.localeCompare(a.written);
   });
 }
 
@@ -232,23 +267,75 @@ function renderList(){
     const s = st(p.id);
     list.append(el("li",{}, el("button",{class:"item",type:"button","aria-current":String(selected===p.id),onclick:()=>select(p.id)},
       el("span",{class:"item-title"},p.title),
-      el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(p.written)))
+      el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(p.written)), s.notion?null:el("span",{},"· 노션 미연결"))
     )));
   }
 }
 
-async function save(id, patch){
-  state[id] = {...st(id), ...patch};
-  renderCounts(); renderWeek(); renderList();
-  const note = document.getElementById("save-note");
-  if (!db){ if (note) note.textContent = "저장소에 연결되지 않아 이 화면에서만 바뀌었어요."; return; }
+function note(text){ const n = document.getElementById("save-note"); if (n) n.textContent = text; }
+function rerender(){ renderCounts(); renderWeek(); renderList(); }
+
+async function saveLocal(id, patch){
+  local[id] = {...(local[id]||{}), ...patch};
+  rerender();
+  if (!db) return false;
+  await db.doc("posts/"+id).set({status:"todo", day:"", memo:"", notion:"", ...local[id], updatedAt:new Date().toISOString()});
+  return true;
+}
+
+async function updateNotion(pageId, properties){
+  await mcp.callTool("Notion","notion-update-page",{page_id: pageId, command:"update_properties", properties}, {cache:false});
+}
+
+async function changeStatus(id, status){
+  const s = st(id);
   try{
-    if (note) note.textContent = "저장 중…";
-    await db.doc("posts/"+id).set({...state[id], updatedAt:new Date().toISOString()});
-    if (note) note.textContent = "저장했어요.";
-  }catch(e){
-    if (note) note.textContent = "저장하지 못했어요 ("+(e&&e.code||"오류")+"). 잠시 뒤 다시 바꿔 보세요.";
-  }
+    note("저장 중…");
+    if (s.row && status!=="hold"){
+      if (!mcp) throw {code:"notion_off"};
+      await updateNotion(s.notion, {"상태": TO_NOTION[status]});
+      s.row.status = TO_NOTION[status];
+      await saveLocal(id, {status});
+      note("노션에도 반영했어요.");
+    } else {
+      await saveLocal(id, {status});
+      note(s.row ? "보류는 보관함에만 표시돼요(노션 상태는 그대로)." : "저장했어요.");
+    }
+  }catch(e){ note(failText(e)); }
+  rerender();
+}
+
+async function changeDay(id, day){
+  const s = st(id);
+  try{
+    note("저장 중…");
+    if (s.row){
+      if (!mcp) throw {code:"notion_off"};
+      await updateNotion(s.notion, day ? {"date:게시 날짜:start": day, "date:게시 날짜:is_datetime": 0} : {"date:게시 날짜:start": null});
+      s.row.day = day;
+      note("노션 게시 날짜도 바꿨어요.");
+      rerender();
+    } else {
+      await saveLocal(id, {day});
+      note("저장했어요.");
+    }
+  }catch(e){ note(failText(e)); rerender(); }
+}
+
+async function changeLink(id, notionId){
+  try{
+    await saveLocal(id, {notion: notionId});
+    note(notionId ? "노션 항목과 연결했어요. 이제 날짜·상태는 노션 값을 따라요." : "노션 연결을 풀었어요.");
+    renderViewer();
+  }catch(e){ note(failText(e)); }
+}
+
+function failText(e){
+  const c = e && e.code;
+  if (c==="notion_off") return "노션에 연결되지 않아 바꾸지 못했어요. 위의 '노션 새로고침'을 눌러 다시 연결해 보세요.";
+  if (c==="not_granted") return "노션 사용을 허락하지 않아 바꾸지 못했어요.";
+  if (c==="needs_reauth") return "노션 로그인이 만료됐어요. claude.ai 설정에서 노션을 다시 연결해 주세요.";
+  return "저장하지 못했어요 ("+(c||"오류")+"). 잠시 뒤 다시 해 보세요.";
 }
 
 function renderViewer(){
@@ -256,10 +343,16 @@ function renderViewer(){
   const p = byId.get(selected);
   if (!p){ v.replaceChildren(el("div",{class:"panel"},el("p",{class:"hint"},"왼쪽에서 원고를 고르면 네이버에 붙여넣을 본문이 여기 보여요."))); return; }
   const s = st(p.id);
-  const statusSel = el("select",{id:"f-status",onchange:e=>save(p.id,{status:e.target.value})},
+  const statusSel = el("select",{id:"f-status",onchange:e=>changeStatus(p.id,e.target.value)},
     ...Object.entries(STATUS).map(([k,l])=>el("option",{value:k,selected:s.status===k},l)));
-  const dayIn = el("input",{id:"f-day",type:"date",value:s.day||"",onchange:e=>save(p.id,{day:e.target.value})});
-  const memoIn = el("input",{id:"f-memo",type:"text",value:s.memo||"",placeholder:"예: 사진 3장 더 넣기",onchange:e=>save(p.id,{memo:e.target.value})});
+  const dayIn = el("input",{id:"f-day",type:"date",value:s.day||"",onchange:e=>changeDay(p.id,e.target.value)});
+  const memoIn = el("input",{id:"f-memo",type:"text",value:s.memo||"",placeholder:"예: 사진 3장 더 넣기",onchange:async e=>{try{await saveLocal(p.id,{memo:e.target.value});note("메모를 저장했어요.");}catch(err){note(failText(err));}}});
+  const taken = new Set(POSTS.filter(x=>x.id!==p.id).map(x=>(local[x.id]||{}).notion).filter(Boolean));
+  const rows = [...notion.values()].filter(r=>!taken.has(r.id)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
+  const linkSel = el("select",{id:"f-notion",onchange:e=>changeLink(p.id,e.target.value)},
+    el("option",{value:"",selected:!s.notion},notion.size?"연결 안 함":"(노션 항목을 불러오지 못함)"),
+    ...rows.map(r=>el("option",{value:r.id,selected:s.notion===r.id},(r.day?md(r.day)+" · ":"")+r.title+(r.platform==="인스타"?" [인스타]":""))));
+  if (s.notion && !notion.has(s.notion)) linkSel.append(el("option",{value:s.notion,selected:true},"연결된 항목(목록 범위 밖)"));
   const status = el("p",{class:"status",role:"status"});
   const post = el("div",{class:"post",id:"post"}); post.innerHTML = p.html;
   const copyBtn = el("button",{class:"primary",type:"button",onclick:async()=>{
@@ -276,11 +369,15 @@ function renderViewer(){
     el("div",{class:"panel"},
       el("div",{style:"display:grid;gap:4px"}, el("h2",{},p.title), el("span",{class:"file"},p.file+"_새서식.html")),
       el("div",{class:"controls"},
-        el("label",{class:"field"},"상태",statusSel),
-        el("label",{class:"field"},"발행일",dayIn),
+        el("label",{class:"field"},s.row?"상태 (노션)":"상태",statusSel),
+        el("label",{class:"field"},s.row?"게시 날짜 (노션)":"발행일",dayIn),
+        el("label",{class:"field wide"},"노션 플래너 항목",linkSel),
         el("label",{class:"field wide"},"메모",memoIn)
       ),
-      el("div",{class:"actions"}, copyBtn, p.artifact?el("a",{class:"linkbtn",href:p.artifact,target:"_blank",rel:"noopener"},"원고 아티팩트 열기"):null, el("span",{class:"save-note",id:"save-note"}, dbReady?"":"저장소 연결 중…")),
+      el("div",{class:"actions"}, copyBtn,
+        p.artifact?el("a",{class:"linkbtn",href:p.artifact,target:"_blank",rel:"noopener"},"원고 아티팩트 열기"):null,
+        s.notion?el("a",{class:"linkbtn",href:notionLink(s.notion),target:"_blank",rel:"noopener"},"노션에서 열기"):null,
+        el("span",{class:"save-note",id:"save-note"}, dbReady?"":"저장소 연결 중…")),
       status
     ),
     el("div",{class:"paper"},post)
@@ -288,29 +385,52 @@ function renderViewer(){
 }
 
 function select(id){ selected = id; renderWeek(); renderList(); renderViewer(); }
+function editing(){ const a = document.activeElement; return a && a.id && a.id.startsWith("f-"); }
+
+async function loadNotion(refresh){
+  if (!mcp){ notionState = "off"; renderNotionNote(); return; }
+  notionState = "loading"; renderNotionNote();
+  const linked = POSTS.map(p=>(local[p.id]||{}).notion).filter(Boolean);
+  const from = addDays(kstToday(), -45);
+  const ph = linked.map(()=>"?").join(",");
+  const sql = 'SELECT url, "게시물 제목" AS title, "date:게시 날짜:start" AS d, "상태" AS status, "플랫폼" AS platform FROM "'+NOTION_DS+'" WHERE "date:게시 날짜:start" >= ?'+(linked.length?' OR url IN ('+ph+')':'');
+  const params = [from, ...linked.map(id=>"https://app.notion.com/"+id)];
+  try{
+    const res = await mcp.callTool("Notion","notion-query-data-sources",{data:{mode:"sql",data_source_urls:[NOTION_DS],query:sql,params}}, refresh?{cache:{refresh:true}}:{cache:false});
+    const rows = (res.payload && res.payload.results) || [];
+    notion.clear();
+    for (const r of rows){
+      const id = pageIdFromUrl(r.url); if (!id) continue;
+      notion.set(id, {id, title:r.title||"(제목 없음)", day:(r.d||"").slice(0,10), status:r.status||"아이디어", platform:r.platform||""});
+    }
+    notionState = "ok";
+  }catch(e){
+    notionState = (e && e.code==="not_granted") ? "denied" : "off";
+  }
+  renderNotionNote(); rerender(); if (!editing()) renderViewer();
+}
 
 document.getElementById("search").addEventListener("input",e=>{query=e.target.value;renderList();});
 document.getElementById("prev-week").addEventListener("click",()=>{weekOffset--;renderWeek();});
 document.getElementById("next-week").addEventListener("click",()=>{weekOffset++;renderWeek();});
 document.getElementById("this-week").addEventListener("click",()=>{weekOffset=0;renderWeek();});
-try{ document.getElementById("built").textContent = new Date(document.getElementById("built").textContent).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}); }catch(e){}
+document.getElementById("notion-refresh").addEventListener("click",()=>loadNotion(true));
+try{ const b=document.getElementById("built"); b.textContent = new Date(b.textContent).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}); }catch(e){}
 
-function renderAll(){ renderCounts(); renderWeek(); renderTabs(); renderList(); if (!selected) { const first = visible()[0]; if (first) selected = first.id; } renderViewer(); }
-renderAll();
+renderNotionNote(); renderCounts(); renderWeek(); renderTabs();
+selected = (visible()[0]||{}).id || null; renderList(); renderViewer();
 
 (async()=>{
-  const timer = setTimeout(()=>{ const n=document.getElementById("save-note"); if(n && !dbReady) n.textContent="저장소에 연결하지 못했어요. 상태를 바꿔도 이 화면에서만 바뀌어요."; }, 10000);
-  try{
-    db = await window.claude?.use?.("db");
-  }catch(e){ db = null; }
-  if (!db){ clearTimeout(timer); const n=document.getElementById("save-note"); if(n) n.textContent="저장소에 연결하지 못했어요. 상태를 바꿔도 이 화면에서만 바뀌어요."; return; }
+  try{ mcp = await window.claude?.use?.("mcp"); }catch(e){ mcp = null; }
+  try{ db = await window.claude?.use?.("db"); }catch(e){ db = null; }
+  if (!db){ note("저장소에 연결하지 못했어요. 바꾼 내용이 이 화면에서만 바뀌어요."); loadNotion(false); return; }
+  const timer = setTimeout(()=>{ if(!dbReady) note("저장소 응답이 늦어요. 잠시 뒤 새로고침해 보세요."); }, 10000);
+  let first = true;
   db.collection("posts").onSnapshot(snap=>{
-    clearTimeout(timer);
-    dbReady = true;
-    for (const d of snap.docs){ if (byId.has(d.id)){ const x=d.data()||{}; state[d.id] = {status:x.status||"todo", day:x.day||"", memo:x.memo||""}; } }
-    const keep = document.activeElement && document.activeElement.id && document.activeElement.id.startsWith("f-");
-    renderCounts(); renderWeek(); renderList();
-    if (!keep) renderViewer(); else { const n=document.getElementById("save-note"); if(n && n.textContent==="저장소 연결 중…") n.textContent=""; }
-  }, err=>{ clearTimeout(timer); const n=document.getElementById("save-note"); if(n) n.textContent="저장소를 읽지 못했어요 ("+(err&&err.code||"오류")+")."; });
+    clearTimeout(timer); dbReady = true;
+    for (const d of snap.docs){ if (byId.has(d.id)){ const x=d.data()||{}; local[d.id] = {status:x.status||"todo", day:x.day||"", memo:x.memo||"", notion:x.notion||""}; } }
+    rerender(); if (!editing()) renderViewer();
+    if (first){ first = false; loadNotion(false); }
+  }, err=>{ clearTimeout(timer); note("저장소를 읽지 못했어요 ("+(err&&err.code||"오류")+")."); loadNotion(false); });
 })();
 </script>
