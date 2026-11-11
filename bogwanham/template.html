@@ -80,6 +80,7 @@ a.chip{text-decoration:none}
 .listbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;display:grid;min-width:0}
 .filters{display:grid;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
 .tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tab-all{flex:1 0 100%;text-align:left;font-weight:700}
 .tab{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 12px;font-size:13px}
 .tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .search{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 10px}
@@ -901,8 +902,11 @@ function relatedBox(p){
 
 function renderTabs(){
   const tabs = document.getElementById("tabs"); tabs.replaceChildren();
-  for (const [k,label] of [["todo","미발행"],["late","날짜 지남"],["scheduled","예약됨"],["published","게시됨"],["hold","보류"],["all","전체"]]){
-    tabs.append(el("button",{class:"tab",type:"button","aria-pressed":String(filter===k),onclick:()=>{filter=k;renderList();renderTabs();}},label));
+  const cnt = {all:POSTS.length, late:0, todo:0, scheduled:0, published:0, hold:0};
+  for (const p of POSTS){ const s = st(p.id); if (cnt[s.status]!=null) cnt[s.status]++; if (isLate(p.id)) cnt.late++; }
+  // 전체는 맨 위 한 줄, 나머지는 그 아래
+  for (const [k,label] of [["all","전체"],["todo","미발행"],["late","날짜 지남"],["scheduled","예약됨"],["published","게시됨"],["hold","보류"]]){
+    tabs.append(el("button",{class:"tab"+(k==="all"?" tab-all":""),type:"button","aria-pressed":String(filter===k),onclick:()=>{filter=k;renderList();renderTabs();}},label+" "+cnt[k]+"건"));
   }
 }
 
