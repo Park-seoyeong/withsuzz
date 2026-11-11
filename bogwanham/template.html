@@ -550,6 +550,14 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
     <div class="cards" id="archive"></div>
   </section>
 
+  <section class="archive" aria-labelledby="nopost-title">
+    <div class="week-head">
+      <h2 id="nopost-title">원고 파일 없는 노션 항목</h2>
+      <span class="hint">노션에만 있고 원고가 아직 없는 글이에요. "원고 쓰기"를 누르면 클로드에게 업무지시가 가요.</span>
+    </div>
+    <div class="cards" id="nopost"></div>
+  </section>
+
   <div class="main">
     <section class="listbox" aria-label="원고 목록">
       <div class="filters">
@@ -1373,7 +1381,20 @@ async function copyPost(p, statusEl){
 }
 function openPost(p){ showView("vault"); select(p.id); goto("viewer"); }
 
+function renderNoPost(){
+  const box = document.getElementById("nopost"); if (!box) return;
+  const rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
+  document.getElementById("nopost-title").textContent = "원고 파일 없는 노션 항목 "+rows.length+"편";
+  if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"원고가 없는 항목이 없어요.")); return; }
+  box.replaceChildren(...rows.slice(0,60).map(r=>el("div",{class:"card"},
+    el("b",{class:"card-title"}, r.title),
+    el("div",{class:"row",style:"display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center"},
+      el("span",{class:"tag"}, r.day ? md(r.day) : "날짜 미정"), r.region ? el("span",{class:"tag"}, r.region) : null, r.type ? el("span",{class:"tag"}, r.type) : null,
+      el("a",{class:"sbtn",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션")),
+    writeControl(r))), rows.length>60 ? el("p",{class:"hint"},"외 "+(rows.length-60)+"편은 노션에서 확인해 주세요.") : null);
+}
 function renderTodo(){
+  renderNoPost();
   const ul = document.getElementById("todo-list"); ul.replaceChildren();
   const t = kstToday();
   const rows = [...notion.values()].filter(r=>r.day===t).sort((a,b)=>(isBlog(b)-isBlog(a)) || a.title.localeCompare(b.title));
