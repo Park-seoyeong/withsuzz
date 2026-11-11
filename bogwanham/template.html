@@ -177,7 +177,7 @@ a.chip{text-decoration:none}
 .ring .fg.below{stroke:var(--p-coral)}
 .ring .tgt{stroke:#4A5568;stroke-width:2}
 .ring text{font:700 15px var(--sans);fill:#4A5568}
-.home-grid{display:grid;grid-template-columns:220px minmax(0,1fr) minmax(0,1fr) 300px;grid-template-areas:"order office office side" "log todo what kw";gap:18px;align-items:start}
+.home-grid{display:grid;grid-template-columns:250px minmax(0,1fr) minmax(0,1fr) 300px;grid-template-areas:"order office office side" "log todo what kw";gap:18px;align-items:start}
 .hcard{background:var(--surface);border:1px solid var(--line);border-radius:26px;box-shadow:var(--shadow-s);padding:16px;display:grid;gap:12px;min-width:0;align-content:start}
 .hcard-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
 .hcard-head h3{margin:0;font:700 15px/1.3 var(--round);color:var(--ink);letter-spacing:.08em}
@@ -242,6 +242,22 @@ table.kw{width:100%;border-collapse:collapse;font-size:13px}
 table.kw th{font-size:11px;color:var(--muted);text-align:left;font-weight:600;padding:3px 4px;letter-spacing:.08em}
 table.kw td{padding:4px;border-top:1px dashed var(--line)}
 table.kw td.n{text-align:right;font-variant-numeric:tabular-nums}
+/* AI 팀 */
+.t-claude{--tc:var(--p-lav)}.t-gpt{--tc:var(--p-mint)}.t-aside{--tc:var(--p-sky)}
+.tbadge{display:inline-block;border-radius:999px;padding:0 7px;font-size:10.5px;font-weight:700;background:var(--tc);color:#4A5568;vertical-align:1px}
+.tdot{background:var(--tc)!important;font-size:11px}
+.owner-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.opills{display:flex;gap:5px;flex-wrap:wrap}
+.opill{border:1px solid transparent;border-radius:999px;padding:3px 11px;font-size:12px;background:var(--sunk);color:var(--muted)}
+.opill[aria-pressed=true]{background:var(--tc);color:#4A5568;font-weight:700;border-color:rgba(74,85,104,.18)}
+.res{display:block;margin-top:2px}
+.res a{color:var(--accent);font-weight:600}
+.team{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.team-k{font:700 11px var(--sans);letter-spacing:.2em;color:var(--muted);margin-right:2px}
+.tchip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:4px 12px;background:var(--tc);color:#4A5568;font-size:12px}
+.tchip b{font-weight:700}
+.tchip em{font-style:normal;font-size:11px;opacity:.8}
+.tchip.rest{background:var(--sunk);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
 .home-sep{display:flex;align-items:center;gap:12px;color:var(--muted);font:700 13px var(--round);letter-spacing:.24em;margin-top:8px}
 .home-sep::before,.home-sep::after{content:"";flex:1;border-top:2px dotted var(--line)}
 @media (max-width:1100px){.home-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-areas:"office office" "todo side" "what kw" "order log"}}
@@ -284,16 +300,19 @@ table.kw td.n{text-align:right;font-variant-numeric:tabular-nums}
       <section class="hcard a-order" aria-labelledby="h-order">
         <div class="hcard-head"><h3 id="h-order">업무지시</h3><span class="deco">✎</span></div>
         <div class="memo">
-          <textarea id="order-text" placeholder="클로드에게 시킬 일을 적어요. 예: 다음 주 빈 날에 넣을 중국 원고 주제 3개"></textarea>
+          <textarea id="order-text" placeholder="팀에게 시킬 일을 적어요. 예: 다음 주 빈 날에 넣을 중국 원고 주제 3개"></textarea>
+          <div class="owner-row"><span class="hint2">담당</span><div class="opills" id="order-owner" role="group" aria-label="담당 고르기"></div></div>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="pbtn" type="button" id="order-save">노션에 저장</button><span class="hint2" id="order-note"></span></div>
         </div>
+        <div id="order-filters" style="display:grid;gap:6px"></div>
         <ul class="hl" id="order-list"></ul>
-        <p class="hint2">써즈가 "업무지시 확인해"라고 하면 클로드가 대기 항목을 처리하고 완료로 바꿔요.</p>
+        <p class="hint2">지피티·어사이드는 노션 업무지시로 일을 받아요. 결과가 달리면 진행, 체크되면 완료예요. "업무지시 확인해"라고 하면 클로드 담당을 처리해요.</p>
       </section>
 
       <section class="hcard a-office" aria-labelledby="h-office">
         <div class="awning" aria-hidden="true"></div>
         <div class="hcard-head"><h3 id="h-office">클로드 사무실</h3><span class="deco">☁ ✦</span></div>
+        <div class="team" id="team" aria-label="오늘의 팀"></div>
         <div class="office-wrap" id="office"></div>
         <p class="office-note">캐릭터는 장식이고, 말풍선 숫자만 진짜 데이터예요.</p>
       </section>
@@ -981,13 +1000,67 @@ function renderStats(){
     el("p",{class:"hint2"},"오늘 방문자는 기록한 시각까지의 수예요"+(s.updatedAt?" · 갱신 "+new Date(s.updatedAt).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}):"")+"."));
 }
 
+// ===== AI 팀: 클로드 · 지피티 · 어사이드 (노션 '동방 업무지시'로 일을 주고받음) =====
+const TEAM = [
+  {key:"클로드", cls:"t-claude", hint:"글·원고·노션·사이트"},
+  {key:"지피티", cls:"t-gpt", hint:"그림·이미지·디자인 시안·카피"},
+  {key:"어사이드", cls:"t-aside", hint:"네이버 로그인 통계·키워드, ChatGPT 대신 열기"}
+];
+const TEAM_CLS = Object.fromEntries(TEAM.map(t=>[t.key,t.cls]));
+function suggestOwner(text){
+  if (/네이버\s*통계|통계|키워드|로그인|크리에이터\s*어드바이저|어드바이저|ChatGPT|챗GPT|챗지피티|지피티.*열/.test(text)) return "어사이드";
+  if (/그림|이미지|사진|일러스트|디자인|시안|카피|썸네일|배너/.test(text)) return "지피티";
+  return "클로드";
+}
+function teamBadge(k){ return el("span",{class:"tbadge "+(TEAM_CLS[k]||"t-claude")}, k||"클로드"); }
+function teamDot(k){ return el("span",{class:"frame sm tdot "+(TEAM_CLS[k]||"t-claude"),"aria-hidden":"true"}, (k||"클로드").slice(0,1)); }
+function orderState(o){ return o.done ? "완료" : (o.results.length ? "진행" : "대기"); }
+HOME.orderOwner = "클로드"; HOME.orderOwnerManual = false; HOME.orderFilter = "전체"; HOME.ownerFilter = "전체";
+
+function parseOrders(text){
+  const body = (text.match(/<content>([\s\S]*?)<\/content>/)||[,text])[1];
+  const out = []; let cur = null;
+  for (const raw of body.split("\n")){
+    const top = raw.match(/^- \[( |x|X)\]\s+(.*)$/);
+    if (top){
+      let t = unesc(top[2]).trim(), owner = "클로드";
+      const m = t.match(/^\[담당\s*:\s*(클로드|지피티|어사이드)\]\s*/);
+      if (m){ owner = m[1]; t = t.slice(m[0].length); }
+      cur = {done: top[1]!==" ", owner, text: t, results: []}; out.push(cur); continue;
+    }
+    const child = raw.match(/^(?:\t|\s{2,})+(?:[-*]\s+(?:\[[ xX]\]\s+)?)?(.+)$/);
+    if (child && cur){
+      const line = unesc(child[1]).trim(); if (!line) continue;
+      const link = line.match(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/) || line.match(/(https?:\/\/\S+)/);
+      cur.results.push(link ? {text: line.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,"$1"), url: link[2]||link[1]} : {text: line});
+      continue;
+    }
+    if (raw.trim() && !/^\s/.test(raw)) cur = null;
+  }
+  return out;
+}
+
+function renderOwnerPills(){
+  const box = document.getElementById("order-owner");
+  box.replaceChildren(...TEAM.map(t=>el("button",{type:"button",class:"opill "+t.cls,"aria-pressed":String(HOME.orderOwner===t.key),title:t.hint,onclick:()=>{HOME.orderOwner=t.key; HOME.orderOwnerManual=true; renderOwnerPills();}}, t.key)));
+}
+function renderOrderFilters(){
+  const box = document.getElementById("order-filters");
+  const mk = (list, curKey, setter) => el("div",{class:"htabs",style:"flex-wrap:wrap"}, ...list.map(k=>el("button",{type:"button","aria-pressed":String(HOME[curKey]===k),onclick:()=>{HOME[curKey]=k; renderOrderFilters(); renderOrders();}},k)));
+  box.replaceChildren(mk(["전체","대기","진행","완료"],"orderFilter"), mk(["전체","클로드","지피티","어사이드"],"ownerFilter"));
+}
 function renderOrders(){
   const ul = document.getElementById("order-list"); ul.replaceChildren();
   if (HOME.ordersState!=="ok"){ ul.append(el("li",{class:"empty2"}, HOME.ordersState==="loading"?"불러오는 중…":"업무지시 페이지를 읽지 못했어요.")); return; }
-  if (!HOME.orders.length){ ul.append(el("li",{class:"empty2"},"아직 업무지시가 없어요.")); return; }
-  for (const o of [...HOME.orders].reverse().slice(0,8)){
+  const list = [...HOME.orders].reverse().filter(o=>(HOME.orderFilter==="전체"||orderState(o)===HOME.orderFilter) && (HOME.ownerFilter==="전체"||o.owner===HOME.ownerFilter));
+  if (!list.length){ ul.append(el("li",{class:"empty2"}, HOME.orders.length?"이 조건의 업무지시가 없어요.":"아직 업무지시가 없어요.")); return; }
+  for (const o of list.slice(0,10)){
     const m = o.text.match(/^(.*?)\s*·\s*(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})$/);
-    ul.append(el("li",{class:"pl"}, avatar("써"), el("span",{class:"txt"}, m?m[1]:o.text, m?el("small",{},"써즈 · "+m[2]):el("small",{},"써즈")), el("span",{class:"tag "+(o.done?"done":"wait")}, o.done?"완료":"대기")));
+    const stt = orderState(o);
+    const res = o.results.map(r=>el("small",{class:"res"}, "결과 ", r.url ? el("a",{href:r.url,target:"_blank",rel:"noopener"},"결과 보기") : r.text));
+    ul.append(el("li",{class:"pl tall"}, teamDot(o.owner),
+      el("span",{class:"txt"}, m?m[1]:o.text, el("small",{}, teamBadge(o.owner), m?" · "+m[2]:""), ...res),
+      el("span",{class:"tag "+(stt==="완료"?"done":stt==="진행"?"":"wait")}, stt)));
   }
 }
 async function saveOrder(){
@@ -996,41 +1069,67 @@ async function saveOrder(){
   if (!text){ n.textContent = "할 일을 먼저 적어 주세요."; return; }
   if (!mcp){ n.textContent = "노션에 연결되지 않아 저장하지 못했어요."; return; }
   btn.disabled = true; n.textContent = "저장 중…";
-  const line = text.replace(/^[-*#>\s]+/,"")+" · "+hm();
+  const owner = HOME.orderOwner;
+  const body = text.replace(/^[-*#>\s]+/,"").replace(/^\[담당\s*:[^\]]*\]\s*/,"")+" · "+hm();
   try{
-    await mcp.callTool("Notion","notion-update-page",{page_id:DONGBANG.pages.orders, command:"insert_content", position:{type:"end"}, content:"- [ ] "+line},{cache:false});
-    HOME.orders.push({done:false, text:line}); ta.value = ""; n.textContent = "노션에 저장했어요."; renderOrders(); renderBell();
+    await mcp.callTool("Notion","notion-update-page",{page_id:DONGBANG.pages.orders, command:"insert_content", position:{type:"end"}, content:"- [ ] [담당:"+owner+"] "+body},{cache:false});
+    HOME.orders.push({done:false, owner, text:body, results:[]}); ta.value = ""; HOME.orderOwnerManual = false; HOME.orderOwner = "클로드";
+    n.textContent = owner+"에게 노션으로 넘겼어요."; renderOwnerPills(); renderOrders(); renderTeam(); renderBell();
   }catch(e){ n.textContent = failText(e); }
   btn.disabled = false;
 }
 async function loadOrders(){
-  try{
-    const text = await fetchNotionPage(DONGBANG.pages.orders);
-    HOME.orders = []; for (const line of text.split("\n")){ const m = line.match(/^\s*- \[( |x|X)\]\s+(.*)$/); if (m) HOME.orders.push({done:m[1]!==" ", text:unesc(m[2]).trim()}); }
-    HOME.ordersState = "ok";
-  }catch(e){ HOME.ordersState = "off"; }
-  renderOrders(); renderBell();
+  try{ HOME.orders = parseOrders(await fetchNotionPage(DONGBANG.pages.orders)); HOME.ordersState = "ok"; }
+  catch(e){ HOME.ordersState = "off"; }
+  renderOrders(); renderTeam(); renderBell();
 }
 
+// 업무기록 한 줄: "MM/DD HH:MM · [클로드] 내용" (옛 형식 "MM/DD HH:MM · 클로드 · 내용"도 읽음)
+function parseLogLine(l){
+  let m = l.match(/^(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})\s*·\s*\[(클로드|지피티|어사이드|Aside|GPT)\]\s*(.*)$/i);
+  if (m) return {when:m[1], who:normWho(m[2]), what:m[3]};
+  m = l.match(/^(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})\s*·\s*([^·]+?)\s*·\s*(.*)$/);
+  if (m) return {when:m[1], who:normWho(m[2]), what:m[3]};
+  return {when:"", who:"클로드", what:l};
+}
+function normWho(w){ w = String(w).trim(); if (/aside|어사이드/i.test(w)) return "어사이드"; if (/gpt|지피티/i.test(w)) return "지피티"; return "클로드"; }
+function whenToMs(when){
+  const m = String(when).match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})$/); if (!m) return 0;
+  const t = kstToday(); let y = Number(t.slice(0,4)); if (Number(m[1]) > Number(t.slice(5,7))+1) y--;
+  return Date.UTC(y, Number(m[1])-1, Number(m[2]), Number(m[3])-9, Number(m[4]));
+}
 function renderLog(){
   const ul = document.getElementById("log-list"); ul.replaceChildren();
   if (HOME.logState!=="ok"){ ul.append(el("li",{class:"empty2"}, HOME.logState==="loading"?"불러오는 중…":"업무기록 페이지를 읽지 못했어요.")); return; }
   if (!HOME.log.length){ ul.append(el("li",{class:"empty2"},"아직 기록이 없어요.")); return; }
   for (const l of HOME.log.slice(-20).reverse()){
-    const parts = l.split(/\s*·\s*/);
-    const when = parts.length>=3 ? parts[0] : "", who = parts.length>=3 ? parts[1] : "", what = parts.length>=3 ? parts.slice(2).join(" · ") : l;
-    const k = /방문자|통계/.test(what) ? "통계" : /키워드/.test(what) ? "키워드" : /RSS|노션|게시|일정|날짜/.test(what) ? "캘린더" : "원고";
-    ul.append(el("li",{class:"pl tall"}, avatar(k,"sm"), el("span",{class:"txt"}, what, el("small",{},[who,when].filter(Boolean).join(" · "))), /실패/.test(what)?el("span",{class:"tag coral"},"실패"):el("span",{class:"tag done"},"완료")));
+    const x = parseLogLine(l);
+    ul.append(el("li",{class:"pl tall"}, teamDot(x.who), el("span",{class:"txt"}, x.what, el("small",{}, teamBadge(x.who), x.when?" · "+x.when:"")), /실패/.test(x.what)?el("span",{class:"tag coral"},"실패"):el("span",{class:"tag done"},"완료")));
   }
+}
+function renderTeam(){
+  const box = document.getElementById("team"); if (!box) return;
+  const last = {};
+  for (const l of HOME.log){ const x = parseLogLine(l); const ms = whenToMs(x.when); if (ms && (!last[x.who] || ms > last[x.who])) last[x.who] = ms; }
+  box.replaceChildren(el("span",{class:"team-k"},"오늘의 팀"), ...TEAM.map(t=>{
+    const mine = HOME.orders.filter(o=>o.owner===t.key);
+    const wait = mine.filter(o=>!o.done).length, done = mine.filter(o=>o.done).length;
+    const ms = last[t.key];
+    const showTime = t.key!=="클로드";
+    const resting = showTime && (!ms || Date.now()-ms > 24*3600e3);
+    const whenTxt = !showTime ? "" : ms ? " · "+new Date(ms).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}) : "";
+    return el("span",{class:"tchip "+t.cls+(resting?" rest":""),title:t.hint},
+      el("b",{},t.key), el("span",{}, "대기 "+wait+" · 완료 "+done+whenTxt), resting?el("em",{},"쉬는 중"):null);
+  }));
 }
 async function loadLog(){
   try{
     const text = await fetchNotionPage(DONGBANG.pages.log);
     const body = (text.match(/<content>([\s\S]*?)<\/content>/)||[,text])[1];
-    HOME.log = body.split("\n").map(l=>l.match(/^\s*- (?!\[)(.*)$/)).filter(Boolean).map(m=>unesc(m[1]).trim());
+    HOME.log = body.split("\n").map(l=>l.match(/^- (?!\[[ xX]\] )(.*)$/)).filter(Boolean).map(m=>unesc(m[1]).trim());
     HOME.logState = "ok";
   }catch(e){ HOME.logState = "off"; }
-  renderLog();
+  renderLog(); renderTeam();
 }
 
 async function loadStats(){
@@ -1246,6 +1345,8 @@ function loadHome(){ if (!mcp){ HOME.statsState=HOME.ordersState=HOME.logState="
 
 renderQuick(); renderOrders(); renderLog(); renderKeywords(); renderHome();
 document.getElementById("order-save").addEventListener("click", saveOrder);
+document.getElementById("order-text").addEventListener("input", e=>{ if (!HOME.orderOwnerManual){ const k = suggestOwner(e.target.value); if (k!==HOME.orderOwner){ HOME.orderOwner = k; renderOwnerPills(); } } });
+renderOwnerPills(); renderOrderFilters(); renderTeam();
 document.getElementById("home-search").addEventListener("input", renderSearch);
 document.getElementById("home-search").addEventListener("focus", renderSearch);
 document.getElementById("bell-btn").addEventListener("click", ()=>{ const p = document.getElementById("bell-pop"); p.hidden = !p.hidden; });
