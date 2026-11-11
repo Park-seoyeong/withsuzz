@@ -365,14 +365,14 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .heart:nth-child(2){animation-delay:.5s;margin-left:14px}.heart:nth-child(3){animation-delay:1.1s;margin-left:-14px}
 @keyframes float{0%{transform:translateY(0) scale(.7);opacity:0}20%{opacity:1}100%{transform:translateY(-34px) scale(1.15);opacity:0}}
 .spr{position:absolute;transform:translate(-50%,-100%);transition:left 1.8s ease-in-out,top 1.8s ease-in-out;z-index:2}
-.spr.talking{z-index:6}
+
 .spr .body{width:100%;background-repeat:no-repeat}
 .spr.moving .body{animation:bob .38s ease-in-out infinite}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4%)}}
 .spr .bubble{position:absolute;left:50%;bottom:100%;top:auto;transform:translateX(-50%);animation:none;font-size:11px;padding:2px 9px;background:rgba(255,255,255,.78);border-color:rgba(226,232,242,.8);box-shadow:var(--shadow-s);pointer-events:none;white-space:nowrap;max-width:none;width:max-content;margin-bottom:2px}
 .spr .bubble[hidden]{display:none}
 .spr{cursor:pointer}
-.office img.scene.occ{position:absolute;inset:0;z-index:3;pointer-events:none}
+.office img.scene.occ{position:absolute;inset:0;pointer-events:none}
 .spr .bubble{z-index:5}
 /* 회의록 채팅창 */
 .meet{display:grid;gap:10px;border-top:1px dashed var(--line);padding-top:12px}
@@ -606,8 +606,8 @@ const DONGBANG = {
   // 윗줄 ①앉아 일하기 ②서 있기 ③왼쪽 걷기 / 아랫줄 ④오른쪽 걷기 ⑤손 흔들기 ⑥두 팔 들고 기뻐하기. poses 값은 [열,행] 목록.
   stage: {
     spots: {
-      "책상1":{x:21.5,y:55},"책상2":{x:66,y:53},"책상3":{x:17,y:86},"책상4":{x:71,y:94},   // 책상 4개(의자 위치)
-      "회의1":{x:42,y:63},"회의2":{x:60,y:60},"회의3":{x:46,y:77},"회의4":{x:58,y:76},         // 둥근 러그 위 흰 테이블 둘레
+      "책상1":{x:18,y:55},"책상2":{x:66,y:53},"책상3":{x:17,y:86},"책상4":{x:69.5,y:94},   // 책상 4개(의자 위치)
+      "회의1":{x:45,y:63},"회의2":{x:58,y:63},"회의3":{x:45,y:77},"회의4":{x:60.5,y:77},   // 둥근 러그 위 흰 테이블 뒤쪽 2명·앞쪽 2명         // 둥근 러그 위 흰 테이블 둘레
       "소파":{x:47,y:45},"화이트보드":{x:91,y:47},"티코너":{x:12,y:76},
       "러그1":{x:36,y:83},"러그2":{x:54,y:89},"러그3":{x:63,y:73},"러그4":{x:45,y:72}   // 가구에 안 겹치는 빈 바닥(산책·기쁨 표시용)
     },
@@ -617,17 +617,18 @@ const DONGBANG = {
     celebrate: "러그2",
     walkMs: 2200,   // 한 곳에서 다른 곳으로 걷는 시간
     // 책상 앞부분(상판)만 오려 캐릭터 위에 덮는 모양: 그림 전체 기준 % 좌표 [x,y]. 캐릭터가 책상 뒤에 앉은 것처럼 보임
-    occluders: [
-      [[20.5,42.8],[26,40.6],[33,40.6],[33,49.2],[30,48.4],[21,45.4]],
+    occluders: [   // 배열 = 책상 상판(캐릭터보다 항상 위). {z,p} = 그 높이(y%)보다 앞/뒤 구분이 필요한 가구(회의 테이블)
+      {z:64,p:[[44,53],[48,50.5],[54,50.5],[58.2,53],[58.2,57],[54,59.5],[48,59.5],[44,57]]},
+      [[23.2,41.8],[26,40.6],[33,40.6],[33,49.2],[30,48.4],[24,46.6]],
       [[64.5,40.3],[70,38],[76,37.2],[76,46.6],[73,46.4],[65,43.2]],
       [[16.5,80.8],[26,74.2],[30,73],[48,81.5],[48,100],[30,100],[24,92],[17,84.5]],
-      [[68.5,79.2],[79,74.2],[85,72.5],[100,72.5],[100,100],[74.5,100],[74.5,86],[70,83.5]]
+      [[72,84.5],[80,79.5],[86,75.8],[100,75.8],[100,100],[74.5,100],[74.5,87.5]]
     ],
     sprites: {
-      "토끼":   {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
-      "고양이": {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
-      "여우":   {cols:3, rows:2, scale:12.8, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
-      "햄스터": {cols:3, rows:2, scale:13.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}}
+      "토끼":   {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[0,0]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
+      "고양이": {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[0,0]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
+      "여우":   {cols:3, rows:2, scale:12.8, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[0,0]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
+      "햄스터": {cols:3, rows:2, scale:13.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[0,0]], done:[[2,1]]}, rate:{idle:1600, meet:1400}}
     }
   },
   // 툴 페이지 링크 카드. href가 비어 있으면 '주소 준비 중'으로 흐리게 보여요.
@@ -1670,7 +1671,7 @@ function ensureStage(){
     const bub = el("div",{class:"bubble"});
     const body = el("div",{class:"body"});
     const spr = el("div",{class:"spr",style:"width:"+(cfg.scale||14)+"%"}, bub, body);
-    const home = spotXY(DONGBANG.stage.desks[c.who]); spr.style.left = home.x+"%"; spr.style.top = home.y+"%";
+    const home = spotXY(DONGBANG.stage.desks[c.who]); spr.style.left = home.x+"%"; spr.style.top = home.y+"%"; spr.style.zIndex = Math.round(home.y);
     bub.hidden = true;
     spr.addEventListener("mouseenter",()=>{ HOME.peek = c.who; stageSync(); });
     spr.addEventListener("mouseleave",()=>{ if (!HOME.peekLock){ HOME.peek = null; stageSync(); } });
@@ -1680,7 +1681,7 @@ function ensureStage(){
     if (cfg.chroma) chromaKey(src, finish); else { const im = new Image(); im.onload = ()=>finish(src, im.naturalWidth, im.naturalHeight); im.src = src; }
   }
   const bgSrc = imgOf("stageBg");
-  for (const poly of (DONGBANG.stage.occluders||[])) root.append(el("img",{class:"scene occ",src:bgSrc,alt:"",style:"clip-path:polygon("+poly.map(([x,y])=>x+"% "+y+"%").join(",")+")"}));
+  for (const o of (DONGBANG.stage.occluders||[])){ const poly = Array.isArray(o) ? o : o.p, z = Array.isArray(o) ? 101 : o.z; root.append(el("img",{class:"scene occ",src:bgSrc,alt:"",style:"z-index:"+z+";clip-path:polygon("+poly.map(([x,y])=>x+"% "+y+"%").join(",")+")"})); }
   clearInterval(STAGE.wander); STAGE.wander = setInterval(wanderIdle, 12000);
   clearInterval(STAGE.chat); STAGE.chat = setInterval(chatter, 45000); setTimeout(chatter, 9000);
 }
@@ -1695,7 +1696,7 @@ function moveChar(who, spotName){
   const e = STAGE.els[who]; if (!e || STAGE.spot[who]===spotName) return; STAGE.spot[who] = spotName;
   const p = spotXY(spotName), from = parseFloat(e.spr.style.left) || p.x, ms = DONGBANG.stage.walkMs || 2200;
   e.spr.style.transitionDuration = ms+"ms";
-  e.spr.style.left = p.x+"%"; e.spr.style.top = p.y+"%"; e.spr.classList.add("moving");
+  e.spr.style.left = p.x+"%"; e.spr.style.top = p.y+"%"; e.spr.style.zIndex = Math.round(p.y); e.spr.classList.add("moving");
   setPose(who, p.x < from ? "walkL" : "walkR"); clearTimeout(e.walkT);
   e.walkT = setTimeout(()=>{ e.spr.classList.remove("moving"); setPose(who, e.arrive || "idle"); }, ms+100);
 }
@@ -1710,8 +1711,7 @@ function stageSync(){
     else if (s.state==="working"){ cls += " working"; kids = bubbleContent(c, s, ""); }
     else if (s.state==="done"){ cls += " done"; kids = bubbleContent(c, s, ""); }
     else if (HOME.peek===c.who){ cls += " peek"; kids = [c.role+" 담당 · ", el("b",{}, vals[c.key]||"")]; }
-    e.spr.classList.toggle("talking", !!kids);
-    e.bub.className = cls; e.bub.hidden = !kids; e.bub.replaceChildren(...(kids||[]));
+        e.bub.className = cls; e.bub.hidden = !kids; e.bub.replaceChildren(...(kids||[]));
     if (s.state==="working"){ e.arrive = "work"; moveChar(c.who, st.desks[c.who]); }
     else if (s.state==="meeting"){ e.arrive = "meet"; moveChar(c.who, st.meetSpots[i % st.meetSpots.length]); }
     else if (s.state==="done"){ e.arrive = "done"; moveChar(c.who, st.celebrate || st.idleSpots[0]); }
