@@ -272,8 +272,9 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
   .hero{grid-template-columns:1fr;border-radius:24px 24px 48px 48px;padding:18px 20px 22px}
   .hero h2{font-size:18px}
   .home-grid{grid-template-columns:minmax(0,1fr);grid-template-areas:"office" "todo" "what" "side" "order" "log" "kw"}
-  .quick{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
-  .quick a{width:68px;flex:none}
+  .quick{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:2px;justify-content:stretch}
+  .quick a{width:auto;font-size:11px;padding:6px 0}
+  .quick span.ic{width:40px;height:40px;font-size:17px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 /* ===== 2차 수정: 화면 나누기·달력·시즌 패널·회의록·캐릭터 ===== */
@@ -329,7 +330,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .ci.dl-past .star{color:var(--over-fg)}
 .ci .cn{display:inline-block;width:6px;height:6px;border-radius:50%;background:#E58AA0;margin-right:3px;vertical-align:1px}
 .ci .dl{font-size:10px;margin:0 3px 0 0}
-.cal-more{font-size:10.5px;color:var(--muted);padding-left:4px}
+.cal-more{cursor:pointer;border:0;background:none;text-align:left;font-size:10.5px;color:var(--muted);padding-left:4px}
 .nopost-box>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
 .nopost-box>summary::-webkit-details-marker{display:none}
 .nopost-box>summary h2{margin:0}
@@ -1099,14 +1100,15 @@ function jsonBlock(text){
 }
 function unesc(s){ return s.replace(/\\([~*_\[\]()#>`|-])/g,"$1"); }
 const VIEWS = ["home","vault","calendar","stats","keywords","tools"];
-function showView(v){
+function showView(v, opts){
   if (!VIEWS.includes(v)) v = "home";
   HOME.view = v;
   for (const x of VIEWS){ const n = document.getElementById("view-"+x); if (n) n.hidden = x!==v; }
   renderQuick();
-  try{ history.replaceState(null,"","#"+v); }catch(e){}
+  try{ if (opts && opts.pop) history.replaceState(null,"","#"+v); else if (location.hash!=="#"+v) history.pushState(null,"","#"+v); }catch(e){}
   window.scrollTo(0,0);
 }
+window.addEventListener("popstate",()=>{ const v = (location.hash||"#home").slice(1); if (VIEWS.includes(v)) showView(v,{pop:true}); });
 function goto(id, view){
   if (view && view!==HOME.view) showView(view);
   const go = ()=>{ const t = document.getElementById(id); if (t) t.scrollIntoView({behavior:"smooth",block:"start"}); };
@@ -1133,7 +1135,7 @@ function urgentDeadline(){
 }
 function shortTitle(s, n=14){ s = String(s); return s.length>n ? s.slice(0,n)+"…" : s; }
 
-const MENU = [["🏠","홈","home","var(--p-sky)"],["📁","원고보관함","vault","var(--p-lav)"],["🗓️","블로그 캘린더","calendar","var(--p-pink)"],["📊","통계","stats","var(--p-mint)"],["🔑","키워드","keywords","var(--p-pink)"],["🧰","툴","tools","var(--p-sky)"]];
+const MENU = [["🏠","홈","home","var(--p-sky)"],["📁","원고보관함","vault","var(--p-lav)"],["🗓️","캘린더","calendar","var(--p-pink)"],["📊","통계","stats","var(--p-mint)"],["🔑","키워드","keywords","var(--p-pink)"],["🧰","툴","tools","var(--p-sky)"]];
 function renderQuick(){
   document.getElementById("quick").replaceChildren(...MENU.map(([ic,label,v,bg])=>
     el("a",{href:"#"+v, "aria-current":HOME.view===v?"page":null, onclick:(e)=>{ e.preventDefault(); showView(v); }}, el("span",{class:"ic",style:"background:"+bg},ic), label)));
@@ -1268,8 +1270,10 @@ function parseOrders(text){
 
 function renderOrderFilters(){
   const box = document.getElementById("order-filters");
-  const mk = (list, curKey) => el("div",{class:"htabs",style:"flex-wrap:wrap"}, ...list.map(k=>el("button",{type:"button","aria-pressed":String(HOME[curKey]===k),onclick:()=>{HOME[curKey]=k; renderOrderFilters(); renderOrders();}},k)));
-  box.replaceChildren(mk(["전체","배정 중","대기","진행","완료"],"orderFilter"), mk(["전체","클로드","지피티","어사이드"],"ownerFilter"));
+  const tabs = el("div",{class:"htabs",style:"flex-wrap:wrap"}, ...["전체","배정 중","대기","진행","완료"].map(k=>el("button",{type:"button","aria-pressed":String(HOME.orderFilter===k),onclick:()=>{HOME.orderFilter=k; renderOrderFilters(); renderOrders();}},k)));
+  const sel = el("select",{"aria-label":"담당 필터",style:"border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--ink)",onchange:(e)=>{HOME.ownerFilter=e.target.value; renderOrders();}},
+    ...["전체","클로드","지피티","어사이드"].map(k=>el("option",{value:k,selected:HOME.ownerFilter===k}, k==="전체"?"담당 전체":k)));
+  box.replaceChildren(tabs, sel);
 }
 function renderOrders(){
   const ul = document.getElementById("order-list"); ul.replaceChildren();
@@ -1923,7 +1927,7 @@ function renderCalendar(){
   for (let i=0; i<weeks*7; i++){
     const d = addDays(first, i-startDow), inMonth = d.slice(0,7)===ym;
     const items = calItemsFor(d), bc = blogCount(d), over = bc>MAX_PER_DAY;
-    const MAXV = window.innerWidth<=720 ? 2 : 3;
+    const open = HOME.calOpen && HOME.calOpen.has(d), MAXV = open ? 99 : (window.innerWidth<=720 ? 2 : 3);
     const chips = items.slice(0,MAXV).map(it=>{
       const sm = seasonMonth({title:it.title, file:""}), p = it.post;
       const kidsC = [it.china ? el("i",{class:"cn",title:"중국 글"}) : null, p && p.deadline ? el("span",{class:"star"},"★") : null, p && p.deadline ? el("span",{class:"dl"},"~"+md(p.deadline)) : null, sm ? seasonEmoji(sm)+" " : null, (it.insta?"[인] ":"")+it.title];
@@ -1935,7 +1939,7 @@ function renderCalendar(){
     });
     kids.push(el("div",{class:"cal-cell"+(inMonth?"":" out")+(d===today?" today":"")+(over?" over":""),title:over?"블로그 글이 하루 "+MAX_PER_DAY+"편을 넘어요":null},
       el("div",{class:"dn"}, el("b",{}, String(Number(d.slice(8,10)))), bc?el("span",{}, bc+"편"):null),
-      ...chips, items.length>MAXV ? el("span",{class:"cal-more"},"+"+(items.length-MAXV)+"편") : null));
+      ...chips, items.length>MAXV ? el("button",{type:"button",class:"cal-more",onclick:()=>{ (HOME.calOpen = HOME.calOpen||new Set()).add(d); renderCalendar(); }},"+"+(items.length-MAXV)+"편 더 보기") : (open && items.length>3 ? el("button",{type:"button",class:"cal-more",onclick:()=>{ HOME.calOpen.delete(d); renderCalendar(); }},"접기") : null)));
   }
   box.replaceChildren(...kids); renderUndated();
   document.getElementById("cal-legend").replaceChildren(
