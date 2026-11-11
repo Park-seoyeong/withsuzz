@@ -111,6 +111,11 @@ try { guide = parseChinaGuide(readFileSync(guidePath, "utf8")); } catch { consol
 const tpl = readFileSync(join(here, "template.html"), "utf8");
 const data = JSON.stringify(posts).replace(/</g, "\\u003c");
 const guideData = JSON.stringify(guide).replace(/</g, "\\u003c");
-const out = tpl.replace("/*__POSTS__*/[]", data).replace("/*__GUIDE_CHINA__*/{}", guideData).replace("__BUILT__", new Date().toISOString());
+const out = tpl.replace("/*__POSTS__*/[]", data).replace("/*__GUIDE_CHINA__*/{}", guideData).replace("__BUILT__", new Date().toISOString())
+  // 동방.zip 그림: img/<이름>.webp → data URI (template의 DONGBANG.images 자리)
+  .replace(/__IMG_([a-z]+)__/g, (m, name) => {
+    try { return "data:image/webp;base64," + readFileSync(join(here, "img", name + ".webp")).toString("base64"); }
+    catch { console.warn("그림 없음:", name); return ""; }
+  });
 writeFileSync(outFile, out);
 console.log(`원고 ${posts.length}편, 중국 도시 ${Object.keys(guide).length}곳 → ${outFile} (${Math.round(out.length / 1024)}KB)`);
