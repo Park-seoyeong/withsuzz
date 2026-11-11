@@ -602,6 +602,23 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .quick a[aria-current=page] .frame.ftab{box-shadow:0 0 0 2.5px var(--st-todo)}
 @media (max-width:720px){.frame.ftab{width:30px;height:30px}.quick a .ic{height:30px}.hellorow{margin-bottom:12px}}
 @media (prefers-reduced-motion:reduce){.csp.bob,.dot.pop,.dot.pop::after,.cel i{animation:none}.cel{animation:celin .1s,celout .3s 1.6s forwards}}
+
+/* ===== 팀 탭 ===== */
+#view-team .office-wrap,#view-team .office{max-width:none;width:100%}
+#view-team{grid-template-columns:minmax(0,1fr)!important}
+#view-team .hcard{min-width:0;width:100%;grid-area:auto!important}
+#view-team .team .sc,#view-team .team>*{white-space:nowrap;writing-mode:horizontal-tb}
+#view-team .cast>*{min-width:0;word-break:keep-all}
+.tstage{padding:14px}
+.tstage .office-wrap{margin:0}
+.meetline{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.cbub.sm{font-size:14px;font-weight:500}.cbub.sm .nm2{color:var(--st-todo)}
+.cbub.sm::before{box-shadow:-1px 1px 0 var(--line)}
+.meetline .cbub{box-shadow:0 0 0 1px var(--line) inset}
+.olderm{margin-top:8px}
+.quick{overflow:visible}
+.frame.ftab.dots{display:grid;place-items:center;background:var(--sunk);font-size:16px;font-weight:700;color:var(--muted)}
+@media (max-width:720px){.quick{grid-template-columns:repeat(5,1fr)!important}.quick a{font-size:11px}}
 </style>
 
 <div class="page">
@@ -644,32 +661,46 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
   </section>
 
   <section class="subpage view" id="view-more" hidden>
-    <button class="mbanner" type="button" id="more-banner" aria-label="클로드 사무실 보기"></button>
+    <button class="mbanner" type="button" id="more-banner" aria-label="동방 사무실(팀 탭)으로 가기"></button>
     <div class="mlinks" id="more-links"></div>
-    <section class="hero" id="hero" aria-label="오늘의 한 줄"></section>
-
-    <div class="home-grid">
+    <section class="hcard a-what" aria-labelledby="h-what">
+        <div class="hcard-head"><h3 id="h-what">뭘 넣지</h3><span class="deco">☁</span><div class="pager" id="what-pager"></div></div>
+        <div id="what-days"></div>
+        <ul class="hl" id="what-list"></ul>
+      </section>
+  </section>
+  <section class="subpage view" id="view-team" hidden>
+    <section class="hcard tstage" aria-labelledby="h-office">
+      <div class="hcard-head"><h3 id="h-office">동방 사무실</h3><span class="deco">☁ ✦</span></div>
+      <div class="office-wrap" id="office"></div>
+      <div class="cast" id="cast" aria-label="캐릭터 4명 상태"></div>
+    </section>
+    <section class="hcard" aria-labelledby="h-meet">
+      <div class="hcard-head"><h3 id="h-meet">회의록</h3><span class="deco" id="meet-time">아침 07:40 · 저녁 23:00</span></div>
+      <div class="meet" id="meet"></div>
+    </section>
+    <section class="hcard" aria-labelledby="h-team">
+      <div class="hcard-head"><h3 id="h-team">오늘의 팀</h3><span class="deco">✿</span></div>
+      <div class="team" id="team" aria-label="오늘의 팀"></div>
+    </section>
       <section class="hcard a-order" aria-labelledby="h-order">
         <div class="hcard-head"><h3 id="h-order">업무지시</h3><span class="deco">✎</span></div>
         <div class="memo">
-          <textarea id="order-text" placeholder="팀에게 시킬 일을 적어요. 예: 다음 주 빈 날에 넣을 중국 원고 주제 3개"></textarea>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="pbtn" type="button" id="order-save">업무지시 보내기</button><span class="hint2" id="order-note"></span></div>
+          <button class="pbtn" type="button" id="order-modal-btn" style="padding:12px 20px;font-size:15px">업무지시 쓰기 ✎</button>
+          <textarea id="order-text" hidden></textarea><button type="button" id="order-save" hidden></button><span class="hint2" id="order-note"></span>
           <p class="next-note">자동 처리: 어사이드 배정 10:30·14:30·17:30 → 클로드 처리 10:40·14:40·17:40 <a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="급할 때만: '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-left:6px">지금 바로 처리</a></p>
         </div>
         <div id="order-filters" style="display:grid;gap:6px"></div>
         <div class="fill"><ul class="hl" id="order-list"></ul></div>
         <p class="hint2">담당은 우리가 판단해서 정해요. 저장하면 "배정 중"으로 보이고, 어사이드 루틴(하루 3번)이나 클로드가 "업무지시 확인해" 때 클로드·지피티·어사이드 중 맞는 담당을 붙여요.</p>
       </section>
-
-      <section class="hcard a-office" aria-labelledby="h-office">
-        <div class="awning" aria-hidden="true"></div>
-        <div class="hcard-head"><h3 id="h-office">클로드 사무실</h3><span class="deco">☁ ✦</span></div>
-        <div class="team" id="team" aria-label="오늘의 팀"></div>
-        <div class="cast" id="cast" aria-label="캐릭터 4명 상태"></div>
-        <div class="office-wrap" id="office"></div>
-        <div class="meet" id="meet"></div>
+      <section class="hcard a-log" aria-labelledby="h-log">
+        <div class="hcard-head"><h3 id="h-log">사무실 업무기록</h3><span class="deco">✦</span></div>
+        <ul class="hl log" id="log-list"></ul>
       </section>
-
+  </section>
+  <div id="legacy" hidden>
+    <section class="hero" id="hero" aria-label="오늘의 한 줄"></section>
       <div class="a-side">
         <section class="hcard" aria-label="써즈 동방장 프로필">
           <div class="profile" id="profile"></div>
@@ -679,30 +710,16 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
           <div id="stats"></div>
         </section>
       </div>
-
-      <section class="hcard a-log" aria-labelledby="h-log">
-        <div class="hcard-head"><h3 id="h-log">사무실 업무기록</h3><span class="deco">✦</span></div>
-        <ul class="hl log" id="log-list"></ul>
-      </section>
-
       <section class="hcard a-todo" aria-labelledby="h-todo">
         <div class="hcard-head"><h3 id="h-todo">오늘 todo 원고</h3><span class="deco">✿</span><div class="pager" id="todo-pager"></div></div>
         <ul class="hl" id="todo-list"></ul>
       </section>
-
-      <section class="hcard a-what" aria-labelledby="h-what">
-        <div class="hcard-head"><h3 id="h-what">뭘 넣지</h3><span class="deco">☁</span><div class="pager" id="what-pager"></div></div>
-        <div id="what-days"></div>
-        <ul class="hl" id="what-list"></ul>
-      </section>
-
       <section class="hcard a-kw" aria-labelledby="h-kw">
         <div class="hcard-head"><h3 id="h-kw">유입 키워드 분석</h3><span class="deco">✦</span>
           <div class="htabs" id="kw-tabs"></div><div class="pager" id="kw-pager"></div></div>
         <div id="kw-body"></div>
       </section>
-    </div>
-  </section>
+  </div>
   <section class="subpage view" id="view-post" hidden><div class="postw" id="post-body"></div></section>
 
   <section class="subpage view" id="view-calendar" hidden>
@@ -1319,8 +1336,8 @@ function jsonBlock(text){
   return parts.length > 1 ? (tryParse(parts.map(p=>p.trim()).join("")) || tryParse(parts.join("\n"))) : null;
 }
 function unesc(s){ return s.replace(/\\([~*_\[\]()#>`|-])/g,"$1"); }
-const VIEWS = ["home","vault","calendar","stats","keywords","coach","tools","more","post"];
-const TAB_OF = {home:"home", vault:"vault", calendar:"vault", coach:"vault", post:"vault", keywords:"keywords", more:"more", stats:"more", tools:"more"};
+const VIEWS = ["home","vault","calendar","stats","keywords","coach","tools","more","post","team"];
+const TAB_OF = {team:"team", home:"home", vault:"vault", calendar:"vault", coach:"vault", post:"vault", keywords:"keywords", more:"more", stats:"more", tools:"more"};
 function showView(v, opts){
   if (!VIEWS.includes(v)) v = "home";
   HOME.view = v;
@@ -1328,7 +1345,7 @@ function showView(v, opts){
   renderQuick();
   if (v==="coach"){ try{ renderCoach(); }catch(e){} }
   if (v==="post"){ try{ renderDetail(); }catch(e){} }
-  if (v==="more"){ try{ if (stageOn()) stageSync(); }catch(e){} }
+  if (v==="team"){ try{ if (stageOn()){ ensureStage(); stageSync(); } renderMeet(); }catch(e){} }
   try{ if (opts && opts.pop) history.replaceState(null,"","#"+v); else if (location.hash!=="#"+v) history.pushState(null,"","#"+v); }catch(e){}
   window.scrollTo(0,0);
 }
@@ -1360,11 +1377,11 @@ function urgentDeadline(){
 }
 function shortTitle(s, n=14){ s = String(s); return s.length>n ? s.slice(0,n)+"…" : s; }
 
-const MENU = [["🏠","홈","home"],["✍️","원고","vault"],["🔑","키워드","keywords"],["⋯","더보기","more"]];
-const TAB_FACE = {home:"원고", vault:"캘린더", keywords:"키워드", more:"통계"};
+const MENU = [["🏠","홈","home"],["✍️","원고","vault"],["🔑","키워드","keywords"],["🏢","팀","team"],["⋯","더보기","more"]];
+const TAB_FACE = {home:"원고", vault:"캘린더", keywords:"키워드", team:"통계"};
 function renderQuick(){
   document.getElementById("quick").replaceChildren(...MENU.map(([ic,label,v])=>
-    el("a",{href:"#"+v, "aria-current":TAB_OF[HOME.view]===v?"page":null, onclick:(e)=>{ e.preventDefault(); showView(v); }}, el("span",{class:"ic"}, imgOf(TAB_FACE[v]) ? avatar(TAB_FACE[v],"ftab") : ic), label)));
+    el("a",{href:"#"+v, "aria-current":TAB_OF[HOME.view]===v?"page":null, onclick:(e)=>{ e.preventDefault(); showView(v); }}, el("span",{class:"ic"}, imgOf(TAB_FACE[v]) ? avatar(TAB_FACE[v],"ftab") : el("span",{class:"frame ftab dots"},"⋯")), label)));
 }
 
 function ring(pct, label, sub, below, target){
@@ -2005,15 +2022,20 @@ function charStates(){
   const meeting = inMeetingTime();
   if (meeting) for (const c of DONGBANG.cast) out[c.who] = {state:"meeting"};
   for (const o of HOME.orders){
-    const who = charForText(orderShow(o.text)); if (!who) continue;
+    let who = charForText(orderShow(o.text)), verb = "";
+    if (/^원고 임시저장\s*:/.test(o.text)){ who = "햄스터"; const a = asideState(o); if (a && a.state==="drafted") continue; verb = !a ? "" : a.state==="working" ? "사진 찾는 중…" : a.state==="blocked" ? "막혀서 기다려요 ㅠㅠ" : "사진 맡아서 대기 중…"; }
+    else if (/^원고 작성\s*:/.test(o.text)){ who = "토끼"; verb = "원고 쓰는 중…"; }
+    else if (/^원고 수정\s*:/.test(o.text)){ who = "토끼"; verb = "원고 고치는 중…"; }
+    else if (/^(말투 기록 반영|규칙 추가)\s*:/.test(o.text)){ who = "토끼"; verb = "규칙 정리 중…"; }
+    if (!who) continue;
     const label = orderShow(o.text).replace(/\s*·\s*\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2}$/,"");
-    if (!o.done) out[who] = {state:"working", task:label};
+    if (!o.done) out[who] = {state:"working", task:label, verb};
     else if (out[who].state!=="working" && Date.now()-(HOME.justDone[orderKey(o)]||0) < 6000) out[who] = {state:"done", task:label};
   }
   return out;
 }
 function bubbleContent(c, s, idleText){
-  if (s.state==="working") return [el("span",{class:"tw",style:"--n:"+c.verb.length,title:s.task||""}, c.verb)];
+  if (s.state==="working"){ const v = s.verb || c.verb; return [el("span",{class:"tw",style:"--n:"+v.length,title:s.task||""}, v)]; }
   if (s.state==="done") return [el("b",{},"완료!")," ♥"];
   if (s.state==="meeting") return [el("b",{},"회의 중…")];
   return [c.who+" · ", el("b",{}, idleText)];
@@ -2033,7 +2055,7 @@ function renderCast(){
   const S = charStates();
   box.replaceChildren(...DONGBANG.cast.map(c=>{
     const s = S[c.who];
-    return el("div",{class:"cchip "+s.state, title:s.task||""}, avatar(c.img), el("b",{},c.who+" · "+c.role), el("span",{class:"s"}, s.state==="working" ? c.verb : STATE_LABEL[s.state]+(s.state==="done"?" ♥":"")));
+    return el("div",{class:"cchip "+s.state, title:s.task||""}, avatar(c.img), el("b",{},c.who+" · "+c.role), el("span",{class:"s"}, s.state==="working" ? (s.verb||c.verb) : STATE_LABEL[s.state]+(s.state==="done"?" ♥":"")));
   }));
 }
 function renderOffice(){
@@ -2931,10 +2953,18 @@ function renderHomeKw(){
     el("span",{class:"sc "+(t.buyIntent?"c-amber":"c-blue")}, t.buyIntent?"구매의도":"정보"), el("b",{}, (t.main&&t.main.kw)||t.topic), el("span",{class:"n"}, (t.main&&t.main.volume!=null ? num(t.main.volume)+"회" : "")+(t.deadline?" · ~"+t.deadline:""))))));
 }
 // 홈 ⑤ 시킬 일 한 줄 + 방문자
+function homeMeetLine(){
+  const M = HOME.meet, x = M.state==="ok" ? M.list[M.list.length-1] : null;
+  const head = el("div",{class:"tlabel2"},"동방 회의 한 줄", x ? el("small",{}, meetTitle(x)) : null);
+  if (!x){ return el("div",{class:"meetline"}, head, el("p",{class:"muted"}, M.state==="loading" ? "불러오는 중…" : "아침 07:40 · 저녁 23:00에 회의해요. 아직 회의록이 없어요."), el("a",{class:"tiny",href:"#team",onclick:(e)=>{ e.preventDefault(); showView("team"); }},"팀 탭 보기 ›")); }
+  const l = x.lines.find(z=>z && z.text && z.text.length<=70) || x.lines[0] || {who:"토끼", text:(x.summary||[])[0]||""}, c = castOf(l.who);
+  return el("div",{class:"meetline"}, head, el("div",{class:"say"}, avatar(c?c.img:"원고","say"), el("div",{class:"cbub sm"}, el("b",{class:"nm2"}, l.who+" "), l.text)),
+    el("a",{class:"tiny",href:"#team",onclick:(e)=>{ e.preventDefault(); showView("team"); }},"회의록 보기 ›"));
+}
 function renderHomeAsk(){
   const box = document.getElementById("t-ask"); if (!box) return;
   box.replaceChildren(el("button",{class:"ask",type:"button",onclick:()=>openOrderModal()}, el("span",{},"팀에게 시킬 일 적기"), el("b",{},"보내기")),
-    el("a",{class:"tiny",href:"#stats",onclick:(e)=>{ e.preventDefault(); showView("stats"); }}, avatar("통계","mini"), (visitInfo().n==null||isNaN(visitInfo().n) ? "오늘 방문자 보기 ›" : "오늘 방문자 "+num(visitInfo().n)+"명 ›")));
+    el("a",{class:"tiny",href:"#stats",onclick:(e)=>{ e.preventDefault(); showView("stats"); }}, avatar("통계","mini"), (visitInfo().n==null||isNaN(visitInfo().n) ? "오늘 방문자 보기 ›" : "오늘 방문자 "+num(visitInfo().n)+"명 ›")), homeMeetLine());
 }
 function renderToss(){ for (const f of [renderHomeNow, renderHomeLeft, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
 
@@ -2943,7 +2973,7 @@ function renderMoreBanner(){
   const b = document.getElementById("more-banner"); if (!b) return;
   const src = imgOf("office"); b.hidden = !src; if (!src) return;
   b.replaceChildren(el("img",{src,alt:""}), el("span",{}, "클로드 사무실", el("small",{}," 눌러서 일하는 모습 보기")));
-  b.onclick = ()=>goto("h-office");
+  b.onclick = ()=>showView("team");
 }
 function renderMoreLinks(){
   renderMoreBanner();
@@ -3081,7 +3111,7 @@ async function loadMeetings(){
     list.sort((a,b)=>String(a.date).localeCompare(String(b.date)) || (a.slot==="am"?-1:1)-(b.slot==="am"?-1:1));
     M.list = list; M.state = list.length ? "ok" : "none"; M.idx = Math.max(0, list.length-1);
   }catch(e){ M.state = "off"; }
-  renderMeet(); renderMeetAlert(); renderBell();
+  renderMeet(); renderMeetAlert(); renderBell(); try{ renderHomeAsk(); }catch(e){}
 }
 function renderMeetAlert(){
   const box = document.getElementById("meet-alert"); if (!box) return;
@@ -3092,7 +3122,7 @@ function renderMeetAlert(){
     el("ul",{}, ...(u.summary||[]).slice(0,5).map(t=>el("li",{},t))),
     el("span",{class:"hint2"},"눌러서 회의록 채팅창으로 가기")));
 }
-function openMeeting(x){ const M = HOME.meet, i = M.list.findIndex(y=>y.id===x.id); if (i>=0) M.idx = i; renderMeet(); goto("meet","home"); startReveal(); }
+function openMeeting(x){ const M = HOME.meet, i = M.list.findIndex(y=>y.id===x.id); if (i>=0) M.idx = i; renderMeet(); goto("meet","team"); startReveal(); }
 function startReveal(){
   const M = HOME.meet, x = M.list[M.idx]; if (!x || meetSeen().includes(x.id) || M.revealing===x.id) return;
   M.revealing = x.id; M.shown = 0; clearInterval(M.timer); renderMeet();
@@ -3105,7 +3135,7 @@ function renderMeet(keepScroll){
   const head = el("div",{class:"meet-head"}, el("h4",{},"회의록 채팅창"), x ? el("span",{class:"hint2"}, meetTitle(x)) : null);
   const note = el("p",{class:"hint2"},"캐릭터는 역할 페르소나일 뿐이고 실제 에이전트가 따로 있는 건 아니에요. 숫자·사실은 읽은 데이터에서만 가져와요(없으면 '데이터 없음').");
   if (M.state!=="ok"){
-    box.replaceChildren(head, el("p",{class:"empty2"}, M.state==="loading" ? "불러오는 중…" : M.state==="off" ? "회의록 페이지를 읽지 못했어요." : "아직 회의가 없어요. 아침 07:40·저녁 23:00에 캐릭터들이 회의를 열어요."), note); return;
+    box.replaceChildren(head, M.state==="loading" ? el("p",{class:"empty2"},"불러오는 중…") : M.state==="off" ? el("p",{class:"empty2"},"회의록 페이지를 읽지 못했어요.") : emptyArt("아직 회의가 없어요. 아침 07:40 · 저녁 23:00에 모여서 얘기해요","토끼","wave"), note); return;
   }
   const animating = M.revealing===x.id, total = x.lines.length, shown = animating ? Math.min(M.shown||0,total) : total;
   const pg = el("div",{class:"pager"}, el("span",{},(M.idx+1)+"/"+M.list.length),
@@ -3122,8 +3152,12 @@ function renderMeet(keepScroll){
     if (x.todo && x.todo.length) rep.push(el("b",{},"할 일"), el("ul",{}, ...x.todo.map(t=>el("li",{},t))));
     kids.push(el("div",{class:"report"}, ...rep));
   }
+  const older = M.list.filter((y,i)=>i!==M.idx).reverse().slice(0,6);
+  if (older.length && !animating) kids.push(el("div",{class:"olderm"}, el("h4",{class:"sub"},"지난 회의 (최신 먼저)"), ...older.map(y=>el("details",{class:"rules"}, el("summary",{}, meetTitle(y)),
+    el("div",{class:"chat"}, ...y.lines.map(l=>{ const c = castOf(l.who); return el("div",{class:"msg m-"+l.who}, avatar(c?c.img:"원고"), el("div",{}, el("span",{class:"nm"},l.who), el("br"), el("span",{class:"bub"},l.text))); }))))));
   kids.push(note);
   box.replaceChildren(...kids);
+  try{ renderHomeAsk(); }catch(e){}
   const ch = document.getElementById("chat"); if (ch && animating) ch.scrollTop = ch.scrollHeight;
   if (animating && shown>0 && shown<=total){ const l = x.lines[shown-1]; HOME.speak = {who:l.who, text:l.text, until:Date.now()+1900}; if (stageOn()){ stageSync(); setTimeout(stageSync, 2000); } }
 }
@@ -3144,7 +3178,7 @@ function renderSearch(){
   const kids = [];
   if (drafts.length) kids.push(el("h4",{},"원고"), ...drafts.map(p=>el("button",{type:"button",onclick:()=>{pop.hidden=true; openPost(p);}}, p.title+(st(p.id).day?" · "+md(st(p.id).day):""))));
   if (rows.length) kids.push(el("h4",{},"노션 플래너"), ...rows.map(r=>el("a",{href:notionLink(r.id),target:"_blank",rel:"noopener"}, r.title+(r.day?" · "+md(r.day):"")+(r.platform==="인스타"?" [인스타]":""))));
-  if (kws.length) kids.push(el("h4",{},"유입 키워드"), ...kws.slice(0,8).map(k=>el("button",{type:"button",onclick:()=>{pop.hidden=true; goto("h-kw","home");}}, k)));
+  if (kws.length) kids.push(el("h4",{},"유입 키워드"), ...kws.slice(0,8).map(k=>el("button",{type:"button",onclick:()=>{pop.hidden=true; showView("keywords");}}, k)));
   if (!kids.length) kids.push(el("p",{class:"hint2",style:"padding:8px"},"찾는 결과가 없어요."));
   pop.replaceChildren(...kids); pop.hidden = false;
 }
@@ -3153,7 +3187,7 @@ function bellItems(){
   const um = HOME.meet.state==="ok" ? unreadMeeting() : null; if (um) out.push([(um.slot==="pm"?"저녁":"아침")+" 회의 보고 도착", ()=>openMeeting(um)]);
   const late = POSTS.filter(isLate); if (late.length) out.push(["날짜 지난 미발행 원고 "+late.length+"편", ()=>goto("archive-title","vault")]);
   for (const p of POSTS) if (p.deadline && p.deadline>=t && daysBetween(t,p.deadline)<=3 && st(p.id).status!=="published") out.push(["★ "+shortTitle(p.title,16)+" 마감 ~"+md(p.deadline), ()=>openPost(p)]);
-  const wait = HOME.orders.filter(o=>!o.done).length; if (wait) out.push(["대기 중인 업무지시 "+wait+"개", ()=>goto("h-order","home")]);
+  const wait = HOME.orders.filter(o=>!o.done).length; if (wait) out.push(["대기 중인 업무지시 "+wait+"개", ()=>goto("h-order","team")]);
   return out;
 }
 function renderBell(){
@@ -3179,7 +3213,8 @@ document.getElementById("cal-next").addEventListener("click", ()=>{ HOME.calMont
 document.getElementById("cal-today").addEventListener("click", ()=>{ HOME.calMonth = kstToday().slice(0,7); renderCalendar(); renderSeason(); });
 try{ const h = (location.hash||"").slice(1); if (VIEWS.includes(h) && h!=="home" && h!=="post") showView(h); }catch(e){}
 document.getElementById("order-btn").addEventListener("click", ()=>openOrderModal());
-document.getElementById("order-text").addEventListener("focus", e=>{ e.target.blur(); openOrderModal(); });
+(function(){ const b = document.getElementById("order-modal-btn"); if (b) b.addEventListener("click", ()=>openOrderModal()); })();
+
 document.addEventListener("click", e=>{ if (HOME.peek && !e.target.closest(".spr")){ HOME.peek = null; HOME.peekLock = false; if (stageOn()) stageSync(); } if (!e.target.closest(".searchbox")) document.getElementById("search-pop").hidden = true; if (!e.target.closest(".bell-wrap")) document.getElementById("bell-pop").hidden = true; });
 document.addEventListener("keydown", e=>{ if (e.key==="Escape"){ document.getElementById("search-pop").hidden = true; document.getElementById("bell-pop").hidden = true; } });
 
