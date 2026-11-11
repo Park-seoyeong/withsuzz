@@ -688,11 +688,11 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
         <div class="memo">
           <button class="pbtn" type="button" id="order-modal-btn" style="padding:12px 20px;font-size:15px">업무지시 쓰기 ✎</button>
           <textarea id="order-text" hidden></textarea><button type="button" id="order-save" hidden></button><span class="hint2" id="order-note"></span>
-          <p class="next-note">자동 처리: 어사이드 배정 10:30·14:30·17:30 → 클로드 처리 10:40·14:40·17:40 <a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="급할 때만: '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-left:6px">지금 바로 처리</a></p>
+          <p class="next-note">어사이드: 09:00~23:30 30분마다 확인 · 클로드: 10:40·14:40·17:40 <a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="급할 때만: '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-left:6px">지금 바로 처리</a></p>
         </div>
         <div id="order-filters" style="display:grid;gap:6px"></div>
         <div class="fill"><ul class="hl" id="order-list"></ul></div>
-        <p class="hint2">담당은 우리가 판단해서 정해요. 저장하면 "배정 중"으로 보이고, 어사이드 루틴(하루 3번)이나 클로드가 "업무지시 확인해" 때 클로드·지피티·어사이드 중 맞는 담당을 붙여요.</p>
+        <p class="hint2">담당은 우리가 판단해서 정해요. 저장하면 "배정 중"으로 보이고, 어사이드 루틴(30분마다)이나 클로드가 "업무지시 확인해" 때 클로드·지피티·어사이드 중 맞는 담당을 붙여요.</p>
       </section>
       <section class="hcard a-log" aria-labelledby="h-log">
         <div class="hcard-head"><h3 id="h-log">사무실 업무기록</h3><span class="deco">✦</span></div>
@@ -3133,7 +3133,7 @@ function renderMeet(keepScroll){
   const box = document.getElementById("meet"); if (!box) return;
   const M = HOME.meet, x = M.list[M.idx];
   const head = el("div",{class:"meet-head"}, el("h4",{},"회의록 채팅창"), x ? el("span",{class:"hint2"}, meetTitle(x)) : null);
-  const note = el("p",{class:"hint2"},"캐릭터는 역할 페르소나일 뿐이고 실제 에이전트가 따로 있는 건 아니에요. 숫자·사실은 읽은 데이터에서만 가져와요(없으면 '데이터 없음').");
+  const note = el("p",{class:"hint2",hidden:true},"캐릭터는 역할 페르소나일 뿐이고 실제 에이전트가 따로 있는 건 아니에요. 숫자·사실은 읽은 데이터에서만 가져와요(없으면 '데이터 없음').");
   if (M.state!=="ok"){
     box.replaceChildren(head, M.state==="loading" ? el("p",{class:"empty2"},"불러오는 중…") : M.state==="off" ? el("p",{class:"empty2"},"회의록 페이지를 읽지 못했어요.") : emptyArt("아직 회의가 없어요. 아침 07:40 · 저녁 23:00에 모여서 얘기해요","토끼","wave"), note); return;
   }
