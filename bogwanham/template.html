@@ -105,6 +105,28 @@ a.chip{text-decoration:none}
 .post{max-width:640px;margin:0 auto}
 .post table{max-width:100%}
 .hint{font-size:13px;color:var(--muted);margin:0}
+
+.day.over{box-shadow:inset 0 0 0 2px var(--warn);background:var(--warn-soft)}
+.day.over.today{box-shadow:inset 0 0 0 2px var(--warn),inset 0 0 0 4px var(--yellow)}
+.over-note{color:var(--warn);font-weight:700}
+.months{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;font-variant-numeric:tabular-nums}
+.month b{color:var(--fg)}
+.month.below,.month.below b{color:var(--warn)}
+.archive{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:10px}
+.archive h2{font-size:15px;margin:0;font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px}
+.card{background:var(--sunk);border-radius:8px;padding:10px;display:grid;gap:6px;align-content:start;min-width:0}
+.card-title{font-weight:600;font-size:14px;line-height:1.4;background:none;border:0;padding:0;text-align:left;color:var(--fg)}
+.card-title:hover{text-decoration:underline}
+.card-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.card input[type=date]{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:4px 6px;font-size:13px;min-width:0}
+.small{background:var(--accent);color:var(--accent-fg);border:0;border-radius:6px;padding:5px 10px;font-size:13px;font-weight:600}
+.pill.season{background:var(--sched-soft);color:var(--sched)}
+.warnline{font-size:12px;color:var(--warn);margin:0}
+.related{border:1px dashed var(--line);border-radius:8px;padding:10px;display:grid;gap:6px;font-size:13px}
+.related h3{font-size:13px;margin:0}
+.related ol{margin:0;padding-left:18px;display:grid;gap:4px}
+.related a{color:var(--accent);word-break:break-all}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -127,6 +149,15 @@ a.chip{text-decoration:none}
       </div>
     </div>
     <div class="days" id="days"></div>
+    <div class="months" id="months" aria-label="월별 중국 글 비중"></div>
+  </section>
+
+  <section class="archive" aria-labelledby="archive-title">
+    <div class="week-head">
+      <h2 id="archive-title">미발행 원고 보관함</h2>
+      <span class="hint">날짜가 없거나, 날짜가 지났는데 아직 안 올린 원고예요. 날짜를 정하면 노션 게시 날짜가 들어가고 일정표로 옮겨 가요.</span>
+    </div>
+    <div class="cards" id="archive"></div>
   </section>
 
   <div class="main">
@@ -145,7 +176,9 @@ a.chip{text-decoration:none}
 
 <script>
 const POSTS = /*__POSTS__*/[];
+const GUIDE_CHINA = /*__GUIDE_CHINA__*/{};
 const NOTION_DS = "collection://3173bc48-9771-8143-81a8-000b606bdf00";
+const NOTION_VIEW = "https://www.notion.so/3173bc48977181c1897be37dd691f271?v=3173bc489771811aac21000cda2ab0f9";
 const STATUS = {todo:"아이디어(미발행)", scheduled:"예약됨", published:"게시됨", hold:"보류"};
 const SHORT = {todo:"미발행", scheduled:"예약됨", published:"게시됨", hold:"보류"};
 const TO_NOTION = {todo:"아이디어", scheduled:"예약됨", published:"게시됨"};
@@ -154,6 +187,7 @@ const DAYNAMES = ["일","월","화","수","목","금","토"];
 const byId = new Map(POSTS.map(p => [p.id, p]));
 const local = {};          // 보관함 db: id -> {status, day, memo, notion}
 const notion = new Map();  // 노션 page id -> {id, title, day, status, platform}
+const rssItems = new Map(); // 블로그 RSS: url -> {title, url, date, category}
 let db = null, mcp = null, dbReady = false, notionState = "loading";
 let filter = "todo", query = "", selected = null, weekOffset = 0;
 
@@ -176,6 +210,16 @@ function st(id){
 }
 function isLate(id){ const s = st(id); return s.status==="todo" && s.day && s.day < kstToday(); }
 function linkedPostFor(notionId){ for (const p of POSTS) if ((local[p.id]||{}).notion===notionId) return p; return null; }
+
+// 하루 블로그 글 수: 노션 항목(인스타 제외, 빈 플랫폼 포함) + 노션에 안 이어진 원고
+function isBlog(row){ return !/인스타/.test(row.platform||""); }
+function blogCount(d){
+  let n = 0;
+  for (const row of notion.values()) if (row.day===d && isBlog(row)) n++;
+  for (const p of POSTS){ const s = st(p.id); if (!s.row && s.day===d && s.status!=="hold") n++; }
+  return n;
+}
+const MAX_PER_DAY = 3;
 
 function el(tag, attrs={}, ...kids){
   const e = document.createElement(tag);
@@ -230,11 +274,133 @@ function renderWeek(){
       const label = (row.platform==="인스타"?"[인스타] ":"")+row.title;
       chips.push(el("a",{class:"chip s-other",href:notionLink(row.id),target:"_blank",rel:"noopener",title:"원고 파일 없음 · 노션에서 열기"},label));
     }
-    days.append(el("div",{class:"day"+(d===today?" today":"")},
-      el("div",{class:"day-label"},el("b",{},DAYNAMES[weekday(d)]),el("span",{},md(d)+(chips.length?" · "+chips.length+"편":""))),
+    const bc = blogCount(d), over = bc > MAX_PER_DAY;
+    days.append(el("div",{class:"day"+(d===today?" today":"")+(over?" over":""),title:over?"블로그 글이 하루 "+MAX_PER_DAY+"편을 넘어요":null},
+      el("div",{class:"day-label"},el("b",{},DAYNAMES[weekday(d)]),el("span",{},md(d)+(chips.length?" · "+chips.length+"편":"")),over?el("span",{class:"over-note"},"블로그 "+bc+"편 · 3편 넘음"):null),
       el("div",{style:"display:grid;gap:4px;min-width:0"}, chips.length?chips:el("span",{class:"day-label"},"—"))
     ));
   }
+}
+
+// 월별 중국 비중: 블로그 글(인스타 제외), 게시 날짜 있는 노션 항목만
+function chinaTarget(ym){ if (ym>="2026-12" && ym<="2027-03") return 55; if (ym>="2027-04" && ym<="2027-06") return 90; return null; }
+function renderMonths(){
+  const box = document.getElementById("months"); box.replaceChildren();
+  if (!notion.size) return;
+  const now = kstToday().slice(0,7);
+  const months = [];
+  for (let y=Number(now.slice(0,4)), m=Number(now.slice(5,7)); ; m++){
+    if (m>12){ m=1; y++; }
+    const ym = y+"-"+String(m).padStart(2,"0");
+    if (ym > "2027-06") break;
+    months.push(ym);
+  }
+  for (const ym of months){
+    let total = 0, china = 0;
+    for (const row of notion.values()){
+      if (!row.day || row.day.slice(0,7)!==ym || !isBlog(row)) continue;
+      total++; if (row.region==="중국") china++;
+    }
+    const pct = total ? Math.round(china*100/total) : 0;
+    const target = chinaTarget(ym);
+    const below = target!=null && total>0 && pct < target;
+    box.append(el("span",{class:"month"+(below?" below":"")},
+      Number(ym.slice(5,7))+"월 중국 ", el("b",{},pct+"%"), " ("+china+"/"+total+"편)"+(target!=null?" · 목표 "+target+"%":"")));
+  }
+}
+
+// 시즌 원고: 끝나는 달 표시
+function seasonMonth(p){
+  const t = p.title+" "+p.file;
+  if (/크리스마스|일루미네이션|연말/.test(t)) return 12;
+  if (/스키|겨울|눈꽃|온천/.test(t)) return 2;
+  const m = t.match(/(\d{1,2})월/); if (m){ const n = Number(m[1]); if (n>=1 && n<=12) return n; }
+  return null;
+}
+function inArchive(p){
+  const s = st(p.id);
+  if (s.status==="published" || s.status==="hold") return false;
+  if (!s.day) return true;
+  return s.status==="todo" && s.day < kstToday();
+}
+function renderArchive(){
+  const box = document.getElementById("archive"); box.replaceChildren();
+  const rows = POSTS.filter(inArchive).sort((a,b)=>b.written.localeCompare(a.written));
+  if (!rows.length){ box.append(el("p",{class:"hint"},"보관함이 비어 있어요.")); return; }
+  for (const p of rows){
+    const s = st(p.id);
+    const sm = seasonMonth(p);
+    const dayIn = el("input",{type:"date",min:kstToday(),"aria-label":p.title+" 발행 날짜"});
+    const warn = el("p",{class:"warnline",role:"status"});
+    let confirmFor = "";
+    const btn = el("button",{class:"small",type:"button",onclick:async()=>{
+      const d = dayIn.value;
+      if (!d){ warn.textContent = "날짜를 먼저 골라 주세요."; return; }
+      const n = blogCount(d);
+      if (n >= MAX_PER_DAY && confirmFor!==d){
+        confirmFor = d;
+        warn.textContent = md(d)+"에 블로그 글이 이미 "+n+"편 있어요. 그래도 넣으려면 한 번 더 누르세요.";
+        return;
+      }
+      btn.disabled = true; warn.textContent = "저장 중…";
+      selected = p.id;
+      await changeDay(p.id, d);
+      if (st(p.id).day===d){
+        weekOffset = Math.round((Date.parse(weekStart(d)) - Date.parse(weekStart(kstToday())))/(7*864e5));
+        rerender(); renderViewer();
+        document.getElementById("week-title").scrollIntoView({behavior:"smooth",block:"start"});
+      } else { btn.disabled = false; warn.textContent = "날짜를 넣지 못했어요. 아래 원고 칸의 안내를 보세요."; }
+    }},"날짜 정하기");
+    box.append(el("div",{class:"card"},
+      el("button",{class:"card-title",type:"button",onclick:()=>{select(p.id);document.getElementById("viewer").scrollIntoView({behavior:"smooth",block:"start"});}},p.title),
+      el("div",{class:"card-row"},
+        s.day?el("span",{class:"pill late"},"날짜 지남 "+md(s.day)):el("span",{class:"pill todo"},"날짜 미정"),
+        sm?el("span",{class:"pill season"},"시즌 "+sm+"월까지"):null,
+        el("span",{class:"day-label"},"작성 "+md(p.written)+(s.notion?"":" · 노션 미연결"))),
+      el("div",{class:"card-row"}, dayIn, btn),
+      warn));
+  }
+}
+
+// 중국 원고: 같은 도시 최근 발행 글 3개
+const CITIES = [["상하이",/상하이|상해/],["대련",/대련|다롄/],["지난",/지난|제남/],["단둥",/단둥/],["칭다오",/칭다오|청도/],["베이징",/베이징|북경/],["광저우",/광저우/],["하이난",/하이난|산야|싼야/],["장가계",/장가계|장자제/],["충칭",/충칭/],["홍콩·선전",/홍콩|선전/]];
+function cityOf(text){ for (const [c,re] of CITIES) if (re.test(text)) return c; return ""; }
+function isChinaPost(p){
+  const s = st(p.id);
+  if (s.row && s.row.region==="중국") return true;
+  return /중국|상하이|상해|대련|다롄|칭다오|베이징|지난|제남|단둥|광저우|하이난|장가계|충칭/.test(p.title+" "+p.file);
+}
+function postNo(url){ const m = String(url).match(/(\d{9,})/); return m ? Number(m[1]) : 0; }
+function publishedFor(city){
+  const seen = new Map();
+  for (const x of (GUIDE_CHINA[city]||[])) seen.set(x.url, {title:x.title, url:x.url});
+  for (const x of rssItems.values()){
+    const cat = String(x.category||"");
+    const c = /^CN\s/.test(cat) ? cityOf(cat) : cityOf(x.title||"");
+    if (c===city && !seen.has(x.url)) seen.set(x.url, {title:x.title, url:x.url});
+  }
+  return [...seen.values()].sort((a,b)=>postNo(b.url)-postNo(a.url));
+}
+function relatedBox(p){
+  if (!isChinaPost(p)) return null;
+  const city = cityOf(p.title+" "+p.file);
+  let list = city ? publishedFor(city) : [];
+  const head = city ? city+" 여행 더 보기 ▼" : "중국 여행 더 보기 ▼";
+  if (list.length < 3){
+    const have = new Set(list.map(x=>x.url));
+    list = list.concat(publishedFor("중국 공통").filter(x=>!have.has(x.url)));
+  }
+  list = list.slice(0,3);
+  if (!list.length) return null;
+  const st2 = el("span",{class:"save-note"});
+  const text = head+"\n"+list.map(x=>x.title+"\n"+x.url).join("\n");
+  return el("div",{class:"related"},
+    el("h3",{},"같은 도시 발행 글 (구성가이드 9번 '"+head+"')"),
+    el("ol",{},...list.map(x=>el("li",{},x.title,el("br"),el("a",{href:x.url,target:"_blank",rel:"noopener"},x.url)))),
+    el("div",{class:"card-row"}, el("button",{class:"ghost",type:"button",onclick:async()=>{
+      try{ await navigator.clipboard.writeText(text); st2.textContent = "복사했어요."; }
+      catch(e){ st2.textContent = "복사하지 못했어요. 위 글을 직접 선택해 복사해 주세요."; }
+    }},"제목·링크 복사"), st2));
 }
 
 function renderTabs(){
@@ -273,7 +439,7 @@ function renderList(){
 }
 
 function note(text){ const n = document.getElementById("save-note"); if (n) n.textContent = text; }
-function rerender(){ renderCounts(); renderWeek(); renderList(); }
+function rerender(){ renderCounts(); renderWeek(); renderMonths(); renderArchive(); renderList(); }
 
 async function saveLocal(id, patch){
   local[id] = {...(local[id]||{}), ...patch};
@@ -378,7 +544,8 @@ function renderViewer(){
         p.artifact?el("a",{class:"linkbtn",href:p.artifact,target:"_blank",rel:"noopener"},"원고 아티팩트 열기"):null,
         s.notion?el("a",{class:"linkbtn",href:notionLink(s.notion),target:"_blank",rel:"noopener"},"노션에서 열기"):null,
         el("span",{class:"save-note",id:"save-note"}, dbReady?"":"저장소 연결 중…")),
-      status
+      status,
+      relatedBox(p)
     ),
     el("div",{class:"paper"},post)
   );
@@ -390,18 +557,23 @@ function editing(){ const a = document.activeElement; return a && a.id && a.id.s
 async function loadNotion(refresh){
   if (!mcp){ notionState = "off"; renderNotionNote(); return; }
   notionState = "loading"; renderNotionNote();
-  const linked = POSTS.map(p=>(local[p.id]||{}).notion).filter(Boolean);
-  const from = addDays(kstToday(), -45);
-  const ph = linked.map(()=>"?").join(",");
-  const sql = 'SELECT url, "게시물 제목" AS title, "date:게시 날짜:start" AS d, "상태" AS status, "플랫폼" AS platform FROM "'+NOTION_DS+'" WHERE "date:게시 날짜:start" >= ?'+(linked.length?' OR url IN ('+ph+')':'');
-  const params = [from, ...linked.map(id=>"https://app.notion.com/"+id)];
   try{
-    const res = await mcp.callTool("Notion","notion-query-data-sources",{data:{mode:"sql",data_source_urls:[NOTION_DS],query:sql,params}}, refresh?{cache:{refresh:true}}:{cache:false});
-    const rows = (res.payload && res.payload.results) || [];
+    // 노션 SQL은 워크스페이스 한도가 있어서, 한도 없는 '성과 추적기' 보기(필터 없음)를 100개씩 끝까지 읽는다
+    const all = [];
+    let cursor = null;
+    for (let i=0; i<60; i++){
+      const data = {mode:"view", view_url:NOTION_VIEW, page_size:100};
+      if (cursor) data.start_cursor = cursor;
+      const res = await mcp.callTool("Notion","notion-query-data-sources",{data}, refresh?{cache:{refresh:true}}:{cache:false});
+      const pl = res.payload || {};
+      for (const r of (pl.results||[])) all.push({url:r.url, title:r["게시물 제목"], d:r["date:게시 날짜:start"], status:r["상태"], platform:r["플랫폼"], region:r["구분"]});
+      if (!pl.has_more || !pl.next_cursor) break;
+      cursor = pl.next_cursor;
+    }
     notion.clear();
-    for (const r of rows){
+    for (const r of all){
       const id = pageIdFromUrl(r.url); if (!id) continue;
-      notion.set(id, {id, title:r.title||"(제목 없음)", day:(r.d||"").slice(0,10), status:r.status||"아이디어", platform:r.platform||""});
+      notion.set(id, {id, title:r.title||"(제목 없음)", day:(r.d||"").slice(0,10), status:r.status||"아이디어", platform:r.platform||"", region:r.region||""});
     }
     notionState = "ok";
   }catch(e){
@@ -417,7 +589,7 @@ document.getElementById("this-week").addEventListener("click",()=>{weekOffset=0;
 document.getElementById("notion-refresh").addEventListener("click",()=>loadNotion(true));
 try{ const b=document.getElementById("built"); b.textContent = new Date(b.textContent).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}); }catch(e){}
 
-renderNotionNote(); renderCounts(); renderWeek(); renderTabs();
+renderNotionNote(); renderCounts(); renderWeek(); renderMonths(); renderArchive(); renderTabs();
 selected = (visible()[0]||{}).id || null; renderList(); renderViewer();
 
 (async()=>{
@@ -432,5 +604,10 @@ selected = (visible()[0]||{}).id || null; renderList(); renderViewer();
     rerender(); if (!editing()) renderViewer();
     if (first){ first = false; loadNotion(false); }
   }, err=>{ clearTimeout(timer); note("저장소를 읽지 못했어요 ("+(err&&err.code||"오류")+")."); loadNotion(false); });
+  db.collection("rss").onSnapshot(snap=>{
+    rssItems.clear();
+    for (const d of snap.docs){ const x = d.data()||{}; if (x.url) rssItems.set(x.url, x); }
+    if (!editing()) renderViewer();
+  }, ()=>{});
 })();
 </script>

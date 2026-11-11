@@ -59,8 +59,30 @@ for (const file of files) {
   });
 }
 
+// 중국글 구성가이드 4번 목록(같은 도시 링크용). 가이드 파일은 읽기만 한다.
+export function parseChinaGuide(md) {
+  const out = {};
+  const start = md.indexOf("## 4.");
+  if (start < 0) return out;
+  const rest = md.slice(start + 5);
+  const next = rest.search(/\n## /);
+  const section = next < 0 ? rest : rest.slice(0, next);
+  let city = "";
+  for (const line of section.split("\n")) {
+    const h = line.match(/^###\s*\[(.+?)\]/);
+    if (h) { city = h[1].trim(); out[city] = []; continue; }
+    const m = line.match(/^-\s+(.+?)\s+(https:\/\/blog\.naver\.com\/\S+)/);
+    if (m && city) out[city].push({ title: m[1].trim(), url: m[2] });
+  }
+  return out;
+}
+const guidePath = join(dirname(draftsDir), "써즈_중국글_구성가이드.md");
+let guide = {};
+try { guide = parseChinaGuide(readFileSync(guidePath, "utf8")); } catch { console.warn("중국글 구성가이드를 읽지 못함:", guidePath); }
+
 const tpl = readFileSync(join(here, "template.html"), "utf8");
 const data = JSON.stringify(posts).replace(/</g, "\\u003c");
-const out = tpl.replace("/*__POSTS__*/[]", data).replace("__BUILT__", new Date().toISOString());
+const guideData = JSON.stringify(guide).replace(/</g, "\\u003c");
+const out = tpl.replace("/*__POSTS__*/[]", data).replace("/*__GUIDE_CHINA__*/{}", guideData).replace("__BUILT__", new Date().toISOString());
 writeFileSync(outFile, out);
-console.log(`원고 ${posts.length}편 → ${outFile} (${Math.round(out.length / 1024)}KB)`);
+console.log(`원고 ${posts.length}편, 중국 도시 ${Object.keys(guide).length}곳 → ${outFile} (${Math.round(out.length / 1024)}KB)`);
