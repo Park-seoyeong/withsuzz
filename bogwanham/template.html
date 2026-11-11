@@ -1041,7 +1041,7 @@ function renderViewer(){
         el("label",{class:"field wide"},"노션 플래너 항목",linkSel),
         el("label",{class:"field wide"},"메모",memoIn)
       ),
-      el("div",{class:"actions"}, copyBtn,
+      el("div",{class:"actions"}, copyBtn, editControl(p),
         p.artifact?el("a",{class:"linkbtn",href:p.artifact,target:"_blank",rel:"noopener"},"원고 아티팩트 열기"):null,
         s.notion?el("a",{class:"linkbtn",href:notionLink(s.notion),target:"_blank",rel:"noopener"},"노션열기"):null,
         el("span",{class:"save-note",id:"save-note"}, dbReady?"":"저장소 연결 중…")),
@@ -1437,6 +1437,7 @@ function renderTodo(){
       el("div",{class:"row"},
         p ? el("button",{class:"sbtn",type:"button",onclick:()=>openPost(p)},"원고 열기") : (r ? el("a",{class:"sbtn",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션열기") : null),
         p ? el("button",{class:"sbtn",type:"button",onclick:()=>copyPost(p,msg)},"본문복사") : null),
+      p ? editControl(p) : null,
       (!p && r) ? writeControl(r) : null,
       msg));
   }
@@ -1856,6 +1857,34 @@ async function readGuideFile(file){
   if (["txt","md","csv","json","html","htm"].includes(ext)){ let t = await file.text(); if (ext==="html"||ext==="htm") t = t.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,"").replace(/<br\s*\/?>|<\/p>|<\/div>|<\/li>/gi,"\n").replace(/<[^>]+>/g,""); return t.trim(); }
   if (ext==="docx") return await docxText(await file.arrayBuffer());
   throw new Error("type");
+}
+// 원고 수정 요청: 특정 부분 / 글 흐름 / 전체 → 노션 '동방 업무지시'에 [담당:클로드] 원고 수정 할 일로
+function editControl(p){
+  const wrap = el("div",{class:"wform"}), msg = el("span",{class:"hint2"});
+  const open = el("button",{class:"sbtn",type:"button"},"수정 요청");
+  const ta = (ph,label,rows)=>el("textarea",{rows:String(rows||2),placeholder:ph,"aria-label":label,style:"width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:6px 9px;font:inherit;font-size:12px;resize:vertical"});
+  open.addEventListener("click",()=>{
+    const scope = el("select",{"aria-label":"수정 범위",style:"border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px"},
+      el("option",{value:"특정 부분"},"특정 부분만"), el("option",{value:"글 흐름"},"글 흐름(순서·구성)"), el("option",{value:"전체"},"전체 다시"));
+    const target = ta("고칠 부분을 원고에서 복사해 붙여 넣으세요(특정 부분일 때)","수정할 부분");
+    const pick = el("button",{class:"sbtn",type:"button",title:"원고에서 드래그로 선택한 글을 가져와요"},"선택한 글 가져오기");
+    pick.addEventListener("click",()=>{ const t = String(getSelection()||"").trim(); if (!t){ msg.textContent = "먼저 아래 원고에서 고칠 글을 드래그로 선택해 주세요."; return; } target.value = (target.value?target.value+"\n":"")+t; msg.textContent = "선택한 글을 넣었어요."; });
+    const how = ta("어떻게 고칠까요? 예: 도입을 더 짧게, 경험 얘기를 앞으로, 이 표는 빼기","수정 요청 내용",3);
+    const send = el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:12px"},"클로드에게 보내기");
+    const closeBtn = el("button",{class:"sbtn",type:"button","aria-label":"닫기"},"닫기 ✕");
+    closeBtn.addEventListener("click",()=>{ wrap.replaceChildren(open, msg); });
+    send.addEventListener("click", async ()=>{
+      if (!how.value.trim()){ msg.textContent = "어떻게 고칠지 적어 주세요."; how.focus(); return; }
+      send.disabled = true; msg.textContent = "업무지시 보내는 중…";
+      const clean = (x)=>String(x||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
+      const body = "원고 수정: "+clean(p.title)+" | "+clean(p.file)+" | "+scope.value+" | "+(clean(target.value)||"-")+" | "+clean(how.value)+" | "+(p.artifact||"-");
+      try{ await pushOrder("클로드", body); msg.textContent = "보냈어요. 다음 자동 처리(10:40·14:40·17:40) 때 고쳐요."; renderOrders(); renderTeam(); renderBell(); renderOffice(); setTimeout(()=>wrap.replaceChildren(open, msg), 2500); }
+      catch(e){ send.disabled = false; msg.textContent = failText(e); }
+    });
+    wrap.replaceChildren(el("label",{class:"hint2"},"범위 ",scope), target, pick, how, el("div",{class:"row",style:"display:flex;gap:6px;flex-wrap:wrap;align-items:center"}, send, closeBtn), msg); how.focus();
+  });
+  wrap.append(open, msg);
+  return wrap;
 }
 function writeControl(row){
   const ord = writeOrderFor(row);
