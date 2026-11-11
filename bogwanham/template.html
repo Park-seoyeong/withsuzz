@@ -1019,7 +1019,7 @@ function renderViewer(){
       const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
       status.textContent = "본문을 선택해 두었어요. Ctrl+C(⌘+C)로 복사한 뒤 붙여넣으세요.";
     }
-  }},"본문 복사하기");
+  }},"본문복사");
   v.replaceChildren(
     el("div",{class:"panel"},
       el("div",{style:"display:grid;gap:4px"}, el("h2",{},p.title), el("span",{class:"file"},p.file+"_새서식.html")),
@@ -1031,7 +1031,7 @@ function renderViewer(){
       ),
       el("div",{class:"actions"}, copyBtn,
         p.artifact?el("a",{class:"linkbtn",href:p.artifact,target:"_blank",rel:"noopener"},"원고 아티팩트 열기"):null,
-        s.notion?el("a",{class:"linkbtn",href:notionLink(s.notion),target:"_blank",rel:"noopener"},"노션에서 열기"):null,
+        s.notion?el("a",{class:"linkbtn",href:notionLink(s.notion),target:"_blank",rel:"noopener"},"노션열기"):null,
         el("span",{class:"save-note",id:"save-note"}, dbReady?"":"저장소 연결 중…")),
       status,
       relatedBox(p)
@@ -1417,12 +1417,11 @@ function renderTodo(){
     }});
     const title = (r && r.title) || p.title;
     ul.append(el("li",{},
-      el("div",{class:"row"}, r && !isBlog(r) ? el("span",{class:"tag pink"},"인스타") : el("span",{class:"tag"},"블로그"), p && p.deadline ? el("span",{class:"tag coral"},"★ ~"+md(p.deadline)) : null),
+      el("div",{class:"row"}, r && !isBlog(r) ? el("span",{class:"tag pink"},"인스타") : el("span",{class:"tag"},"블로그"), el("label",{class:"row",style:"gap:4px;font-size:12px"}, chk, "발행 완료"), p && p.deadline ? el("span",{class:"tag coral"},"★ ~"+md(p.deadline)) : null),
       el("span",{style:"font-weight:600"}, title),
       el("div",{class:"row"},
-        p ? el("button",{class:"sbtn",type:"button",onclick:()=>openPost(p)},"원고 열기") : (r ? el("a",{class:"sbtn",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션에서 열기") : null),
-        p ? el("button",{class:"sbtn",type:"button",onclick:()=>copyPost(p,msg)},"본문 복사하기") : null,
-        el("label",{class:"row",style:"gap:4px;font-size:12px"}, chk, "발행 완료")),
+        p ? el("button",{class:"sbtn",type:"button",onclick:()=>openPost(p)},"원고 열기") : (r ? el("a",{class:"sbtn",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션열기") : null),
+        p ? el("button",{class:"sbtn",type:"button",onclick:()=>copyPost(p,msg)},"본문복사") : null),
       (!p && r) ? writeControl(r) : null,
       msg));
   }
