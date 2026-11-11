@@ -1082,24 +1082,45 @@ function dayHasChina(d, extra){
   if ((extra||[]).some(x=>x.d===d && x.china)) return true;
   return itemsOnDay(d).some(i=>(i.row && i.row.region==="중국") || (i.post && isChinaPost(i.post)));
 }
-function planArchive(rows){
-  const t = kstToday(), load = {}, plan = [];
-  const mine = [];
-  const endOf = (p)=>{ const sm = seasonMonth(p); if (!sm) return ""; let y = Number(t.slice(0,4)); if (sm < Number(t.slice(5,7))) return ""; const nx = sm===12 ? (y+1)+"-01-01" : y+"-"+String(sm+1).padStart(2,"0")+"-01"; return addDays(nx,-1); };
-  const order = [...rows].sort((a,b)=>{ const ea = (a.deadline||endOf(a)||"9999"), eb = (b.deadline||endOf(b)||"9999"); return ea.localeCompare(eb) || String(b.written||"").localeCompare(String(a.written||"")); });
-  for (const p of order){
-    const china = p.__row ? (p.__row.region==="중국" || /중국|상하이|대련|칭다오|베이징|지난|단둥|하이난|장가계/.test(p.title)) : isChinaPost(p), limit = (p.deadline && p.deadline>=t) ? p.deadline : endOf(p);
-    let pick = "";
-    for (let i=1;i<=60;i++){
-      const d = addDays(t,i);
-      if (limit && d>limit) break;
-      if (blogCount(d) + (load[d]||0) >= MAX_PER_DAY) continue;
-      if (china && (dayHasChina(d,mine) || dayHasChina(addDays(d,-1),mine) || dayHasChina(addDays(d,1),mine))) continue;
-      pick = d; break;
+function urgencyOf(p, t){
+  // tier 0: 날짜·마감이 있거나 이번 달 글(바로) / 1: 시즌·행사(빨리) / 2: 다음 달 날씨(다음 달 직전) / 3: 상시
+  const T = p.title+" "+(p.file||""), cm = Number(t.slice(5,7)), y = Number(t.slice(0,4));
+  const monthStart = (n)=> (n<cm ? y+1 : y)+"-"+String(n).padStart(2,"0")+"-01";
+  const monthEnd = (n)=> addDays(n===12 ? (n<cm?y+2:y+1)+"-01-01" : (n<cm?y+1:y)+"-"+String(n+1).padStart(2,"0")+"-01", -1);
+  let limit = (p.deadline && p.deadline>=t) ? p.deadline : "", from = "", tier = 3, why = "";
+  const dm = T.match(/(\d{1,2})\/(\d{1,2})/) || T.match(/(\d{1,2})월\s*(\d{1,2})일/);
+  if (dm){ const mm = Number(dm[1]), dd = Number(dm[2]); if (mm>=1&&mm<=12&&dd>=1&&dd<=31){ const d = y+"-"+String(mm).padStart(2,"0")+"-"+String(dd).padStart(2,"0"); if (d>=t){ limit = limit && limit<d ? limit : d; } } }
+  if (limit){ tier = 0; why = "마감·날짜 "+md(limit)+" 전에"; }
+  const mmM = T.match(/(\d{1,2})월/), weather = /날씨/.test(T);
+  if (mmM){
+    const n = Number(mmM[1]);
+    if (n>=1 && n<=12){
+      if (n===cm){ tier = 0; why = why || cm+"월 글이라 바로"; const e = monthEnd(n); if (!limit || e<limit) limit = e; }
+      else if (weather){ if (tier>2){ tier = 2; why = n+"월 날씨라 "+n+"월 직전에"; } from = addDays(monthStart(n), -12); const e = monthEnd(n); if (!limit || e<limit) limit = e; }
+      else if (n>cm || n<cm){ const e = monthEnd(n); if (tier>1){ tier = 1; why = n+"월 안에"; } if (!limit || e<limit) limit = e; }
     }
-    if (!pick && china){ for (let i=1;i<=60 && !pick;i++){ const d = addDays(t,i); if (limit && d>limit) break; if (blogCount(d)+(load[d]||0) < MAX_PER_DAY) pick = d; } }
+  }
+  if (/크리스마스|일루미네이션|개장|축제|마켓|빵축제|파업|할인|세일|이벤트|프로모션|10주년|연말/.test(T)){ if (tier>1){ tier = 1; why = "시즌·행사라 빨리"; } else if (!why) why = "시즌·행사라 빨리"; if (!limit){ const sm = seasonMonth(p); if (sm && sm>=cm) limit = monthEnd(sm); } }
+  return {tier, limit, from, why: why || "상시 글"};
+}
+function planArchive(rows){
+  const t = kstToday(), load = {}, plan = [], mine = [];
+  const info = new Map(rows.map(p=>[p, urgencyOf(p,t)]));
+  const order = [...rows].sort((a,b)=>{ const x = info.get(a), y = info.get(b); return x.tier-y.tier || (x.limit||"9999").localeCompare(y.limit||"9999") || String(b.written||"").localeCompare(String(a.written||"")); });
+  for (const p of order){
+    const u = info.get(p), limit = u.limit, start = u.from && u.from>addDays(t,1) ? u.from : addDays(t,1);
+    const china = p.__row ? (p.__row.region==="중국" || /중국|상하이|대련|칭다오|베이징|지난|단둥|하이난|장가계/.test(p.title)) : isChinaPost(p);
+    const free = (d)=> blogCount(d)+(load[d]||0) < MAX_PER_DAY;
+    let pick = "";
+    for (let d = start; !pick && d <= addDays(t,90); d = addDays(d,1)){
+      if (limit && d>limit) break;
+      if (!free(d)) continue;
+      if (china && (dayHasChina(d,mine) || dayHasChina(addDays(d,-1),mine) || dayHasChina(addDays(d,1),mine))) continue;
+      pick = d;
+    }
+    if (!pick && china){ for (let d = start; !pick && d <= addDays(t,90); d = addDays(d,1)){ if (limit && d>limit) break; if (free(d)) pick = d; } }
     if (pick){ load[pick] = (load[pick]||0)+1; mine.push({d:pick, china}); }
-    plan.push({p, to:pick, why: pick ? "" : (limit ? "마감·시즌 안에 빈 날이 없어요" : "60일 안에 빈 날이 없어요")});
+    plan.push({p, to:pick, why: pick ? u.why : "마감·시즌 안에 빈 날이 없어요 (다른 날을 비워 주세요)"});
   }
   return plan;
 }
@@ -1115,8 +1136,8 @@ function openArchivePlan(){
     try{ for (const x of can) await (x.p.__row ? setRowDay(x.p.__row, x.to) : changeDay(x.p.id, x.to)); msg.textContent = "다 넣었어요."; box.replaceChildren(); rerender(); }
     catch(e){ apply.disabled = false; msg.textContent = failText(e); }
   });
-  box.replaceChildren(el("div",{class:"card"}, el("b",{},"이렇게 넣어요 (아직 안 바꿨어요)"), el("p",{class:"hint"},"하루 "+MAX_PER_DAY+"편 이하, 마감·시즌 끝나기 전, 중국 글은 이틀 연속 안 되게 골랐어요."),
-    ...plan.map(x=>el("div",{class:"card-row"}, el("span",{}, (x.p.__row?"[파일 없음] ":"")+x.p.title), el("b",{}, x.to ? md(x.to)+"("+DAYNAMES[weekday(x.to)]+")" : x.why))), apply, msg));
+  box.replaceChildren(el("div",{class:"card"}, el("b",{},"이렇게 넣어요 (아직 안 바꿨어요)"), el("p",{class:"hint"},"제목의 날짜·월·시즌 글을 먼저, 가장 빠른 빈 날에 넣어요. 하루 "+MAX_PER_DAY+"편 이하, 중국 글은 이틀 연속 안 되게, 다음 달 날씨 글은 그 달 직전에 넣어요."),
+    ...plan.map(x=>el("div",{class:"card-row"}, el("span",{}, (x.p.__row?"[파일 없음] ":"")+x.p.title), el("b",{}, x.to ? md(x.to)+"("+DAYNAMES[weekday(x.to)]+") · "+x.why : x.why))), apply, msg));
 }
 function renderArchive(){
   const box = document.getElementById("archive"); box.replaceChildren();
