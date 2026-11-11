@@ -514,6 +514,21 @@ body{font-size:16px}
 .report .rrow .v em{font-style:normal;font-weight:800;color:#5B7DC4}.report .rrow.wide{grid-column:1/-1}
 .report .ri{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px;border:0;background:none;width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--ink)}
 @media (max-width:720px){.report .rgrid{grid-template-columns:1fr}}
+@media (max-width:1099px){.pc3>.tcol{display:contents}#t-left{order:1}#t-report{order:2}#t-now{order:3}#t-block{order:4}#t-visit{order:5}#t-kw{order:6}#t-ask{order:7}#t-week{order:8}#t-inkw{order:9}#t-log{order:10}}
+.tcard[hidden]{display:none}
+.pc3{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
+@media (min-width:1100px){.toss{max-width:1400px}.pc3{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr);gap:16px}.pc3 .tcol{gap:16px}.hello{font-size:28px}}
+.titem{flex-wrap:wrap}.titem .t{flex:1 1 60%}
+.mini5{display:flex;gap:3px;width:100%;margin:2px 0 0 0}.mini5 i{flex:1;height:5px;border-radius:5px;background:var(--line)}.mini5 i.on{background:var(--st-todo)}.mini5 i.now{background:var(--st-wip)}
+.inote{width:100%;font-size:12.5px;color:#B5603A;margin:0;line-height:1.45}
+.wk{display:grid;grid-template-columns:62px minmax(0,1fr);gap:6px 10px;align-items:start;padding:9px 0;border-top:1px solid var(--line)}.wk:first-of-type{border-top:0}
+.wk .d{font-size:13px;color:var(--muted);font-weight:700;line-height:1.4}.wk .d b{display:block;color:var(--ink);font-size:15px}
+.wk.today .d b{color:var(--st-todo)}.wk.today{background:var(--st-todo-soft);border-radius:12px;padding-left:8px;padding-right:8px}
+.wk .items{display:grid;gap:4px;min-width:0}.wk .none{font-size:13px;color:var(--muted)}
+.wk .ri{padding:3px 0}
+.nums{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.num1{background:var(--bg);border-radius:14px;padding:10px 12px;display:grid;gap:2px;min-width:0}.num1 span{font-size:12.5px;color:var(--muted);font-weight:700}.num1 b{font-size:20px;letter-spacing:-.02em}.num1 em{font-style:normal;font-size:12.5px;color:var(--muted)}
+.lg{display:flex;gap:8px;font-size:13.5px;line-height:1.5;padding:6px 0;border-top:1px solid var(--line)}.lg:first-of-type{border-top:0}.lg time{color:var(--muted);flex:none;width:78px}.lg b{flex:none}
 .tcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
 .tcol{display:grid;gap:14px;min-width:0}
 .tcard{background:var(--surface);border-radius:24px;padding:20px;box-shadow:var(--shadow-s);display:grid;gap:10px;min-width:0}
@@ -651,16 +666,22 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     <div class="vhome view" id="view-home">
     <div class="toss" id="toss-home">
       <div class="hellorow"><span class="hchar" id="hello-char"></span><h2 class="hello" id="hello"></h2></div>
-      <section class="tcard" id="t-left" aria-label="오늘 원고 리스트"></section>
-      <section class="tcard report" id="t-report" aria-label="오늘 현황과 보고"></section>
-      <div class="tcols">
+      <div class="pc3">
         <div class="tcol">
-          <section class="tcard" id="t-now" aria-label="지금 할 일"></section>
+          <section class="tcard" id="t-left" aria-label="오늘 원고 리스트"></section>
+          <section class="tcard" id="t-week" aria-label="이번 주 발행 일정"></section>
         </div>
         <div class="tcol">
+          <section class="tcard report" id="t-report" aria-label="오늘 현황과 보고"></section>
+          <section class="tcard" id="t-visit" aria-label="방문자와 발행 숫자"></section>
+          <section class="tcard" id="t-inkw" aria-label="오늘 유입 키워드"></section>
+        </div>
+        <div class="tcol">
+          <section class="tcard" id="t-now" aria-label="지금 할 일"></section>
           <section class="tcard warn" id="t-block" aria-label="AI 팀이 막혔어요" hidden></section>
           <section class="tcard" id="t-kw" aria-label="이번 주 돈 되는 키워드"></section>
           <section class="tcard" id="t-ask" aria-label="시킬 일"></section>
+          <section class="tcard" id="t-log" aria-label="최근 팀 업무기록"></section>
         </div>
       </div>
     </div>
@@ -2888,7 +2909,13 @@ function renderHomeLeft(){
   if (!items.length) kids.push(el("p",{class:"muted"}, notionState==="loading" ? "노션 불러오는 중…" : "오늘 날짜 항목이 없어요."));
   const unpub = items.filter(i=>!i.published), rest = keepToday(items), extra = unpub.length - rest.length;
   const shown = [...items].sort((x,y)=>(x.published?1:0)-(y.published?1:0) || y.cur-x.cur);
-  kids.push(...shown.map(i=>el("button",{class:"titem",type:"button",onclick:()=>openDetail(i.key)}, stageChip(i), el("span",{class:"t"}, i.title, el("small",{}, dday(i))), el("span",{class:"chev"},"›"))));
+  kids.push(...shown.map(i=>{
+    const meta = [dday(i), i.row&&i.row.region, i.row&&i.row.type].filter(Boolean).join(" · ");
+    const note = !i.published && i.cur===3 && i.aside ? i.aside.text : (!i.published && i.writing ? "클로드가 쓰는 중" : "");
+    return el("button",{class:"titem",type:"button",onclick:()=>openDetail(i.key)}, stageChip(i), el("span",{class:"t"}, i.title, el("small",{}, meta)), el("span",{class:"chev"},"›"),
+      el("span",{class:"mini5"}, ...STAGES.map((_,k)=>el("i",{class:(i.published||k+1<i.cur)?"on":k+1===i.cur?"now":""}))),
+      note ? el("span",{class:"inote"}, note) : null);
+  }));
   if (items.length && !unpub.length) kids.push(el("p",{class:"muted"},"오늘 건 모두 발행했어요."));
   if (extra > 0){
     kids.push(el("div",{class:"overbox"}, el("b",{},"나머지 "+extra+"편은 옮기기 추천"), el("span",{},"하루 "+MAX_PER_DAY+"편이 현실 상한이에요. 오늘 "+items.length+"편이 잡혀 있어요."),
@@ -2993,7 +3020,51 @@ function renderHomeAsk(){
   box.replaceChildren(el("button",{class:"ask",type:"button",onclick:()=>openOrderModal()}, el("span",{},"팀에게 시킬 일 적기"), el("b",{},"보내기")),
     el("a",{class:"tiny",href:"#stats",onclick:(e)=>{ e.preventDefault(); showView("stats"); }}, avatar("통계","mini"), (visitInfo().n==null||isNaN(visitInfo().n) ? "오늘 방문자 보기 ›" : "오늘 방문자 "+num(visitInfo().n)+"명 ›")));
 }
-function renderToss(){ for (const f of [renderHomeReport, renderHomeNow, renderHomeLeft, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
+
+// 홈 PC 추가 카드: 이번 주 일정 · 숫자 · 유입 키워드 · 업무기록
+function renderHomeWeek(){
+  const box = document.getElementById("t-week"); if (!box) return;
+  const t = kstToday(), ws = weekStart(t); let tot = 0, pubN = 0;
+  const rows = [];
+  for (let i=0;i<7;i++){
+    const d = addDays(ws,i), its = itemsOnDay(d); tot += its.length; pubN += its.filter(x=>x.published).length;
+    rows.push(el("div",{class:"wk"+(d===t?" today":"")}, el("div",{class:"d"}, el("b",{},DAYNAMES[weekday(d)]), md(d)),
+      el("div",{class:"items"}, ...(its.length ? its.map(x=>el("button",{class:"ri",type:"button",onclick:()=>openDetail(x.key)}, stageChip(x), el("span",{}, shortTitle(x.title,24)))) : [el("span",{class:"none"}, notionState==="ok" ? "잡힌 원고 없음" : "…")]))));
+  }
+  box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("캘린더","mini"), "이번 주 일정 · "+md(ws)+"~"+md(addDays(ws,6))), el("small",{}, pubN+"/"+tot+"편 완료")), ...rows);
+}
+function renderHomeVisit(){
+  const box = document.getElementById("t-visit"); if (!box) return;
+  const t = kstToday(), ym = t.slice(0,7), ws = weekStart(t), we = addDays(ws,6);
+  let wk=0, mo=0; for (const r of notion.values()){ if (!isBlog(r) || r.status!=="게시됨" || !r.day) continue; if (r.day>=ws && r.day<=we) wk++; if (r.day.slice(0,7)===ym) mo++; }
+  const cs = chinaShare(ym), vi = visitInfo(), vis = ((HOME.stats && HOME.stats.visitors)||[]).filter(v=>v&&v.date).sort((a,b)=>a.date.localeCompare(b.date));
+  const y = vis.find(v=>v.date===addDays(t,-1));
+  const n1 = (a,b,c)=>el("div",{class:"num1"}, el("span",{},a), el("b",{},b), c?el("em",{},c):null);
+  box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("통계","mini"), "방문자·발행 숫자"), el("a",{href:"#stats",onclick:(e)=>{ e.preventDefault(); showView("stats"); }},"통계 ›")),
+    el("div",{class:"nums"},
+      n1("오늘 방문자", vi.n!=null&&!isNaN(vi.n)?num(vi.n):"–", "지금까지"),
+      n1("어제 방문자", y?num(y.cnt):"–", "하루 전체"),
+      n1("이웃", num(pubVal("neighbors"))),
+      n1("누적 방문자", num(pubVal("totalVisitors"))),
+      n1("이번 주 발행", wk+"편", md(ws)+"~"+md(we)),
+      n1("이번 달 발행", mo+"편", "중국 "+cs.pct+"% ("+cs.china+"/"+cs.total+")"+(cs.target!=null?" · 목표 "+cs.target+"%":""))),
+    el("div",{}, el("p",{class:"hint2"},"최근 14일 방문자"), sparkline(vis.slice(-14))));
+}
+function renderHomeInKw(){
+  const box = document.getElementById("t-inkw"); if (!box) return;
+  const L = latestKwItems("daily");
+  const head = el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("키워드","mini"), "일간 유입 키워드 TOP 5"+(L?" · "+md(L.date):"")), el("a",{href:"#keywords",onclick:(e)=>{ e.preventDefault(); HOME.kvTab="in"; showView("keywords"); renderKeywordsView(); }},"전체 ›"));
+  if (!L){ box.replaceChildren(head, el("p",{class:"muted"}, HOME.kwState==="loading"?"불러오는 중…":"유입 키워드 데이터가 아직 없어요.")); return; }
+  box.replaceChildren(head, el("p",{class:"muted"}, "조회수 "+num(L.channelViews)+" · 검색 유입률 "+(L.searchRate!=null?L.searchRate+"%":"–")), kwTableEl((L.items||[]).slice().sort((a,b)=>(a.rank||0)-(b.rank||0)).slice(0,5)));
+}
+function renderHomeLog(){
+  const box = document.getElementById("t-log"); if (!box) return;
+  const head = el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("통계","mini"), "최근 팀 업무기록"), el("a",{href:"#team",onclick:(e)=>{ e.preventDefault(); showView("team"); }},"팀 탭 ›"));
+  if (HOME.logState!=="ok"){ box.replaceChildren(head, el("p",{class:"muted"}, HOME.logState==="loading"?"불러오는 중…":"업무기록을 읽지 못했어요.")); return; }
+  const rows = HOME.log.map(parseLogLine).slice(-6).reverse();
+  box.replaceChildren(head, ...(rows.length ? rows.map(x=>el("div",{class:"lg"}, el("time",{}, x.when||""), el("span",{}, el("b",{}, x.who+" "), String(x.what).slice(0,80)))) : [el("p",{class:"muted"},"아직 기록이 없어요.")]));
+}
+function renderToss(){ for (const f of [renderHomeReport, renderHomeNow, renderHomeLeft, renderHomeWeek, renderHomeVisit, renderHomeInKw, renderHomeLog, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
 
 // 더보기·원고 화면 위 바로가기
 function renderMoreBanner(){
