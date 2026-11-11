@@ -2668,7 +2668,7 @@ function renderFeedback(box){
     try{
       await pushOrder("클로드","원고 수정: "+clean(p.title)+" | "+clean(p.file)+" | "+(idx.length ? "특정 부분" : "전체")+" | "+target+" | "+how+" | "+(p.artifact||"-"));
       D.memos = {}; D.overall = ""; lsDel(fbKey(p)); renderOrders(); renderTeam(); renderBell(); renderOffice();
-      F.post = null; F.sentMsg = "‘"+p.title+"’ 피드백을 보냈어요."; renderCoach();
+      F.post = null; F.sentMsg = "‘"+p.title+"’ 피드백을 보냈어요."; if (F.back){ HOME.cur = F.back; F.back = null; showView("post"); HOME.fbNote = "피드백을 보냈어요. 클로드가 고치면 업무지시에 결과가 달려요."; } else renderCoach();
     }catch(e){ sendBtn.disabled = false; msg.textContent = failText(e); }
   });
   refresh();
@@ -2996,7 +2996,7 @@ function renderDetail(){
   const back = el("button",{class:"back",type:"button","aria-label":"뒤로",onclick:()=>showView(HOME.prevView && HOME.prevView!=="post" ? HOME.prevView : "home")},"‹");
   const topChip = it.published ? el("span",{class:"sc c-mint"},"발행 완료") : el("span",{class:"sc "+(it.cur===2&&!it.writing?"c-blue":"c-pink")}, it.cur+"단계 · "+STAGES[it.cur-1]);
   const meta = [m&&m.main&&m.main.kw ? "메인 "+m.main.kw : "", it.day ? md(it.day)+" 발행 예정" : "날짜 미정", r&&r.type ? r.type+" 글" : "", p&&p.deadline ? "★ ~"+md(p.deadline) : ""].filter(Boolean).join(" · ");
-  const msg = el("span",{class:"hint2"});
+  const msg = el("span",{class:"hint2"}, HOME.fbNote||""); HOME.fbNote = "";
   const info = {
     1: m ? "메인 "+((m.main||{}).kw||"-")+" · 서브 "+(m.subs||[]).length+"개" : (it.order||p ? "키워드 정해짐" : "리포트에서 자동으로 가져와요"),
     2: p ? "원고 있음 · 말투가이드 적용" : it.writing ? (it.order.done ? "작성 완료" : "클로드가 쓰는 중이에요") : "구성·경험을 적어 보내면 클로드가 써요",
@@ -3031,12 +3031,12 @@ function renderDetail(){
         try{ await pushOrder("어사이드", rb.make(memo.value)); msg2.textContent = "맡겼어요. 다음 확인 때(최대 30분) 시작해요."; renderOrders(); renderBell(); renderToss(); }catch(err){ x.disabled = false; msg2.textContent = failText(err); } }},"어사이드에게 사진 찾기 맡기기");
       return [el("p",{class:"muted"},"사진 자리 "+rb.n+"곳에 무료·공식 사진을 찾아 네이버에 임시저장해 줘요."+(p.artifact ? "" : " (이 원고는 아티팩트가 아직 없어서 맡길 수 없어요)")), memo, ask, own, msg2];
     },
-    4: ()=>[el("p",{class:"muted"},"네이버 글쓰기의 임시저장 목록에서 이 글을 열어 확인해요. 고칠 곳이 있으면 ‘고칠 곳 있어요’로 보내요."), el("a",{class:"tbtn",href:"https://blog.naver.com/withsuzz?Redirect=Write",target:"_blank",rel:"noopener",onclick:()=>{ setStep(p,"draft",true); }},"네이버에서 열어 보기"), el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.tab = "fb"; showView("coach"); }},"고칠 곳 있어요")],
+    4: ()=>[el("p",{class:"muted"},"네이버 글쓰기의 임시저장 목록에서 이 글을 열어 확인해요. 고칠 곳이 있으면 ‘고칠 곳 있어요’로 보내요."), el("a",{class:"tbtn",href:"https://blog.naver.com/withsuzz?Redirect=Write",target:"_blank",rel:"noopener",onclick:()=>{ setStep(p,"draft",true); }},"네이버에서 열어 보기"), el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.fb.back = HOME.cur; COACH.tab = "fb"; showView("coach"); }},"고칠 곳 있어요")],
     5: ()=>{ const yes = el("button",{class:"tbtn",type:"button"},"발행 완료로 바꾸기");
       yes.addEventListener("click",()=>{ const ok = el("button",{class:"tbtn",type:"button"},"네, 발행했어요"), no = el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ msg.textContent = ""; }},"취소");
         ok.addEventListener("click", async()=>{ ok.disabled = true; msg.textContent = "저장 중…"; try{ await changeStatus(p.id,"published"); msg.textContent = "발행 완료로 바꿨어요."; celebrate("발행 완료!","토끼",it.title); }catch(e){ ok.disabled = false; msg.textContent = failText(e); } });
         msg.replaceChildren("정말 발행 완료로 바꿀까요? ", ok, no); });
-      return [el("p",{class:"muted"},"네이버에서 발행한 뒤 눌러 주세요. 안 눌러도 블로그 목록과 맞춰 보면 자동으로 완료돼요."), yes, el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.tab = "fb"; showView("coach"); }},"수정 요청")]; }
+      return [el("p",{class:"muted"},"네이버에서 발행한 뒤 눌러 주세요. 안 눌러도 블로그 목록과 맞춰 보면 자동으로 완료돼요."), yes, el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.fb.back = HOME.cur; COACH.tab = "fb"; showView("coach"); }},"수정 요청")]; }
   };
   const rows = STAGES.map((n,i)=>{
     const k = i+1, done = it.cur>k, now = it.cur===k;
@@ -3047,7 +3047,7 @@ function renderDetail(){
   const tools = p ? el("details",{class:"tools2"}, el("summary",{},"원고 도구"), el("div",{class:"btnrow"},
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>openPost(p)},"원고 열기"),
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>copyPost(p,msg)},"본문 복사"),
-      el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.tab = "fb"; showView("coach"); }},"문단 피드백")), editControl(p)) : null;
+      el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.fb.back = HOME.cur; COACH.tab = "fb"; showView("coach"); }},"문단 피드백")), editControl(p)) : null;
   box.replaceChildren(el("div",{class:"dtop"}, back, topChip), el("div",{class:"ttl"}, it.title), el("div",{class:"meta"}, meta),
     el("section",{class:"tcard"}, ...rows, msg), ...[tools, (r ? el("a",{class:"tiny",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션에서 열기 ›") : null)].filter(Boolean));
 }
