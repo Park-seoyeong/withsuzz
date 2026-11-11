@@ -529,8 +529,8 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
   <section class="hero phero"><div><div class="hero-k">BLOG STATS</div><h2>블로그 통계</h2><p>방문자·유입 흐름 상세 분석 (준비 중)</p></div></section>
 <section class="hcard"><div class="soon" id="soon-stats"></div></section></section>
   <section class="subpage view" id="view-keywords" hidden>
-  <section class="hero phero"><div><div class="hero-k">KEYWORDS</div><h2>유입 키워드</h2><p>검색 유입 키워드 상세 분석 (준비 중)</p></div></section>
-<section class="hcard"><div class="soon" id="soon-kw"></div></section></section>
+  <section class="hero phero"><div><div class="hero-k">KEYWORDS</div><h2>유입 키워드</h2><p>어사이드가 매일 아침 정리하는 오늘의 키워드 추천이에요.</p></div></section>
+<section class="hcard"><div id="soon-kw"></div></section></section>
   <section class="subpage view" id="view-tools" hidden>
     <section class="hero phero"><div><div class="hero-k">TOOLS</div><h2>툴</h2><p>자주 쓰는 곳으로 바로 가요. 누르면 새 탭으로 열려요.</p></div></section>
     <div class="tools-grid" id="tools-grid"></div>
@@ -610,7 +610,8 @@ const DONGBANG = {
     log: "4153bc48977181f09152dc18ea06b4f9",      // 동방 업무기록
     keywords: "8d8057a565a74864b7865de679c13e9e", // 블로그 유입 키워드 (Aside 자동 기록) · 읽기만 함
     season: "4153bc48977181219268fd3e7d84be2a",   // 시즌별 소재 추천 (월별) · 클로드가 PDF/엑셀에서 뽑아 둠
-    meetings: "4153bc489771816cb184ced7aa010b8c"  // 동방 회의록 · 매일 07:00·23:00 예약 작업이 씀
+    meetings: "4153bc489771816cb184ced7aa010b8c", // 동방 회의록 · 매일 07:40·23:00 예약 작업이 씀
+    kwReport: "1593b88656674024b4a1349b58e2708d"  // 블로그 키워드 일일 리포트 (Aside 07시 루틴이 덮어씀) · 읽기만 함
   },
   // 캐릭터 4명. 업무지시 글에 topic 단어가 있으면 해당 캐릭터가 '일하는 중'(키워드>통계>일정>원고 순으로 찾음)
   cast: [
@@ -1085,7 +1086,7 @@ async function loadNotion(refresh){
 }
 
 // ===================== 동방.zip 메인 홈 =====================
-const HOME = {stats:null, statsState:"loading", orders:[], ordersState:"loading", log:[], logState:"loading", kw:null, kwState:DONGBANG.pages.keywords?"loading":"none", kwTab:"daily", kwPage:0, kwPicks:null, kwPicksOpen:false, todoPage:0, whatPage:0, view:"home", calMonth:kstToday().slice(0,7), season:null, seasonState:"loading", seasonField:"여행", addedIdeas:new Set(), meet:{state:"loading",list:[],idx:0,revealing:null,shown:0,timer:null}, justDone:{}};
+const HOME = {stats:null, statsState:"loading", orders:[], ordersState:"loading", log:[], logState:"loading", kw:null, kwState:DONGBANG.pages.keywords?"loading":"none", kwTab:"report", rep:null, repState:"loading", kwPage:0, kwPicks:null, kwPicksOpen:false, todoPage:0, whatPage:0, view:"home", calMonth:kstToday().slice(0,7), season:null, seasonState:"loading", seasonField:"여행", addedIdeas:new Set(), meet:{state:"loading",list:[],idx:0,revealing:null,shown:0,timer:null}, justDone:{}};
 const PER = 4;
 function hm(){ const d = new Date(Date.now()+9*3600e3); return md(d.toISOString().slice(0,10))+" "+d.toISOString().slice(11,16); }
 function num(n){ return n==null||n===""||isNaN(n) ? "–" : Number(n).toLocaleString("ko-KR"); }
@@ -1094,7 +1095,7 @@ function pubVal(k){ const b = HOME.kw && HOME.kw.blogPublic; if (b && b[k]!=null
 function notionText(res){ const p = res && res.payload; if (typeof p==="string") return p; if (p && typeof p.text==="string") return p.text; const c = res && res.content && res.content[0]; return (c && c.text) || ""; }
 // 코드 블록이 여러 조각이면 하나씩 읽어 보고, 안 되면 순서대로 이어 붙여 읽는다
 function jsonBlock(text){
-  const parts = [...text.matchAll(/```(?:json)?[ \t]*\n([\s\S]*?)\n?```/g)].map(m=>m[1]);
+  const parts = [...text.matchAll(/```[a-z]*[ \t]*\n([\s\S]*?)\n?```/g)].map(m=>m[1]);
   const tryParse = (t)=>{ try{ return JSON.parse(t); }catch(e){ try{ return JSON.parse(t.replace(/\\([_~*\[\]])/g,"$1")); }catch(e2){ return null; } } };
   for (const p of parts){ const v = tryParse(p.trim()); if (v && typeof v==="object") return v; }
   return parts.length > 1 ? (tryParse(parts.map(p=>p.trim()).join("")) || tryParse(parts.join("\n"))) : null;
@@ -1378,6 +1379,51 @@ async function loadStats(){
   }catch(e){ HOME.statsState = "off"; }
   renderStats(); renderProfile(); renderOffice();
 }
+async function loadReport(){
+  if (!DONGBANG.pages.kwReport){ HOME.repState = "none"; return; }
+  try{
+    const r = jsonBlock(await fetchNotionPage(DONGBANG.pages.kwReport));
+    HOME.rep = r; HOME.repState = r ? "ok" : "none";
+  }catch(e){ HOME.repState = "off"; }
+  renderKeywords(); renderReportFull();
+}
+// 오늘 날짜 리포트가 아니면 '오늘 키워드 리포트 없음'만 보여 준다
+function reportToday(){ const r = HOME.rep; return !!(r && r.date === kstToday() && r.status !== "waiting" && Array.isArray(r.top5) && r.top5.length); }
+function reportView(full){
+  const r = HOME.rep, box = el("div",{class:"rep"});
+  if (HOME.repState==="loading"){ box.append(el("p",{class:"empty2"},"불러오는 중…")); return box; }
+  if (HOME.repState==="off"){ box.append(el("p",{class:"empty2"},"키워드 리포트 페이지를 읽지 못했어요.")); return box; }
+  if (!reportToday()){ box.append(el("p",{class:"empty2"},"오늘 키워드 리포트 없음")); return box; }
+  box.append(el("p",{class:"kw-sum"}, r.date+" 리포트 ", el("b",{}, r.top5.length+"개 추천"), r.backlog && r.backlog.total!=null ? " · 쌓인 원고 "+r.backlog.total+"편" : ""));
+  if (r.message) box.append(el("p",{class:"hint2"}, r.message));
+  const list = el("div",{class:"hl"});
+  for (const t of r.top5){
+    const m = t.main||{}, subs = (t.subs||[]).map(x=>x.kw).filter(Boolean);
+    const card = el("div",{class:"pick"},
+      el("div",{class:"row"}, el("b",{}, (t.rank||"")+". "+(t.topic||m.kw||"")), el("span",{class:"hint2"}, t.deadline ? "마감 "+t.deadline : "")),
+      el("div",{class:"score"}, "메인 "+(m.kw||"–")+(m.volume!=null?" · 검색 "+num(m.volume):"")+(m.docs!=null?" · 문서 "+num(m.docs):"")+(m.ratio!=null?" · 비율 "+m.ratio:"")),
+      t.why ? el("div",{class:"hint2"}, t.why) : null,
+      el("div",{class:"row"}, ...[t.competition?"경쟁 "+t.competition:"", t.peak?"피크 "+t.peak:"", t.experiencePossible?"경험 쓰기 쉬움":"", t.buyIntent?"구매의도":""].filter(Boolean).map(w=>el("span",{class:"tag"},w))));
+    if (full){
+      if (subs.length) card.append(el("div",{class:"hint2"}, "서브: "+subs.join(", ")));
+      if ((t.titles||[]).length) card.append(el("div",{class:"hint2"}, "제목 후보: "+t.titles.join(" / ")));
+      if ((t.mustInclude||[]).length) card.append(el("div",{class:"hint2"}, "꼭 넣을 정보: "+t.mustInclude.join(" · ")));
+      if (t.linkSpot) card.append(el("div",{class:"hint2"}, "링크 자리: "+t.linkSpot));
+    }
+    list.append(card);
+  }
+  box.append(list);
+  if (full){
+    if ((r.dropped||[]).length) box.append(el("details",{class:"rules"}, el("summary",{},"빠진 키워드 "+r.dropped.length+"개"), el("ul",{class:"hl",style:"margin-top:6px"}, ...r.dropped.map(d=>el("li",{}, d.kw+(d.prev!=null?" ("+d.prev+"위 → "+(d.now!=null?d.now+"위":"빠짐")+")":"")+(d.question?" · "+d.question:""))))));
+    if ((r.questions||[]).length) box.append(el("details",{class:"rules",open:""}, el("summary",{},"어사이드가 궁금해하는 것 "+r.questions.length+"개"), el("ul",{style:"margin:6px 0 0 18px;padding:0"}, ...r.questions.map(q=>el("li",{}, typeof q==="string"?q:(q.text||q.question||JSON.stringify(q)))))));
+    if ((r.savedDrafts||[]).length) box.append(el("details",{class:"rules"}, el("summary",{},"네이버 임시저장 "+r.savedDrafts.length+"건"), el("ul",{style:"margin:6px 0 0 18px;padding:0"}, ...r.savedDrafts.map(d=>el("li",{}, (d.time?d.time+" ":"")+(d.title||""))))));
+  } else if ((r.questions||[]).length || (r.dropped||[]).length){
+    box.append(el("p",{class:"hint2"}, "빠진 키워드·궁금한 것은 키워드 메뉴에서 볼 수 있어요."));
+  }
+  return box;
+}
+function renderReportFull(){ const b = document.getElementById("soon-kw"); if (b) b.replaceChildren(reportView(true)); }
+
 async function loadKeywords(){
   if (!DONGBANG.pages.keywords){ HOME.kwState = "none"; renderKeywords(); return; }
   try{
@@ -1598,7 +1644,11 @@ function renderPicks(){
 }
 function renderKeywords(){
   const tabs = document.getElementById("kw-tabs"), body = document.getElementById("kw-body");
-  tabs.replaceChildren(...[["daily","일간"],["monthly","월간"]].map(([k,l])=>el("button",{type:"button","aria-pressed":String(HOME.kwTab===k),onclick:()=>{HOME.kwTab=k;HOME.kwPage=0;renderKeywords();}},l)));
+  tabs.replaceChildren(...[["report","오늘 추천"],["daily","일간"],["monthly","월간"]].map(([k,l])=>el("button",{type:"button","aria-pressed":String(HOME.kwTab===k),onclick:()=>{HOME.kwTab=k;HOME.kwPage=0;renderKeywords();}},l)));
+  if (HOME.kwTab==="report"){
+    pager("kw-pager",0,0,()=>{});
+    body.replaceChildren(reportView(false)); return;
+  }
   if (HOME.kwState!=="ok"){
     pager("kw-pager",0,0,()=>{});
     body.replaceChildren(el("p",{class:"empty2"}, HOME.kwState==="loading" ? "불러오는 중…" : HOME.kwState==="off" ? "키워드 페이지를 읽지 못했어요." : "어사이드가 켜져 있을 때 매일 채워져요"));
@@ -1637,7 +1687,7 @@ function charForText(text){
 }
 function inMeetingTime(){
   const d = new Date(Date.now()+9*3600e3), mins = d.getUTCHours()*60+d.getUTCMinutes();
-  return (mins>=420 && mins<430) || (mins>=1380 && mins<1390);
+  return (mins>=460 && mins<470) || (mins>=1380 && mins<1390);
 }
 function charStates(){
   const out = {}; for (const c of DONGBANG.cast) out[c.who] = {state:"idle"};
@@ -2035,13 +2085,13 @@ function renderTools(){
     : el("div",{class:"tool off"}, el("span",{class:"ic",style:"background:"+t.bg},t.ic), el("b",{},t.name), el("span",{class:"d"},t.desc+" (주소 준비 중)"))));
 }
 function renderSoon(){
-  for (const [id, img, h, p] of [["soon-stats","통계","통계 상세 분석","상세 분석 페이지 준비 중이에요. 지금은 홈의 '오늘 블로그 통계' 카드에서 오늘 숫자를 볼 수 있어요."],["soon-kw","키워드","유입 키워드 상세 분석","상세 분석 페이지 준비 중이에요. 나중에 유입 키워드 상세 분석이 여기에 붙어요. 지금은 홈의 '유입 키워드 분석' 카드에서 일간·월간 상위를 볼 수 있어요."]]){
+  for (const [id, img, h, p] of [["soon-stats","통계","통계 상세 분석","상세 분석 페이지 준비 중이에요. 지금은 홈의 '오늘 블로그 통계' 카드에서 오늘 숫자를 볼 수 있어요."]]){
     const b = document.getElementById(id); if (!b) continue;
     b.replaceChildren(avatar(img,"big"), el("h3",{},h), el("p",{},p), el("button",{class:"pbtn",type:"button",onclick:()=>showView("home")},"홈으로"));
   }
 }
 
-// ===== 회의록 채팅창 (노션 '동방 회의록' JSON: 07:00·23:00 예약 작업이 씀) =====
+// ===== 회의록 채팅창 (노션 '동방 회의록' JSON: 07:40·23:00 예약 작업이 씀) =====
 function meetSeen(){ try{ return JSON.parse(localStorage.getItem("dongbang.meetSeen")||"[]"); }catch(e){ return HOME.meetSeenMem||[]; } }
 function markMeetSeen(id){ const s = meetSeen(); if (s.includes(id)) return; s.push(id); const v = s.slice(-60); HOME.meetSeenMem = v; try{ localStorage.setItem("dongbang.meetSeen", JSON.stringify(v)); }catch(e){} }
 function meetTitle(x){ return (x.slot==="pm" ? "저녁" : "아침")+" 회의 · "+(x.date?md(x.date):""); }
@@ -2078,7 +2128,7 @@ function renderMeet(keepScroll){
   const head = el("div",{class:"meet-head"}, el("h4",{},"회의록 채팅창"), x ? el("span",{class:"hint2"}, meetTitle(x)) : null);
   const note = el("p",{class:"hint2"},"캐릭터는 역할 페르소나일 뿐이고 실제 에이전트가 따로 있는 건 아니에요. 숫자·사실은 읽은 데이터에서만 가져와요(없으면 '데이터 없음').");
   if (M.state!=="ok"){
-    box.replaceChildren(head, el("p",{class:"empty2"}, M.state==="loading" ? "불러오는 중…" : M.state==="off" ? "회의록 페이지를 읽지 못했어요." : "아직 회의가 없어요. 아침 07:00·저녁 23:00에 캐릭터들이 회의를 열어요."), note); return;
+    box.replaceChildren(head, el("p",{class:"empty2"}, M.state==="loading" ? "불러오는 중…" : M.state==="off" ? "회의록 페이지를 읽지 못했어요." : "아직 회의가 없어요. 아침 07:40·저녁 23:00에 캐릭터들이 회의를 열어요."), note); return;
   }
   const animating = M.revealing===x.id, total = x.lines.length, shown = animating ? Math.min(M.shown||0,total) : total;
   const pg = el("div",{class:"pager"}, el("span",{},(M.idx+1)+"/"+M.list.length),
@@ -2136,7 +2186,7 @@ function renderBell(){
 }
 
 function renderHome(){ renderOneLine(); renderOffice(); renderProfile(); renderStats(); renderTodo(); renderWhat(); renderCalendar(); renderSeason(); renderBell(); }
-function loadHome(){ if (!mcp){ HOME.statsState=HOME.ordersState=HOME.logState=HOME.seasonState="off"; HOME.meet.state="off"; if (HOME.kwState==="loading") HOME.kwState="off"; renderHome(); renderOrders(); renderLog(); renderKeywords(); renderMeet(); return; } loadStats(); loadOrders(); loadLog(); loadKeywords(); loadSeason(); loadMeetings(); }
+function loadHome(){ if (!mcp){ HOME.statsState=HOME.ordersState=HOME.logState=HOME.seasonState="off"; HOME.meet.state="off"; HOME.repState="off"; if (HOME.kwState==="loading") HOME.kwState="off"; renderHome(); renderOrders(); renderLog(); renderKeywords(); renderReportFull(); renderMeet(); return; } loadStats(); loadOrders(); loadLog(); loadKeywords(); loadReport(); loadSeason(); loadMeetings(); }
 
 renderQuick(); renderOrders(); renderLog(); renderKeywords(); renderHome(); renderTools(); renderSoon(); renderMeet(); watchMeet();
 document.getElementById("order-save").addEventListener("click", saveOrder);
