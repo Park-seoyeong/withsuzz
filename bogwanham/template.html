@@ -429,7 +429,7 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
         <div class="hcard-head"><h3 id="h-order">업무지시</h3><span class="deco">✎</span></div>
         <div class="memo">
           <textarea id="order-text" placeholder="팀에게 시킬 일을 적어요. 예: 다음 주 빈 날에 넣을 중국 원고 주제 3개"></textarea>
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="pbtn" type="button" id="order-save">노션에 저장</button><span class="hint2" id="order-note"></span></div>
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="pbtn" type="button" id="order-save">업무지시 보내기</button><span class="hint2" id="order-note"></span></div>
           <p class="next-note">다음 확인 예정: 10:30/14:30/17:30</p>
         </div>
         <div id="order-filters" style="display:grid;gap:6px"></div>
@@ -480,6 +480,10 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
       </section>
     </div>
 
+    </div>
+  </section>
+
+  <section class="subpage view" id="view-calendar" hidden>
     <div class="cal-grid" id="cal-section">
       <section class="hcard" aria-labelledby="h-cal">
         <div class="cal-head"><h3 id="h-cal">이번 달 블로그 캘린더</h3><span class="deco" id="cal-sub"></span>
@@ -492,9 +496,7 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
         <div id="season-body" style="display:grid;gap:8px"></div>
       </section>
     </div>
-    </div>
   </section>
-
   <section class="subpage view" id="view-stats" hidden><section class="hcard"><div class="soon" id="soon-stats"></div></section></section>
   <section class="subpage view" id="view-keywords" hidden><section class="hcard"><div class="soon" id="soon-kw"></div></section></section>
   <section class="subpage view" id="view-tools" hidden>
@@ -590,12 +592,13 @@ const DONGBANG = {
     spots: {
       "책상1":{x:23.6,y:56},"책상2":{x:66.4,y:53},"책상3":{x:16,y:88},"책상4":{x:73.5,y:96},   // 책상 4개(의자 위치)
       "회의1":{x:42,y:63},"회의2":{x:60,y:60},"회의3":{x:46,y:77},"회의4":{x:58,y:76},         // 둥근 러그 위 흰 테이블 둘레
-      "소파":{x:47,y:45},"화이트보드":{x:91,y:47},"티코너":{x:12,y:76}
+      "소파":{x:47,y:45},"화이트보드":{x:91,y:47},"티코너":{x:12,y:76},
+      "러그1":{x:36,y:83},"러그2":{x:54,y:89},"러그3":{x:63,y:73},"러그4":{x:45,y:72}   // 가구에 안 겹치는 빈 바닥(산책·기쁨 표시용)
     },
     desks: {"토끼":"책상1","고양이":"책상2","여우":"책상3","햄스터":"책상4"},
     meetSpots: ["회의1","회의2","회의3","회의4"],
-    idleSpots: ["소파","티코너","화이트보드"],
-    celebrate: "화이트보드",
+    idleSpots: ["러그1","러그2","러그3","러그4"],   // 쉴 때 자기 책상에 앉아 있다가 가끔 이 바닥으로 산책
+    celebrate: "러그2",
     walkMs: 2200,   // 한 곳에서 다른 곳으로 걷는 시간
     sprites: {
       "토끼":   {cols:3, rows:2, scale:11.5, chroma:false, poses:{work:[[0,0]], idle:[[1,0],[1,0],[1,1]], walkL:[[2,0]], walkR:[[0,1]], meet:[[1,0],[1,1]], done:[[2,1]]}, rate:{idle:1600, meet:1400}},
@@ -1052,7 +1055,7 @@ function jsonBlock(text){
   return parts.length > 1 ? (tryParse(parts.map(p=>p.trim()).join("")) || tryParse(parts.join("\n"))) : null;
 }
 function unesc(s){ return s.replace(/\\([~*_\[\]()#>`|-])/g,"$1"); }
-const VIEWS = ["home","vault","stats","keywords","tools"];
+const VIEWS = ["home","vault","calendar","stats","keywords","tools"];
 function showView(v){
   if (!VIEWS.includes(v)) v = "home";
   HOME.view = v;
@@ -1087,7 +1090,7 @@ function urgentDeadline(){
 }
 function shortTitle(s, n=14){ s = String(s); return s.length>n ? s.slice(0,n)+"…" : s; }
 
-const MENU = [["🏠","홈","home","var(--p-sky)"],["📁","원고보관함","vault","var(--p-lav)"],["📊","통계","stats","var(--p-mint)"],["🔑","키워드","keywords","var(--p-pink)"],["🧰","툴","tools","var(--p-sky)"]];
+const MENU = [["🏠","홈","home","var(--p-sky)"],["📁","원고보관함","vault","var(--p-lav)"],["🗓️","블로그 캘린더","calendar","var(--p-pink)"],["📊","통계","stats","var(--p-mint)"],["🔑","키워드","keywords","var(--p-pink)"],["🧰","툴","tools","var(--p-sky)"]];
 function renderQuick(){
   document.getElementById("quick").replaceChildren(...MENU.map(([ic,label,v,bg])=>
     el("a",{href:"#"+v, "aria-current":HOME.view===v?"page":null, onclick:(e)=>{ e.preventDefault(); showView(v); }}, el("span",{class:"ic",style:"background:"+bg},ic), label)));
@@ -1253,7 +1256,7 @@ async function saveOrder(){
   btn.disabled = true; n.textContent = "저장 중…";
   try{
     await pushOrder("자동", text.replace(/^[-*#>\s]+/,"").replace(/^\[담당\s*:[^\]]*\]\s*/,""));
-    ta.value = ""; n.textContent = "노션에 저장했어요. 담당은 곧 배정돼요.";
+    ta.value = ""; n.textContent = "업무지시를 보냈어요. 담당은 곧 배정돼요.";
     renderOrders(); renderTeam(); renderBell(); renderOffice();
   }catch(e){ n.textContent = failText(e); }
   btn.disabled = false;
@@ -1653,7 +1656,7 @@ function ensureStage(){
     const finish = (url, w, h)=>{ if (!url) return; body.style.backgroundImage = "url("+url+")"; body.style.backgroundSize = (cfg.cols*100)+"% "+(cfg.rows*100)+"%"; body.style.aspectRatio = ((w/cfg.cols)/(h/cfg.rows)).toFixed(4); setPose(c.who,"idle"); };
     if (cfg.chroma) chromaKey(src, finish); else { const im = new Image(); im.onload = ()=>finish(src, im.naturalWidth, im.naturalHeight); im.src = src; }
   }
-  clearInterval(STAGE.wander); STAGE.wander = setInterval(wanderIdle, 18000);
+  clearInterval(STAGE.wander); STAGE.wander = setInterval(wanderIdle, 12000);
 }
 function setPose(who, pose){
   const e = STAGE.els[who]; if (!e) return; clearInterval(e.timer); e.pose = pose;
@@ -1685,12 +1688,22 @@ function stageSync(){
     if (s.state==="working"){ e.arrive = "work"; moveChar(c.who, st.desks[c.who]); }
     else if (s.state==="meeting"){ e.arrive = "meet"; moveChar(c.who, st.meetSpots[i % st.meetSpots.length]); }
     else if (s.state==="done"){ e.arrive = "done"; moveChar(c.who, st.celebrate || st.idleSpots[0]); }
-    else { e.arrive = "idle"; if (!STAGE.spot[c.who] || STAGE.spot[c.who]===st.desks[c.who] || STAGE.spot[c.who]===st.celebrate || st.meetSpots.includes(STAGE.spot[c.who])) moveChar(c.who, st.idleSpots[i % st.idleSpots.length]); }
+    else {
+      // 쉬는 중: 자기 책상에 앉아 있음(가끔 wanderIdle로 바닥 산책)
+      const away = STAGE.wand && STAGE.wand[c.who] && Date.now()<STAGE.wand[c.who];
+      if (away) e.arrive = "idle"; else { e.arrive = "work"; if (STAGE.spot[c.who]!==st.desks[c.who]) moveChar(c.who, st.desks[c.who]); }
+    }
   });
 }
 function wanderIdle(){
   if (!stageOn() || !STAGE.root) return; const S = charStates(), st = DONGBANG.stage;
-  for (const c of DONGBANG.cast) if (S[c.who].state==="idle" && Math.random()<0.5) moveChar(c.who, st.idleSpots[Math.floor(Math.random()*st.idleSpots.length)]);
+  STAGE.wand = STAGE.wand || {};
+  const idle = DONGBANG.cast.filter(c=>S[c.who].state==="idle" && !(STAGE.wand[c.who] && Date.now()<STAGE.wand[c.who]));
+  if (!idle.length || Math.random()<0.35) return;
+  const c = idle[Math.floor(Math.random()*idle.length)], i = DONGBANG.cast.indexOf(c);
+  STAGE.wand[c.who] = Date.now()+9000; const e = STAGE.els[c.who]; if (e) e.arrive = "idle";
+  moveChar(c.who, st.idleSpots[i % st.idleSpots.length]);
+  setTimeout(()=>{ if (STAGE.wand) STAGE.wand[c.who] = 0; stageSync(); }, 9200);
 }
 
 // 오늘 날짜 노션 항목에 연결된 원고가 없으면 '원고 쓰기' → 노션 '동방 업무지시'에 [담당:클로드] 할 일로 넘김
@@ -1715,7 +1728,7 @@ function writeControl(row){
     const memo = el("input",{type:"text",placeholder:"메모(선택)","aria-label":"원고 메모"});
     const send = el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:12px"},"클로드에게 보내기");
     send.addEventListener("click", async ()=>{
-      send.disabled = true; msg.textContent = "노션에 저장 중…";
+      send.disabled = true; msg.textContent = "업무지시 보내는 중…";
       const clean = (s)=>String(s||"").replace(/[|\n]/g,"/").trim();
       const body = "원고 작성: "+clean(row.title)+" | "+(clean(row.region)||"-")+" | "+(clean(row.type)||"-")+" | "+row.id+" | "+(clean(memo.value)||"-")+" | 적용 가이드: "+writeGuides(row).join(" + ");
       try{ await pushOrder("클로드", body); renderOrders(); renderTeam(); renderBell(); renderOffice(); renderTodo(); }
