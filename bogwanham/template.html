@@ -456,7 +456,7 @@ details.rules ol{margin:4px 0 0;padding-left:0;list-style:none;display:grid;gap:
         <div class="memo">
           <textarea id="order-text" placeholder="팀에게 시킬 일을 적어요. 예: 다음 주 빈 날에 넣을 중국 원고 주제 3개"></textarea>
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><button class="pbtn" type="button" id="order-save">업무지시 보내기</button><span class="hint2" id="order-note"></span></div>
-          <p class="next-note"><a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="누르면 '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-right:6px">클로드 열어 처리 요청</a>다음 확인 예정: 10:30/14:30/17:30</p>
+          <p class="next-note">자동 처리: 어사이드 배정 10:30·14:30·17:30 → 클로드 처리 10:40·14:40·17:40 <a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="급할 때만: '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-left:6px">지금 바로 처리</a></p>
         </div>
         <div id="order-filters" style="display:grid;gap:6px"></div>
         <div class="fill"><ul class="hl" id="order-list"></ul></div>
@@ -2112,7 +2112,7 @@ document.getElementById("home-search").addEventListener("focus", renderSearch);
 document.getElementById("bell-btn").addEventListener("click", ()=>{ const p = document.getElementById("bell-pop"); p.hidden = !p.hidden; });
 document.getElementById("menu-btn").addEventListener("click", ()=>showView("vault"));
 (function(){ const a = document.getElementById("order-open"); if (!a) return; const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); a.href = (t && t.href) || "#";
-  a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText("업무지시 확인해"); a.textContent = "복사됨 · 붙여 넣고 보내세요"; setTimeout(()=>{ a.textContent = "클로드 열어 처리 요청"; }, 4000); }catch(e){} }); })();
+  a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText("업무지시 확인해"); a.textContent = "복사됨 · 붙여 넣고 보내세요"; setTimeout(()=>{ a.textContent = "지금 바로 처리"; }, 4000); }catch(e){} }); })();
 document.getElementById("cal-prev").addEventListener("click", ()=>{ HOME.calMonth = addMonths(HOME.calMonth,-1); renderCalendar(); renderSeason(); });
 document.getElementById("cal-next").addEventListener("click", ()=>{ HOME.calMonth = addMonths(HOME.calMonth,1); renderCalendar(); renderSeason(); });
 document.getElementById("cal-today").addEventListener("click", ()=>{ HOME.calMonth = kstToday().slice(0,7); renderCalendar(); renderSeason(); });
