@@ -1,0 +1,316 @@
+<title>써즈 원고 보관함</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+/* 레이아웃: 위에 이번 주 발행 일정 띠, 아래 왼쪽 원고 목록 · 오른쪽 네이버 본문 미리보기(좁으면 위아래로) */
+:root{
+  --bg:#f2f4f8; --surface:#ffffff; --sunk:#e8ecf3; --line:#d5dce8;
+  --fg:#1b2333; --muted:#5f6b80; --accent:#2f4f86; --accent-fg:#ffffff;
+  --yellow:#f2b705; --yellow-soft:#fff6d6;
+  --ok:#2e7d4f; --ok-soft:#e3f3ea; --warn:#b4401f; --warn-soft:#fbe6df; --hold:#6b6f7a; --hold-soft:#eceef2;
+  --paper:#ffffff; --paper-line:#dfe4ec;
+  --display:"Gowun Batang","MaruBuri","Nanum Myeongjo",serif;
+  --sans:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161d; --surface:#1a2029; --sunk:#222a35; --line:#323c4b;
+  --fg:#e6eaf1; --muted:#9aa5b8; --accent:#9db7e6; --accent-fg:#10151d;
+  --yellow:#f2c434; --yellow-soft:#3a3218;
+  --ok:#7fd3a0; --ok-soft:#1d3628; --warn:#f19a7e; --warn-soft:#41241c; --hold:#aab0bc; --hold-soft:#2a303a;
+  --paper:#ffffff; --paper-line:#323c4b; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161d; --surface:#1a2029; --sunk:#222a35; --line:#323c4b;
+  --fg:#e6eaf1; --muted:#9aa5b8; --accent:#9db7e6; --accent-fg:#10151d;
+  --yellow:#f2c434; --yellow-soft:#3a3218;
+  --ok:#7fd3a0; --ok-soft:#1d3628; --warn:#f19a7e; --warn-soft:#41241c; --hold:#aab0bc; --hold-soft:#2a303a;
+  --paper:#ffffff; --paper-line:#323c4b; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.6 var(--sans);margin:0}
+.page{max-width:1280px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between}
+.brand{display:grid;gap:2px}
+.eyebrow{font-size:12px;letter-spacing:.18em;color:var(--yellow);font-weight:700}
+h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-height:1.25;text-wrap:balance}
+.counts{display:flex;flex-wrap:wrap;gap:8px}
+.count{background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.count b{color:var(--fg);font-weight:700;margin-left:4px}
+.count.warn b{color:var(--warn)}
+
+.week{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:10px}
+.week-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.week-head h2{font-size:15px;margin:0;font-weight:700}
+.week-nav{display:flex;gap:6px}
+.ghost{background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 10px;font-size:13px}
+.ghost:hover{background:var(--sunk)}
+.days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.day{background:var(--sunk);border-radius:8px;padding:8px;display:grid;gap:6px;align-content:start;min-height:88px;min-width:0}
+.day.today{box-shadow:inset 0 0 0 2px var(--yellow)}
+.day-label{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;justify-content:space-between;gap:4px}
+.day-label b{color:var(--fg)}
+.chip{display:block;width:100%;text-align:left;border:0;border-radius:5px;padding:4px 6px;font-size:12px;line-height:1.35;background:var(--surface);color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.s-published{background:var(--ok-soft);color:var(--ok);text-decoration:line-through}
+.chip.s-late{background:var(--warn-soft);color:var(--warn)}
+.chip.on{outline:2px solid var(--accent)}
+@media (max-width:760px){.days{grid-template-columns:1fr}.day{min-height:0;grid-template-columns:72px 1fr;align-items:start}.day-label{flex-direction:column}}
+
+.main{display:grid;grid-template-columns:minmax(280px,380px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:1fr}}
+
+.listbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;display:grid;min-width:0}
+.filters{display:grid;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;flex-wrap:wrap;gap:4px}
+.tab{border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 12px;font-size:13px}
+.tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.search{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 10px}
+.list{list-style:none;margin:0;padding:6px;display:grid;gap:2px;max-height:70vh;overflow:auto}
+@media (max-width:900px){.list{max-height:none}}
+.item{width:100%;text-align:left;background:transparent;border:0;border-radius:6px;padding:9px 10px;display:grid;gap:4px}
+.item:hover{background:var(--sunk)}
+.item[aria-current="true"]{background:var(--sunk);box-shadow:inset 3px 0 0 var(--accent)}
+.item-title{font-weight:600;font-size:14px;line-height:1.4}
+.meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pill{border-radius:4px;padding:0 6px;font-size:12px;font-weight:600;line-height:1.6}
+.pill.todo{background:var(--yellow-soft);color:var(--fg)}
+.pill.published{background:var(--ok-soft);color:var(--ok)}
+.pill.hold{background:var(--hold-soft);color:var(--hold)}
+.pill.late{background:var(--warn-soft);color:var(--warn)}
+.empty{padding:18px;color:var(--muted);font-size:14px}
+
+.viewer{display:grid;gap:12px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:12px}
+.panel h2{font-family:var(--display);font-size:22px;margin:0;line-height:1.35;text-wrap:balance}
+.file{font-size:12px;color:var(--muted);word-break:break-all}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.field{display:grid;gap:4px;font-size:12px;color:var(--muted)}
+.field select,.field input{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:7px 8px;font-size:14px;width:100%}
+.field.wide{grid-column:1/-1}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.primary{background:var(--accent);color:var(--accent-fg);border:0;border-radius:8px;padding:10px 18px;font-weight:700}
+.linkbtn{color:var(--accent);font-size:14px;font-weight:600;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:9px 14px}
+.status{font-size:13px;color:var(--muted);min-height:1.2em;margin:0}
+.save-note{font-size:12px;color:var(--muted)}
+.paper{background:var(--paper);color:#141414;border:1px solid var(--paper-line);border-radius:8px;padding:32px 12px;overflow-x:auto}
+.post{max-width:640px;margin:0 auto}
+.post table{max-width:100%}
+.hint{font-size:13px;color:var(--muted);margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="page">
+  <header class="top">
+    <div class="brand">
+      <span class="eyebrow">WITHSUZZ · DRAFTS</span>
+      <h1>써즈 원고 보관함</h1>
+    </div>
+    <div class="counts" id="counts"></div>
+  </header>
+
+  <section class="week" aria-labelledby="week-title">
+    <div class="week-head">
+      <h2 id="week-title">이번 주 발행 일정</h2>
+      <div class="week-nav">
+        <button class="ghost" id="prev-week" type="button">← 지난주</button>
+        <button class="ghost" id="this-week" type="button">이번 주</button>
+        <button class="ghost" id="next-week" type="button">다음 주 →</button>
+      </div>
+    </div>
+    <div class="days" id="days"></div>
+  </section>
+
+  <div class="main">
+    <section class="listbox" aria-label="원고 목록">
+      <div class="filters">
+        <div class="tabs" id="tabs" role="group" aria-label="상태로 거르기"></div>
+        <input class="search" id="search" type="search" placeholder="제목·파일 이름으로 찾기" aria-label="원고 찾기">
+      </div>
+      <ul class="list" id="list"></ul>
+    </section>
+
+    <section class="viewer" id="viewer" aria-live="polite"></section>
+  </div>
+  <p class="hint">원고 목록은 drafts 폴더의 새서식 파일 기준이에요(만든 시각 <span id="built">__BUILT__</span>). 새 원고가 생기면 Claude에게 "보관함 새로고침"이라고 하면 다시 올려요.</p>
+</div>
+
+<script>
+const POSTS = /*__POSTS__*/[];
+const STATUS = {todo:"미발행", published:"발행 완료", hold:"보류"};
+const DAYNAMES = ["일","월","화","수","목","금","토"];
+const byId = new Map(POSTS.map(p => [p.id, p]));
+const state = {}; // id -> {status, day, memo}
+let db = null, dbReady = false, filter = "todo", query = "", selected = null, weekOffset = 0;
+
+function kstToday(){
+  const d = new Date(Date.now() + 9*3600e3);
+  return d.toISOString().slice(0,10);
+}
+function addDays(iso, n){ const d = new Date(iso+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
+function weekday(iso){ return new Date(iso+"T00:00:00Z").getUTCDay(); }
+function weekStart(iso){ const w = weekday(iso); return addDays(iso, -((w+6)%7)); } // 월요일 시작
+function md(iso){ return Number(iso.slice(5,7))+"/"+Number(iso.slice(8,10)); }
+function st(id){ return state[id] || {status:"todo", day:"", memo:""}; }
+function isLate(id){ const s = st(id); return s.status==="todo" && s.day && s.day < kstToday(); }
+function el(tag, attrs={}, ...kids){
+  const e = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)){
+    if (k==="class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else if (v!==false && v!=null) e.setAttribute(k, v===true?"":v);
+  }
+  for (const k of kids.flat()) if (k!=null) e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+}
+function pillFor(id){
+  if (isLate(id)) return el("span",{class:"pill late"},"날짜 지남");
+  const s = st(id).status;
+  return el("span",{class:"pill "+s}, STATUS[s]);
+}
+
+function renderCounts(){
+  const ids = POSTS.map(p=>p.id);
+  const todo = ids.filter(i=>st(i).status==="todo").length;
+  const late = ids.filter(isLate).length;
+  const ws = weekStart(kstToday()), we = addDays(ws,6);
+  const week = ids.filter(i=>{const s=st(i); return s.day>=ws && s.day<=we && s.status!=="hold";}).length;
+  const box = document.getElementById("counts"); box.replaceChildren(
+    el("span",{class:"count"},"미발행",el("b",{},String(todo))),
+    el("span",{class:"count"+(late?" warn":"")},"날짜 지남",el("b",{},String(late))),
+    el("span",{class:"count"},"이번 주 예정",el("b",{},String(week))),
+    el("span",{class:"count"},"전체",el("b",{},String(ids.length)))
+  );
+}
+
+function renderWeek(){
+  const today = kstToday();
+  const ws = addDays(weekStart(today), weekOffset*7);
+  document.getElementById("week-title").textContent = (weekOffset===0?"이번 주":md(ws)+" 주")+" 발행 일정 ("+md(ws)+" ~ "+md(addDays(ws,6))+")";
+  const days = document.getElementById("days"); days.replaceChildren();
+  for (let i=0;i<7;i++){
+    const d = addDays(ws,i);
+    const items = POSTS.filter(p=>st(p.id).day===d && st(p.id).status!=="hold");
+    const chips = items.map(p=>{
+      const s = st(p.id);
+      const cls = "chip"+(s.status==="published"?" s-published":"")+(isLate(p.id)?" s-late":"")+(selected===p.id?" on":"");
+      return el("button",{class:cls,type:"button",title:p.title,onclick:()=>select(p.id)},p.title);
+    });
+    days.append(el("div",{class:"day"+(d===today?" today":"")},
+      el("div",{class:"day-label"},el("b",{},DAYNAMES[weekday(d)]),el("span",{},md(d)+(items.length?" · "+items.length+"편":""))),
+      el("div",{style:"display:grid;gap:4px;min-width:0"}, chips.length?chips:el("span",{class:"day-label"},"—"))
+    ));
+  }
+}
+
+function renderTabs(){
+  const tabs = document.getElementById("tabs"); tabs.replaceChildren();
+  for (const [k,label] of [["todo","미발행"],["late","날짜 지남"],["published","발행 완료"],["hold","보류"],["all","전체"]]){
+    tabs.append(el("button",{class:"tab",type:"button","aria-pressed":String(filter===k),onclick:()=>{filter=k;renderList();renderTabs();}},label));
+  }
+}
+
+function visible(){
+  const q = query.trim().toLowerCase();
+  return POSTS.filter(p=>{
+    const s = st(p.id);
+    if (filter==="late" && !isLate(p.id)) return false;
+    if (["todo","published","hold"].includes(filter) && s.status!==filter) return false;
+    if (q && !(p.title.toLowerCase().includes(q) || p.file.toLowerCase().includes(q))) return false;
+    return true;
+  }).sort((a,b)=>{
+    const da = st(a.id).day || "9999", dbb = st(b.id).day || "9999";
+    if (filter==="published") return (st(b.id).day||b.written).localeCompare(st(a.id).day||a.written);
+    return da.localeCompare(dbb) || b.written.localeCompare(a.written);
+  });
+}
+
+function renderList(){
+  const list = document.getElementById("list"); list.replaceChildren();
+  const rows = visible();
+  if (!rows.length){ list.append(el("li",{class:"empty"}, query?"찾는 원고가 없어요.":"이 상태인 원고가 없어요.")); return; }
+  for (const p of rows){
+    const s = st(p.id);
+    list.append(el("li",{}, el("button",{class:"item",type:"button","aria-current":String(selected===p.id),onclick:()=>select(p.id)},
+      el("span",{class:"item-title"},p.title),
+      el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(p.written)))
+    )));
+  }
+}
+
+async function save(id, patch){
+  state[id] = {...st(id), ...patch};
+  renderCounts(); renderWeek(); renderList();
+  const note = document.getElementById("save-note");
+  if (!db){ if (note) note.textContent = "저장소에 연결되지 않아 이 화면에서만 바뀌었어요."; return; }
+  try{
+    if (note) note.textContent = "저장 중…";
+    await db.doc("posts/"+id).set({...state[id], updatedAt:new Date().toISOString()});
+    if (note) note.textContent = "저장했어요.";
+  }catch(e){
+    if (note) note.textContent = "저장하지 못했어요 ("+(e&&e.code||"오류")+"). 잠시 뒤 다시 바꿔 보세요.";
+  }
+}
+
+function renderViewer(){
+  const v = document.getElementById("viewer");
+  const p = byId.get(selected);
+  if (!p){ v.replaceChildren(el("div",{class:"panel"},el("p",{class:"hint"},"왼쪽에서 원고를 고르면 네이버에 붙여넣을 본문이 여기 보여요."))); return; }
+  const s = st(p.id);
+  const statusSel = el("select",{id:"f-status",onchange:e=>save(p.id,{status:e.target.value})},
+    ...Object.entries(STATUS).map(([k,l])=>el("option",{value:k,selected:s.status===k},l)));
+  const dayIn = el("input",{id:"f-day",type:"date",value:s.day||"",onchange:e=>save(p.id,{day:e.target.value})});
+  const memoIn = el("input",{id:"f-memo",type:"text",value:s.memo||"",placeholder:"예: 사진 3장 더 넣기",onchange:e=>save(p.id,{memo:e.target.value})});
+  const status = el("p",{class:"status",role:"status"});
+  const post = el("div",{class:"post",id:"post"}); post.innerHTML = p.html;
+  const copyBtn = el("button",{class:"primary",type:"button",onclick:async()=>{
+    try{
+      await navigator.clipboard.write([new ClipboardItem({"text/html":new Blob([post.innerHTML],{type:"text/html"}),"text/plain":new Blob([post.innerText],{type:"text/plain"})})]);
+      status.textContent = "복사했어요. 네이버 에디터 본문에 붙여넣으세요.";
+    }catch(err){
+      const r = document.createRange(); r.selectNodeContents(post);
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      status.textContent = "본문을 선택해 두었어요. Ctrl+C(⌘+C)로 복사한 뒤 붙여넣으세요.";
+    }
+  }},"본문 복사하기");
+  v.replaceChildren(
+    el("div",{class:"panel"},
+      el("div",{style:"display:grid;gap:4px"}, el("h2",{},p.title), el("span",{class:"file"},p.file+"_새서식.html")),
+      el("div",{class:"controls"},
+        el("label",{class:"field"},"상태",statusSel),
+        el("label",{class:"field"},"발행일",dayIn),
+        el("label",{class:"field wide"},"메모",memoIn)
+      ),
+      el("div",{class:"actions"}, copyBtn, p.artifact?el("a",{class:"linkbtn",href:p.artifact,target:"_blank",rel:"noopener"},"원고 아티팩트 열기"):null, el("span",{class:"save-note",id:"save-note"}, dbReady?"":"저장소 연결 중…")),
+      status
+    ),
+    el("div",{class:"paper"},post)
+  );
+}
+
+function select(id){ selected = id; renderWeek(); renderList(); renderViewer(); }
+
+document.getElementById("search").addEventListener("input",e=>{query=e.target.value;renderList();});
+document.getElementById("prev-week").addEventListener("click",()=>{weekOffset--;renderWeek();});
+document.getElementById("next-week").addEventListener("click",()=>{weekOffset++;renderWeek();});
+document.getElementById("this-week").addEventListener("click",()=>{weekOffset=0;renderWeek();});
+try{ document.getElementById("built").textContent = new Date(document.getElementById("built").textContent).toLocaleString("ko-KR",{timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}); }catch(e){}
+
+function renderAll(){ renderCounts(); renderWeek(); renderTabs(); renderList(); if (!selected) { const first = visible()[0]; if (first) selected = first.id; } renderViewer(); }
+renderAll();
+
+(async()=>{
+  const timer = setTimeout(()=>{ const n=document.getElementById("save-note"); if(n && !dbReady) n.textContent="저장소에 연결하지 못했어요. 상태를 바꿔도 이 화면에서만 바뀌어요."; }, 10000);
+  try{
+    db = await window.claude?.use?.("db");
+  }catch(e){ db = null; }
+  if (!db){ clearTimeout(timer); const n=document.getElementById("save-note"); if(n) n.textContent="저장소에 연결하지 못했어요. 상태를 바꿔도 이 화면에서만 바뀌어요."; return; }
+  db.collection("posts").onSnapshot(snap=>{
+    clearTimeout(timer);
+    dbReady = true;
+    for (const d of snap.docs){ if (byId.has(d.id)){ const x=d.data()||{}; state[d.id] = {status:x.status||"todo", day:x.day||"", memo:x.memo||""}; } }
+    const keep = document.activeElement && document.activeElement.id && document.activeElement.id.startsWith("f-");
+    renderCounts(); renderWeek(); renderList();
+    if (!keep) renderViewer(); else { const n=document.getElementById("save-note"); if(n && n.textContent==="저장소 연결 중…") n.textContent=""; }
+  }, err=>{ clearTimeout(timer); const n=document.getElementById("save-note"); if(n) n.textContent="저장소를 읽지 못했어요 ("+(err&&err.code||"오류")+")."; });
+})();
+</script>
