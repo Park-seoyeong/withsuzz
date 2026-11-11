@@ -1821,6 +1821,32 @@ function writeGuides(row){
   if (aff) g.push("CPA 가이드");
   return g;
 }
+// 가이드라인 파일 읽기: txt·md·csv·html·json은 그대로, docx는 브라우저에서 직접 풀어 글자만 꺼냄. pdf·hwp 등은 못 읽음
+async function docxText(buf){
+  const dv = new DataView(buf), u8 = new Uint8Array(buf);
+  let e = -1; for (let i=u8.length-22; i>=Math.max(0,u8.length-70000); i--) if (dv.getUint32(i,true)===0x06054b50){ e = i; break; }
+  if (e<0) throw new Error("zip");
+  let off = dv.getUint32(e+16,true); const n = dv.getUint16(e+10,true);
+  for (let k=0;k<n;k++){
+    const meth = dv.getUint16(off+10,true), csize = dv.getUint32(off+20,true), nl = dv.getUint16(off+28,true), el2 = dv.getUint16(off+30,true), cl = dv.getUint16(off+32,true), lh = dv.getUint32(off+42,true);
+    const name = new TextDecoder().decode(u8.subarray(off+46, off+46+nl));
+    if (name==="word/document.xml"){
+      const ds = lh+30+dv.getUint16(lh+26,true)+dv.getUint16(lh+28,true), raw = u8.subarray(ds, ds+csize);
+      let xml;
+      if (meth===0) xml = new TextDecoder().decode(raw);
+      else { const st = new Blob([raw]).stream().pipeThrough(new DecompressionStream("deflate-raw")); xml = await new Response(st).text(); }
+      return xml.replace(/<\/w:p>/g,"\n").replace(/<w:tab\/>/g,"\t").replace(/<w:br\/>/g,"\n").replace(/<[^>]+>/g,"").replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&").replace(/\n{3,}/g,"\n\n").trim();
+    }
+    off += 46+nl+el2+cl;
+  }
+  throw new Error("nodoc");
+}
+async function readGuideFile(file){
+  const ext = (file.name.split(".").pop()||"").toLowerCase();
+  if (["txt","md","csv","json","html","htm"].includes(ext)){ let t = await file.text(); if (ext==="html"||ext==="htm") t = t.replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/gi,"").replace(/<br\s*\/?>|<\/p>|<\/div>|<\/li>/gi,"\n").replace(/<[^>]+>/g,""); return t.trim(); }
+  if (ext==="docx") return await docxText(await file.arrayBuffer());
+  throw new Error("type");
+}
 function writeControl(row){
   const ord = writeOrderFor(row);
   if (ord){
@@ -1843,7 +1869,18 @@ function writeControl(row){
       try{ await pushOrder("클로드", body); renderOrders(); renderTeam(); renderBell(); renderOffice(); renderTodo(); }
       catch(e){ send.disabled = false; msg.textContent = failText(e); }
     });
-    wrap.replaceChildren(flow, guide, memo, send, msg); flow.focus();
+    const file = el("input",{type:"file",accept:".txt,.md,.docx,.csv,.html,.json","aria-label":"가이드라인 파일",style:"font-size:11px;max-width:100%"});
+    file.addEventListener("change", async ()=>{
+      const f = file.files && file.files[0]; if (!f) return; msg.textContent = "파일 읽는 중…";
+      try{ let t = await readGuideFile(f); if (!t) throw new Error("empty"); let note = ""; if (t.length>8000){ t = t.slice(0,8000); note = " (너무 길어 앞 8,000자만 넣었어요)"; }
+        guide.value = (guide.value ? guide.value.trim()+"\n" : "")+t; msg.textContent = f.name+" 내용을 가이드라인에 넣었어요."+note; }
+      catch(e){ msg.textContent = "이 파일은 못 읽었어요. txt·md·docx만 돼요(PDF·HWP는 내용을 붙여 넣어 주세요)."; }
+      file.value = "";
+    });
+    const fileRow = el("label",{class:"hint2",style:"display:flex;flex-wrap:wrap;gap:6px;align-items:center"}, "가이드라인 파일 첨부 ", file);
+    const closeBtn = el("button",{class:"sbtn",type:"button","aria-label":"닫기"},"닫기 ✕");
+    closeBtn.addEventListener("click",()=>{ wrap.replaceChildren(open, msg); msg.textContent = ""; });
+    wrap.replaceChildren(flow, guide, fileRow, memo, el("div",{class:"row",style:"display:flex;gap:6px;align-items:center;flex-wrap:wrap"}, send, closeBtn), msg); flow.focus();
   });
   wrap.append(open, msg);
   return wrap;

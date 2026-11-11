@@ -66,7 +66,10 @@ export function findDeadline(html, written) {
   });
   return found.sort()[0] || "";
 }
-const files = readdirSync(draftsDir).filter((f) => f.endsWith("_새서식.html")).sort();
+// 써즈가 보관함에서 빼 달라고 한 옛 버전은 hidden.json에 적음. 원고 파일은 그대로 두고 보관함에만 안 나옴.
+let hidden = [];
+try { hidden = JSON.parse(readFileSync(new URL("./hidden.json", import.meta.url), "utf8")); } catch {}
+const files = readdirSync(draftsDir).filter((f) => f.endsWith("_새서식.html") && !hidden.includes(f)).sort();
 const posts = [];
 for (const file of files) {
   const html = readFileSync(join(draftsDir, file), "utf8");
