@@ -443,6 +443,53 @@ table.kw th{font-size:12px}
 .overwarn{margin:4px 0 0;font-size:14px;font-weight:700;color:#B5473F}
 h4.sub{margin:10px 0 2px;font-size:14px;color:var(--ink)}
 .office-wrap{max-width:520px;margin-left:auto;margin-right:auto}
+
+/* 큰 입력 창 · 원고 코치 */
+.bm-back{position:fixed;inset:0;z-index:200;background:rgba(40,50,70,.42);display:flex;align-items:center;justify-content:center;padding:16px}
+.bm{background:var(--surface);color:var(--fg);width:min(920px,100%);height:85vh;max-height:calc(100vh - 32px);border-radius:24px;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(30,40,60,.3);overflow:hidden}
+.bm-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line)}
+.bm-head small{display:block;color:var(--muted);font-size:13px;margin-top:2px}.bm-title{font-size:18px}
+.bm-body{flex:1;overflow:auto;padding:16px 22px;display:grid;gap:14px;align-content:start}
+.bm .f{display:grid;gap:6px;font-size:14px}.bm .f>span{font-weight:700}.bm .f small{font-weight:400;color:var(--muted)}
+.bm input[type=text],.bm textarea,.tarea,.tmemo{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:14px;padding:10px 13px;font:inherit;font-size:15px;line-height:1.6;background:var(--surface);color:var(--fg);resize:vertical}
+.bm input[readonly]{background:var(--sunk);color:var(--muted)}
+.bm-foot{display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 22px;border-top:1px solid var(--line)}
+.bm-done{padding:48px 22px;text-align:center;display:grid;gap:12px;justify-items:center}
+@media (max-width:720px){.bm-back{padding:0}.bm{width:100%;height:100%;max-height:100%;border-radius:0}}
+.coach-tabs{display:flex;gap:8px;margin:12px 0;flex-wrap:wrap}
+.coach-tabs button{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:8px 18px;font:600 14px var(--sans);cursor:pointer}
+.coach-tabs button[aria-pressed=true]{background:var(--p-lav);border-color:transparent}
+.coach-card{max-width:1000px}
+.tone-card{display:grid;gap:12px;max-width:760px;margin:10px auto;padding:20px;border:1px solid var(--line);border-radius:22px;background:var(--surface)}
+.tone-card.center{text-align:center}
+.tprog{height:6px;border-radius:99px;background:var(--sunk);overflow:hidden}.tprog i{display:block;height:100%;background:var(--p-blue)}
+.tq-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.tq-top small{color:var(--muted)}
+.tone-card .task{margin:0;font-size:17px;font-weight:700;line-height:1.5}
+.tintent{background:var(--sunk);border-radius:14px;padding:10px 14px;font-size:14px}.tintent p{margin:2px 0}
+.tlabel{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.1em}
+.tpara{white-space:pre-wrap;line-height:1.8;font-size:15px;background:var(--sunk);border-radius:14px;padding:12px 14px;display:block}
+.tpara.cta{background:var(--p-sky)}
+.topts{display:grid;gap:10px}
+.topt{text-align:left;display:grid;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:16px;padding:12px 14px;cursor:pointer;font:inherit}
+.topt.on{border-color:var(--p-blue);box-shadow:0 0 0 2px var(--p-blue) inset}
+.topt small{color:var(--muted)}.topt .tpara{background:transparent;padding:0}
+.topt.mini{padding:9px 16px;text-align:center;display:inline-block}
+.tnav{justify-content:space-between;align-items:center}
+.tpre{white-space:pre-wrap;font:inherit;font-size:13px;line-height:1.7;margin:8px 0}
+.fb-wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:18px;align-items:start}
+.fb-paper{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px 18px;max-height:75vh;overflow:auto}
+.fb-block{border-bottom:1px dashed var(--line);padding:6px 0}.fb-block.has{background:var(--p-pink);border-radius:10px;padding:6px 8px}
+.fb-row{display:flex;gap:10px;align-items:flex-start}.fb-text{flex:1;min-width:0;font-size:15px;line-height:1.8}
+.fb-text *{max-width:100%}
+.fb-btn{flex:none;border:1px solid var(--line);background:var(--sunk);color:var(--muted);border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer}
+.fb-panel{position:sticky;top:12px;display:grid;gap:10px}
+.fb-list{margin:0;padding-left:18px;font-size:13px}
+.fb-title{margin:6px 0 10px;font-size:17px}
+.gcards{display:grid;gap:10px}
+.gcard{border:1px solid var(--line);border-radius:16px;padding:10px 16px;background:var(--surface)}
+.gcard summary{cursor:pointer;font-weight:700}.gcard summary small{font-weight:400;color:var(--muted)}
+.gcard ul{margin:8px 0 4px;padding-left:20px;line-height:1.75;font-size:14px}
+@media (max-width:860px){.fb-wrap{grid-template-columns:1fr}.fb-panel{position:static}}
 </style>
 
 <div class="page">
@@ -549,6 +596,11 @@ h4.sub{margin:10px 0 2px;font-size:14px;color:var(--ink)}
   <section class="subpage view" id="view-keywords" hidden>
   <section class="hero phero"><div><div class="hero-k">KEYWORDS</div><h2>유입 키워드</h2><p>어사이드가 매일 아침 정리하는 오늘의 키워드 추천이에요.</p></div></section>
 <section class="hcard"><div id="soon-kw"></div></section></section>
+  <section class="subpage view" id="view-coach" hidden>
+    <section class="hero phero"><div><div class="hero-k">COACH</div><h2>원고 코치</h2><p>말투 교정 · 원고 피드백 · 지침과 꿀팁을 한곳에서 해요.</p></div></section>
+    <div class="coach-tabs" id="coach-tabs" role="group" aria-label="원고 코치 탭"></div>
+    <section class="hcard coach-card"><div id="coach-body"></div></section>
+  </section>
   <section class="subpage view" id="view-tools" hidden>
     <section class="hero phero"><div><div class="hero-k">TOOLS</div><h2>툴</h2><p>자주 쓰는 곳으로 바로 가요. 누르면 새 탭으로 열려요.</p></div></section>
     <div class="tools-grid" id="tools-grid"></div>
@@ -959,7 +1011,7 @@ function renderList(){
 }
 
 function note(text){ const n = document.getElementById("save-note"); if (n) n.textContent = text; }
-function rerender(){ renderCounts(); renderWeek(); renderMonths(); renderArchive(); renderList(); if (typeof renderHome==="function") renderHome(); }
+function rerender(){ for (const f of [renderCounts, renderWeek, renderMonths, renderArchive, renderList]){ try{ f(); }catch(e){} } if (typeof renderHome==="function") renderHome(); }
 
 async function saveLocal(id, patch){
   local[id] = {...(local[id]||{}), ...patch};
@@ -1134,12 +1186,13 @@ function jsonBlock(text){
   return parts.length > 1 ? (tryParse(parts.map(p=>p.trim()).join("")) || tryParse(parts.join("\n"))) : null;
 }
 function unesc(s){ return s.replace(/\\([~*_\[\]()#>`|-])/g,"$1"); }
-const VIEWS = ["home","vault","calendar","stats","keywords","tools"];
+const VIEWS = ["home","vault","calendar","stats","keywords","coach","tools"];
 function showView(v, opts){
   if (!VIEWS.includes(v)) v = "home";
   HOME.view = v;
   for (const x of VIEWS){ const n = document.getElementById("view-"+x); if (n) n.hidden = x!==v; }
   renderQuick();
+  if (v==="coach"){ try{ renderCoach(); }catch(e){} }
   try{ if (opts && opts.pop) history.replaceState(null,"","#"+v); else if (location.hash!=="#"+v) history.pushState(null,"","#"+v); }catch(e){}
   window.scrollTo(0,0);
 }
@@ -1171,7 +1224,7 @@ function urgentDeadline(){
 }
 function shortTitle(s, n=14){ s = String(s); return s.length>n ? s.slice(0,n)+"…" : s; }
 
-const MENU = [["🏠","홈","home","var(--p-sky)"],["📁","원고보관함","vault","var(--p-lav)"],["🗓️","캘린더","calendar","var(--p-pink)"],["📊","통계","stats","var(--p-mint)"],["🔑","키워드","keywords","var(--p-pink)"],["🧰","툴","tools","var(--p-sky)"]];
+const MENU = [["🏠","홈","home","var(--p-sky)"],["📁","원고보관함","vault","var(--p-lav)"],["🗓️","캘린더","calendar","var(--p-pink)"],["📊","통계","stats","var(--p-mint)"],["🔑","키워드","keywords","var(--p-pink)"],["🎓","원고 코치","coach","var(--p-mint)"],["🧰","툴","tools","var(--p-sky)"]];
 function renderQuick(){
   document.getElementById("quick").replaceChildren(...MENU.map(([ic,label,v,bg])=>
     el("a",{href:"#"+v, "aria-current":HOME.view===v?"page":null, onclick:(e)=>{ e.preventDefault(); showView(v); }}, el("span",{class:"ic",style:"background:"+bg},ic), label)));
@@ -1286,9 +1339,9 @@ function cleanOrder(text){
   const bare = t.match(/https?:\/\/\S+/); if (bare){ if (!link) link = bare[0]; t = t.replace(/https?:\/\/\S+/g,""); }
   t = t.replace(/<\/?[a-z][^>]*>/gi,"").replace(/\b[0-9a-f]{32}\b/gi,"");
   const parts = t.split("|").map(x=>x.trim()).filter(x=>x && x!=="-");
-  const m = (parts[0]||"").match(/^(원고 작성|원고 수정)\s*:\s*(.*)$/);
+  const m = (parts[0]||"").match(/^(원고 작성|원고 수정|말투 기록 반영|규칙 추가)\s*:\s*(.*)$/);
   if (m){
-    const rest = parts.slice(1).filter(x=>!/^적용 가이드/.test(x) && !/^구성·경험|^가이드라인/.test(x));
+    const rest = parts.slice(1).filter(x=>!/^적용 가이드/.test(x) && !/^구성·경험|^가이드라인|^메인:|^서브:|^사진 메모|^링크 자리/.test(x));
     return {kind:m[1], title:m[2]||"(제목 없음)", sub: m[1]==="원고 수정" ? rest.filter(x=>!/^\d{4}-\d{2}-\d{2}_/.test(x)).slice(0,2).join(" · ") : "", link};
   }
   return {kind:"", title:parts.join(" · ") || t.trim(), sub:"", link};
@@ -1370,7 +1423,7 @@ async function loadOrders(){
     if (prev) for (const o of next) if (o.done && prev.get(orderKey(o))===false){ HOME.justDone[orderKey(o)] = Date.now(); setTimeout(renderOffice, 6500); }
     HOME.orders = next; HOME.ordersState = "ok";
   }catch(e){ if (!prev) HOME.ordersState = "off"; }
-  renderOrders(); renderTeam(); renderBell(); renderOffice(); renderTodo();
+  renderOrders(); renderTeam(); renderBell(); renderOffice(); renderTodo(); try{ renderCoach(true); }catch(e){}
 }
 
 // 업무기록 한 줄: "MM/DD HH:MM · [클로드] 내용" (옛 형식 "MM/DD HH:MM · 클로드 · 내용"도 읽음)
@@ -2069,35 +2122,8 @@ function writeControl(row){
     if (ord.done) return el("div",{class:"row"}, el("span",{class:"tag done"},"완료"), url ? el("a",{class:"sbtn",href:url,target:"_blank",rel:"noopener"},"원고 열기") : el("span",{class:"hint2"},"결과는 노션 업무지시에서 확인해 주세요"));
     return el("div",{class:"row"}, el("span",{class:"tag "+(ord.results.length?"":"wait")}, ord.results.length ? "작성 중" : "작성 대기"), url ? el("a",{class:"sbtn",href:url,target:"_blank",rel:"noopener"},"진행 보기") : null);
   }
-  const wrap = el("div",{class:"wform"}), msg = el("span",{class:"hint2"});
-  const open = el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:12px"},"원고 쓰기");
-  open.addEventListener("click",()=>{
-    const ta = (ph,label)=>el("textarea",{rows:"2",placeholder:ph,"aria-label":label,style:"width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:6px 9px;font:inherit;font-size:12px;resize:vertical"});
-    const flow = ta("내 구성·경험 흐름(선택) 예: 도입 직접 다녀온 얘기 → 방문 순서 → 아쉬운 점","구성·경험 흐름");
-    const guide = ta("가이드라인(선택) 협찬·업체 가이드를 그대로 붙여 넣으세요. 있으면 그 범위 안에서만 써요.","가이드라인");
-    const memo = el("input",{type:"text",placeholder:"기타 메모(선택)","aria-label":"원고 메모"});
-    const send = el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:12px"},"클로드에게 보내기");
-    send.addEventListener("click", async ()=>{
-      send.disabled = true; msg.textContent = "업무지시 보내는 중…";
-      const clean = (s)=>String(s||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
-      const body = "원고 작성: "+clean(row.title)+" | "+(clean(row.region)||"-")+" | "+(clean(row.type)||"-")+" | "+row.id+" | "+(clean(memo.value)||"-")+" | 구성·경험: "+(clean(flow.value)||"-")+" | 가이드라인: "+(clean(guide.value)||"-")+" | 적용 가이드: "+writeGuides(row).join(" + ");
-      try{ await pushOrder("클로드", body); wrap.dataset.open = ""; renderOrders(); renderTeam(); renderBell(); renderOffice(); renderTodo(); }
-      catch(e){ send.disabled = false; msg.textContent = failText(e); }
-    });
-    const file = el("input",{type:"file",accept:".txt,.md,.docx,.csv,.html,.json","aria-label":"가이드라인 파일",style:"font-size:11px;max-width:100%"});
-    file.addEventListener("change", async ()=>{
-      const f = file.files && file.files[0]; if (!f) return; msg.textContent = "파일 읽는 중…";
-      try{ let t = await readGuideFile(f); if (!t) throw new Error("empty"); let note = ""; if (t.length>8000){ t = t.slice(0,8000); note = " (너무 길어 앞 8,000자만 넣었어요)"; }
-        guide.value = (guide.value ? guide.value.trim()+"\n" : "")+t; msg.textContent = f.name+" 내용을 가이드라인에 넣었어요."+note; }
-      catch(e){ msg.textContent = "이 파일은 못 읽었어요. txt·md·docx만 돼요(PDF·HWP는 내용을 붙여 넣어 주세요)."; }
-      file.value = "";
-    });
-    const fileRow = el("label",{class:"hint2",style:"display:flex;flex-wrap:wrap;gap:6px;align-items:center"}, "가이드라인 파일 첨부 ", file);
-    const closeBtn = el("button",{class:"sbtn",type:"button","aria-label":"닫기"},"닫기 ✕");
-    closeBtn.addEventListener("click",()=>{ wrap.dataset.open = ""; wrap.replaceChildren(open, msg); msg.textContent = ""; renderTodo(); });
-    wrap.replaceChildren(flow, guide, fileRow, memo, el("div",{class:"row",style:"display:flex;gap:6px;align-items:center;flex-wrap:wrap"}, send, closeBtn), msg); flow.focus(); wrap.dataset.open = "1";
-  });
-  wrap.append(open, msg);
+  const wrap = el("div",{class:"wform"});
+  wrap.append(el("button",{class:"pbtn",type:"button",style:"padding:3px 12px;font-size:12px",onclick:()=>openWrite(row)},"원고 쓰기"));
   return wrap;
 }
 
@@ -2212,6 +2238,319 @@ function renderSoon(){
   }
 }
 
+// ===== 큰 입력 창 (원고 쓰기·업무지시) =====
+// 카드 안이 아니라 화면 가운데 큰 창(모바일은 전체 화면). 쓰던 내용은 칸마다 자동 저장돼서 닫아도 남는다.
+function lsGet(k, d){ try{ const v = localStorage.getItem(k); return v==null ? d : JSON.parse(v); }catch(e){ const m = COACH_MEM[k]; return m===undefined ? d : m; } }
+function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ COACH_MEM[k] = v; } }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} delete COACH_MEM[k]; }
+const COACH_MEM = {};
+function closeBigModal(){ const b = document.getElementById("bigmodal"); if (b) b.remove(); document.body.style.overflow = ""; }
+function bigModal(cfg){
+  closeBigModal();
+  const key = "dongbang.draft."+cfg.draftKey, saved = lsGet(key, null) || {}, vals = {};
+  for (const f of cfg.fields) vals[f.k] = saved[f.k]!=null ? saved[f.k] : (f.value||"");
+  const back = el("div",{class:"bm-back",id:"bigmodal"}), box = el("div",{class:"bm",role:"dialog","aria-modal":"true","aria-label":cfg.title});
+  const status = el("span",{class:"hint2"}, Object.values(saved).some(x=>String(x).trim()) ? "쓰던 내용을 불러왔어요." : "쓰는 내용은 자동으로 저장돼요.");
+  const sendBtn = el("button",{class:"pbtn",type:"button",style:"padding:9px 22px;font-size:15px"}, cfg.sendLabel||"클로드에게 보내기");
+  const closeBtn = el("button",{class:"sbtn",type:"button","aria-label":"닫기"},"닫기 ✕");
+  const save = ()=>lsSet(key, vals);
+  const grow = (ta)=>{ ta.style.height = "auto"; ta.style.height = Math.max(ta.scrollHeight+2, 0)+"px"; };
+  const rows = [];
+  for (const f of cfg.fields){
+    let inp;
+    if (f.kind==="area" || f.kind==="guide"){
+      inp = el("textarea",{rows:String(f.rows||4),placeholder:f.ph||"","aria-label":f.label});
+      inp.value = vals[f.k]||"";
+      inp.addEventListener("input",()=>{ vals[f.k] = inp.value; grow(inp); save(); });
+      setTimeout(()=>grow(inp), 30);
+    }else{
+      inp = el("input",{type:"text",placeholder:f.ph||"","aria-label":f.label,readonly:f.readonly?"":null});
+      inp.value = vals[f.k]||"";
+      inp.addEventListener("input",()=>{ vals[f.k] = inp.value; save(); });
+    }
+    f.el = inp;
+    const kids = [el("span",{}, f.label, f.hint ? el("small",{}, " "+f.hint) : null), inp];
+    if (f.kind==="guide"){
+      const file = el("input",{type:"file",accept:".txt,.md,.docx,.csv,.html,.json","aria-label":"가이드라인 파일",style:"font-size:13px;max-width:100%"});
+      file.addEventListener("change", async ()=>{
+        const fl = file.files && file.files[0]; if (!fl) return; status.textContent = "파일 읽는 중…";
+        try{ let t = await readGuideFile(fl); if (!t) throw new Error("empty"); let note = ""; if (t.length>8000){ t = t.slice(0,8000); note = " (너무 길어 앞 8,000자만 넣었어요)"; }
+          inp.value = (inp.value ? inp.value.trim()+"\n" : "")+t; vals[f.k] = inp.value; save(); grow(inp); status.textContent = fl.name+" 내용을 가이드라인에 넣었어요."+note; }
+        catch(e){ status.textContent = "이 파일은 못 읽었어요. txt·md·docx만 돼요(PDF·HWP는 내용을 붙여 넣어 주세요)."; }
+        file.value = "";
+      });
+      kids.push(el("label",{class:"hint2",style:"display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-weight:400"}, "파일 첨부 ", file));
+    }
+    rows.push(el("label",{class:"f"}, ...kids));
+  }
+  const send = async ()=>{
+    if (sendBtn.disabled) return;
+    if (cfg.check){ const msg = cfg.check(vals); if (msg){ status.textContent = msg; return; } }
+    sendBtn.disabled = true; status.textContent = "보내는 중…";
+    try{
+      await cfg.onSend(vals);
+      lsDel(key);
+      const done = el("div",{class:"bm-done"}, el("h3",{},"클로드에게 보냈어요"), el("p",{}, cfg.doneText||"다음 자동 처리 때 클로드가 처리해요."), el("button",{class:"pbtn",type:"button",onclick:()=>{ closeBigModal(); }},"닫기"));
+      box.replaceChildren(el("div",{class:"bm-head"}, el("b",{}, cfg.title)), done);
+    }catch(e){ sendBtn.disabled = false; status.textContent = failText(e); }
+  };
+  sendBtn.addEventListener("click", send);
+  closeBtn.addEventListener("click", ()=>{ closeBigModal(); try{ renderTodo(); }catch(e){} });
+  box.addEventListener("keydown", e=>{ if ((e.ctrlKey||e.metaKey) && e.key==="Enter"){ e.preventDefault(); send(); } else if (e.key==="Escape"){ e.preventDefault(); closeBtn.click(); } });
+  back.addEventListener("mousedown", e=>{ if (e.target===back) closeBtn.click(); });
+  box.append(el("div",{class:"bm-head"}, el("div",{}, el("b",{class:"bm-title"}, cfg.title), cfg.sub ? el("small",{}, cfg.sub) : null), closeBtn),
+    el("div",{class:"bm-body"}, ...rows),
+    el("div",{class:"bm-foot"}, sendBtn, el("span",{class:"hint2"},"Ctrl+Enter로도 보내요"), status));
+  back.append(box); document.body.append(back); document.body.style.overflow = "hidden";
+  const first = cfg.fields.find(f=>!f.readonly && f.kind!=="text") || cfg.fields.find(f=>!f.readonly);
+  if (first && first.el) setTimeout(()=>first.el.focus({preventScroll:true}), 50);
+}
+// 오늘 키워드 리포트에서 이 제목과 맞는 항목(메인·서브 키워드 자동 채우기용)
+function matchTop5(title){
+  const r = HOME.rep; if (!reportToday()) return null;
+  const nt = String(title).replace(/\s+/g,"");
+  let best = null, bs = 0;
+  for (const t of r.top5){
+    const cands = [t.topic, (t.main||{}).kw].filter(Boolean);
+    let sc = 0;
+    for (const c of cands){ const nc = String(c).replace(/\s+/g,""); if (nt.includes(nc) || nc.includes(nt)) sc = Math.max(sc, 9); else { const toks = kwTokens(c); const hit = toks.filter(w=>nt.includes(w)).length; if (hit>=2) sc = Math.max(sc, hit); } }
+    if (sc > bs){ bs = sc; best = t; }
+  }
+  return best;
+}
+function openWrite(row){
+  const m = matchTop5(row.title);
+  const clean = (s)=>String(s||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
+  bigModal({title:"원고 쓰기", sub:row.title, draftKey:"write."+row.id, doneText:"다음 자동 처리(10:40·14:40·17:40) 때 쓰고, 끝나면 이 항목에 원고 열기가 떠요.",
+    fields:[
+      {k:"topic",label:"주제",kind:"text",value:row.title,readonly:true,hint:"노션 제목(자동)"},
+      {k:"main",label:"메인 키워드",kind:"text",value:m?(m.main||{}).kw||"":"",ph:"예: 노량진 대방어",hint:m?"오늘 키워드 리포트에서 가져왔어요(고쳐도 돼요)":"리포트에 맞는 항목이 없어요. 직접 적어도 돼요"},
+      {k:"subs",label:"서브 키워드",kind:"text",value:m?(m.subs||[]).map(x=>x.kw).filter(Boolean).join(", "):"",ph:"쉼표로 구분"},
+      {k:"flow",label:"내 경험·구성",kind:"area",rows:12,ph:"다녀온 순서대로 편하게 써 주세요. 가격·시간·헤맨 곳·아쉬운 점까지. 예) 도입: 친구들이랑 갔는데… → 가는 길 → 먹은 것 → 아쉬운 점 → 마무리"},
+      {k:"photo",label:"사진 메모",kind:"area",rows:3,ph:"예: 가게 외관, 포장 전체 컷, 참기름장 만든 장면"},
+      {k:"guide",label:"가이드라인",kind:"guide",rows:6,ph:"협찬·업체 가이드를 그대로 붙여 넣으세요. 있으면 그 범위 안에서만 써요.",hint:"선택"},
+      {k:"link",label:"링크 자리",kind:"text",ph:"예: 도입 아래 제휴 링크 1개, 마무리 1개",hint:"선택"}],
+    onSend: async (v)=>{
+      const body = "원고 작성: "+clean(row.title)+" | "+(clean(row.region)||"-")+" | "+(clean(row.type)||"-")+" | "+row.id+" | - | 구성·경험: "+(clean(v.flow)||"-")+" | 가이드라인: "+(clean(v.guide)||"-")+" | 메인: "+(clean(v.main)||"-")+" | 서브: "+(clean(v.subs)||"-")+" | 사진 메모: "+(clean(v.photo)||"-")+" | 링크 자리: "+(clean(v.link)||"-")+" | 적용 가이드: "+writeGuides(row).join(" + ");
+      await pushOrder("클로드", body); renderOrders(); renderTeam(); renderBell(); renderOffice(); try{ renderTodo(); }catch(e){}
+    }});
+}
+function openOrderModal(){
+  bigModal({title:"업무지시", sub:"팀에게 시킬 일을 적어요", draftKey:"order", sendLabel:"업무지시 보내기", doneText:"담당은 곧 배정돼요.",
+    fields:[{k:"text",label:"할 일",kind:"area",rows:10,ph:"예: 다음 주 빈 날에 넣을 중국 원고 주제 3개 추천해 줘"}],
+    check:(v)=>String(v.text||"").trim() ? "" : "할 일을 먼저 적어 주세요.",
+    onSend: async (v)=>{ const text = v.text.replace(/\s+/g," ").trim().replace(/^[-*#>\s]+/,"").replace(/^\[담당\s*:[^\]]*\]\s*/,""); await pushOrder("자동", text); renderOrders(); renderTeam(); renderBell(); renderOffice(); }});
+}
+
+// ===== 원고 코치 (말투 교정기 · 원고 피드백 · 지침·꿀팁) =====
+const TONE = /*__TONE__*/null;
+const TONE_HISTORY = /*__TONE_HISTORY__*/[];
+const VISITED = /*__VISITED__*/[];
+const COACH = {tab:"tone", fb:{post:null, open:null}};
+const GUIDE_CARDS = [
+  {name:"말투 가이드", file:"써즈_말투가이드_2026-11.md", pts:[
+    "친한 언니가 다녀와서 알려 주는 해요체. 가격·시간·규정 같은 확정 사실만 합니다체를 섞어요.",
+    "한 줄은 띄어쓰기 빼고 15~17자 안팎, 2~4줄마다 빈 줄. 너무 잘게 끊지 않기.",
+    "독자를 \"여러분\"이라 부르지 않고 \"~하시는 분들\"처럼 상황으로 불러요(동행·시기·고민 중 두 개 이상).",
+    "문단 끝·링크 앞은 긍정으로: 이유 → 주의 → 장점 → 링크. \"그래도 ~ 방법은 있어요!\"",
+    "하지 않기: ✔✅ 체크리스트, 세 줄 요약, \"도움이 되셨길 바랍니다\", 안 가 본 곳 체험담, 확인 안 된 수치."]},
+  {name:"템플릿 5종 · 디자인 v2", file:"써즈_템플릿5종_2026-11.md", pts:[
+    "A 정보·이슈 / B 날씨 / C 정보 비교 / D 후기·장소 / E 후기·제품. 체험단은 D·E에 덧붙이는 옵션.",
+    "제목 블록(노란 영문 라벨 → 제목 2줄 → written by 써즈 → 짧은 선), 인사는 \"안녕하세요, 여행 블로거 써즈입니다.\" 한 줄.",
+    "섹션은 CHAPTER 01 + 남색 제목, 인용구·소제목은 글당 1번(Q&A가 있으면 '자주 묻는 질문'만).",
+    "하이라이트: 가격·조건 연노랑, 좋은 점 하늘, 핵심 한 줄 핑크(2~3곳), 주의는 파랑 굵게. 본문 글씨 #141414.",
+    "본문에 스티커·사진·지도·링크카드 자리 표시나 작업 메모를 넣지 않아요."]},
+  {name:"CPA(제휴) 글 규칙", file:"써즈_CPA글_구성가이드.md", pts:[
+    "도입 아래 요약 정보 표 + 링크, 선택지는 2~3개로 줄이기.",
+    "표 아래에 \"저라면 OO요\", 근거가 있을 때만 비추 1개, 사이트별 역할 구분.",
+    "링크 문구는 확인형, 불안 해소 한 줄, 쿠폰은 링크 옆. 기준일은 표 바로 아래 회색 한 줄.",
+    "마무리는 \"이 글 요약\" 3~4줄. 원고 끝 체크 메모는 본문 밖."]}
+];
+function orderParts(o){ const m = o.text.match(/^(.*?)\s*·\s*(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})$/); return {body: m?m[1]:o.text, when: m?m[2]:""}; }
+function stateTag(o){ const s = orderState(o); const label = o.done ? "처리 완료" : s; return el("span",{class:"tag "+(o.done?"done":s==="처리 중"?"work":"wait")}, label); }
+function ordersOf(prefix){ return [...HOME.orders].reverse().filter(o=>orderParts(o).body.startsWith(prefix)); }
+function renderCoach(auto){
+  const tabs = document.getElementById("coach-tabs"), body = document.getElementById("coach-body"); if (!tabs || !body) return;
+  if (auto && body.contains(document.activeElement) && /^(TEXTAREA|INPUT)$/.test(document.activeElement.tagName)) return;
+  tabs.replaceChildren(...[["tone","말투 교정기"],["fb","원고 피드백"],["rules","지침·꿀팁"]].map(([k,l])=>el("button",{type:"button","aria-pressed":String(COACH.tab===k),onclick:()=>{ COACH.tab=k; renderCoach(); }},l)));
+  body.replaceChildren();
+  if (COACH.tab==="tone") renderTone(body); else if (COACH.tab==="fb") renderFeedback(body); else renderRules(body);
+}
+
+// ① 말투 교정기: 한 화면에 한 문항
+function toneKey(){ return "dongbang.tone."+TONE.id; }
+function toneResult(S){
+  const lines = ["[써즈 말투 교정기 · "+TONE.dateLabel+" 결과]"];
+  const first = (t)=>{ const l = String(t).split("\n")[0]; return l.length>24 ? l.slice(0,24)+"…" : l; };
+  TONE.questions.forEach((q,i)=>{
+    const s = S.a["q"+(i+1)] || {};
+    lines.push((i+1)+". "+q.type+" ("+String(q.source).split(" · ")[0]+")");
+    if (!s.pick) lines.push("- 고른 답: 아직 안 고름");
+    else if (s.pick==="ok") lines.push("- 고른 답: "+(q.kind==="order"?"지금 순서 괜찮음":"원문 괜찮음"));
+    else if (s.pick==="own"){ lines.push("- 고른 답: 직접 고쳐 쓰기"); lines.push("- 직접 쓴 문장: "+(s.text||"(비어 있음)")); }
+    else { const o = q.options.find(x=>x.key===s.pick); lines.push("- 고른 답: "+s.pick+" · "+(o ? (q.kind==="order" ? o.order.join("→") : first(o.text))+" ("+o.hint+")" : "")); }
+    if (s.memo) lines.push("- 메모: "+s.memo);
+  });
+  return lines.join("\n");
+}
+function renderTone(box){
+  if (!TONE){ box.append(el("p",{class:"empty2"},"오늘 문항이 아직 없어요. 매일 아침 8시쯤 새 5문항이 올라와요.")); box.append(toneHistory()); return; }
+  const S = lsGet(toneKey(), null) || {a:{}, i:0, sent:false};
+  const n = TONE.questions.length, save = ()=>lsSet(toneKey(), S);
+  const stale = TONE.id < kstToday();
+  const head = el("div",{class:"tone-head"}, el("b",{}, TONE.dateLabel+" 말투 교정기"), stale ? el("span",{class:"hint2"},"오늘 문항은 아직 안 올라왔어요. 지금 문항은 "+TONE.dateLabel+" 것이에요.") : null);
+  box.append(head);
+  if (S.sent){
+    const ord = ordersOf("말투 기록 반영: "+TONE.dateLabel)[0];
+    box.append(el("div",{class:"tone-card center"}, el("h3",{},"오늘 "+n+"문항 완료"), el("p",{},"고른 답을 클로드에게 보냈어요. 말투 학습 기록에 반영돼요."),
+      ord ? el("p",{}, "처리 상태 ", stateTag(ord)) : null,
+      el("div",{class:"btnrow",style:"justify-content:center"}, el("button",{class:"sbtn",type:"button",onclick:()=>{ S.sent = false; S.i = 0; save(); renderCoach(); }},"답 다시 보기·고치기"))));
+    box.append(toneHistory()); return;
+  }
+  S.i = Math.max(0, Math.min(S.i||0, n-1));
+  const q = TONE.questions[S.i], qk = "q"+(S.i+1), cur = (S.a[qk] = S.a[qk] || {});
+  const card = el("div",{class:"tone-card"});
+  card.append(el("div",{class:"tprog",role:"progressbar","aria-valuemin":"0","aria-valuemax":String(n),"aria-valuenow":String(S.i+1)}, el("i",{style:"width:"+((S.i+1)/n*100)+"%"})),
+    el("div",{class:"tq-top"}, el("b",{class:"tnum"}, (S.i+1)+" / "+n), el("span",{class:"tag"}, q.type), el("small",{}, q.source)),
+    el("p",{class:"task"}, q.ask));
+  if (q.intent || (q.facts||[]).length){
+    card.append(el("div",{class:"tintent"}, q.intent ? el("p",{}, el("b",{},"쓴 이유 "), q.intent) : null, (q.facts||[]).length ? el("p",{}, el("b",{},"담은 정보 "), q.facts.join(" · ")) : null));
+  }
+  const orig = q.kind==="order" ? q.originalOrder.map(k=>k+"\n"+q.parts[k]).join("\n\n") : q.original;
+  card.append(el("div",{class:"tlabel"}, q.kind==="order" ? "지금 순서" : "원문"), el("div",{class:"tpara"}, orig)); if (q.cta) card.append(el("div",{class:"tpara cta"}, q.cta));
+  const opts = el("div",{class:"topts"});
+  const pick = (v)=>{ cur.pick = v; if (v==="own" && !cur.text) cur.text = orig; save(); renderCoach(); };
+  for (const o of q.options){
+    const txt = q.kind==="order" ? o.order.map(k=>k+"\n"+q.parts[k]).join("\n\n") : o.text;
+    opts.append(el("button",{class:"topt"+(cur.pick===o.key?" on":""),type:"button","aria-pressed":String(cur.pick===o.key),onclick:()=>pick(o.key)},
+      el("b",{}, o.key+(q.kind==="order" ? " · "+o.order.join(" → ") : "")), el("span",{class:"tpara"}, txt), el("small",{}, o.hint)));
+  }
+  opts.append(el("div",{class:"btnrow"},
+    el("button",{class:"topt mini"+(cur.pick==="ok"?" on":""),type:"button",onclick:()=>pick("ok")}, q.kind==="order" ? "지금 순서 괜찮음" : "원문 괜찮음"),
+    el("button",{class:"topt mini"+(cur.pick==="own"?" on":""),type:"button",onclick:()=>pick("own")},"직접 고쳐 쓰기")));
+  card.append(opts);
+  if (cur.pick==="own"){
+    const ta = el("textarea",{rows:"7",class:"tarea","aria-label":"직접 고쳐 쓰기",placeholder:"위 ‘쓴 이유’와 ‘담은 정보’대로 써즈 말투로 직접 써 주세요. 줄바꿈도 그대로 반영돼요."}); ta.value = cur.text||"";
+    ta.addEventListener("input",()=>{ cur.text = ta.value; save(); }); card.append(ta);
+  }
+  const memo = el("input",{type:"text",class:"tmemo",placeholder:"이유 한 줄(선택) 예: 매진은 앞에 터뜨리는 게 좋아","aria-label":"이유 한 줄"}); memo.value = cur.memo||"";
+  memo.addEventListener("input",()=>{ cur.memo = memo.value; save(); }); card.append(memo);
+  const last = S.i===n-1, ready = !!cur.pick && (cur.pick!=="own" || (cur.text||"").trim());
+  const sendMsg = el("span",{class:"hint2"});
+  const nav = el("div",{class:"btnrow tnav"},
+    el("button",{class:"sbtn",type:"button",disabled:S.i===0,onclick:()=>{ S.i--; save(); renderCoach(); }},"이전"),
+    el("button",{class:"pbtn",type:"button",disabled:!ready,style:"padding:10px 26px;font-size:15px",onclick:async(e)=>{
+      if (!last){ S.i++; save(); renderCoach(); return; }
+      const b = e.currentTarget; b.disabled = true; sendMsg.textContent = "보내는 중…";
+      try{ await pushOrder("클로드","말투 기록 반영: "+TONE.dateLabel+" | "+toneResult(S).replace(/\s*\n+\s*/g," / ").replace(/[|]/g,"/")); S.sent = true; save(); renderOrders(); renderTeam(); renderBell(); renderCoach(); }
+      catch(err){ b.disabled = false; sendMsg.textContent = failText(err); }
+    }}, last ? "제출하기" : "다음"), sendMsg);
+  card.append(nav);
+  if (!ready) card.append(el("p",{class:"hint2"},"하나를 고르면 다음으로 넘어가요."));
+  box.append(card, toneHistory());
+}
+function toneHistory(){
+  const wrap = el("div",{class:"tone-hist"}, el("h4",{class:"sub"},"지난 말투 학습 기록"));
+  const sent = ordersOf("말투 기록 반영:").slice(0,5);
+  if (sent.length) wrap.append(el("div",{class:"hint2"}, "이 화면에서 보낸 기록: "), el("ul",{class:"hl"}, ...sent.map(o=>{ const p = orderParts(o); return el("li",{class:"pl"}, el("span",{class:"txt"}, p.body.split(" | ")[0].replace("말투 기록 반영: ","")+" 결과", el("small",{}, p.when)), stateTag(o)); })));
+  if (!TONE_HISTORY.length){ wrap.append(el("p",{class:"empty2"},"아직 학습 기록이 없어요.")); return wrap; }
+  wrap.append(el("ul",{class:"hl"}, ...TONE_HISTORY.map(h=>el("li",{}, el("details",{class:"rules"}, el("summary",{}, h.date+(h.title?" · "+h.title:"")), el("pre",{class:"tpre"}, h.body))))));
+  return wrap;
+}
+
+// ② 원고 피드백: 문단 옆 메모 + 전체 피드백 → 업무지시 '원고 수정'
+function fbKey(p){ return "dongbang.fb."+p.id; }
+function renderFeedback(box){
+  const F = COACH.fb;
+  if (!F.post){
+    const list = POSTS.filter(p=>{ const s = st(p.id); return s.status==="todo" || s.status==="scheduled"; }).sort((a,b)=>(st(a.id).day||"9999").localeCompare(st(b.id).day||"9999")||a.title.localeCompare(b.title));
+    box.append(el("p",{class:"hint2"},"미발행 원고 "+list.length+"편 중에서 골라요. 문단마다 메모를 달고 전체 피드백까지 적어 보내면 클로드가 고쳐요."));
+    box.append(el("ul",{class:"hl"}, ...list.slice(0,80).map(p=>{ const s = st(p.id); return el("li",{class:"pl"}, el("span",{class:"txt"}, el("b",{class:"otitle"}, p.title), el("small",{}, s.day ? md(s.day)+" 발행 예정" : "날짜 미정")), el("button",{class:"sbtn",type:"button",onclick:()=>{ F.post = p; renderCoach(); }},"피드백 쓰기")); })));
+    box.append(feedbackHistory()); return;
+  }
+  const p = F.post, D = lsGet(fbKey(p), null) || {memos:{}, overall:""}, saveD = ()=>lsSet(fbKey(p), D);
+  const tmp = document.createElement("div"); tmp.innerHTML = p.html;
+  const blocks = [...tmp.children].filter(c=>c.textContent.trim() || c.tagName==="TABLE");
+  const paper = el("div",{class:"fb-paper"});
+  const list = el("ol",{class:"fb-list"}), cnt = el("b",{});
+  const refresh = ()=>{
+    const keys = Object.keys(D.memos).filter(k=>D.memos[k] && D.memos[k].trim());
+    cnt.textContent = keys.length+"개";
+    list.replaceChildren(...keys.sort((a,b)=>a-b).map(k=>el("li",{}, el("b",{},"문단 "+(+k+1)+" "), String(D.memos[k]).slice(0,80))));
+  };
+  blocks.forEach((c,i)=>{
+    const wrap = el("div",{class:"fb-block"+(D.memos[i]?" has":"")}), holder = el("div",{class:"fb-memo"});
+    const snip = c.textContent.trim().replace(/\s+/g," ").slice(0,24);
+    const btn = el("button",{class:"fb-btn",type:"button","aria-label":"문단 "+(i+1)+" 메모",title:"이 문단에 메모"}, D.memos[i] ? "메모 ✎" : "+ 메모");
+    const open = ()=>{
+      const ta = el("textarea",{rows:"3",class:"tarea","aria-label":"문단 "+(i+1)+" 메모",placeholder:"이 문단을 어떻게 고치면 좋을지 적어 주세요"}); ta.value = D.memos[i]||"";
+      ta.addEventListener("input",()=>{ D.memos[i] = ta.value; wrap.classList.toggle("has", !!ta.value.trim()); btn.textContent = ta.value.trim() ? "메모 ✎" : "+ 메모"; saveD(); refresh(); });
+      holder.replaceChildren(ta); ta.focus();
+    };
+    btn.addEventListener("click", ()=>{ if (holder.firstChild) { holder.replaceChildren(); } else open(); });
+    wrap.append(el("div",{class:"fb-row"}, el("div",{class:"fb-text",html:null}), btn), holder);
+    wrap.querySelector(".fb-text").innerHTML = c.outerHTML;
+    wrap.dataset.snip = snip;
+    if (D.memos[i]) open();
+    paper.append(wrap);
+  });
+  const overall = el("textarea",{rows:"6",class:"tarea","aria-label":"전체 피드백",placeholder:"전체적으로 어떤가요? 예: 도입이 너무 길어요, 표 뒤 해설을 더 짧게, 말투가 딱딱해요"}); overall.value = D.overall||"";
+  overall.addEventListener("input",()=>{ D.overall = overall.value; saveD(); });
+  const msg = el("span",{class:"hint2"});
+  const sendBtn = el("button",{class:"pbtn",type:"button",style:"padding:10px 22px;font-size:15px"},"클로드에게 보내기");
+  sendBtn.addEventListener("click", async ()=>{
+    const idx = Object.keys(D.memos).filter(k=>D.memos[k] && D.memos[k].trim()).sort((a,b)=>a-b);
+    if (!idx.length && !D.overall.trim()){ msg.textContent = "메모나 전체 피드백을 하나는 적어 주세요."; return; }
+    const clean = (s)=>String(s||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
+    const wraps = [...paper.querySelectorAll(".fb-block")];
+    const target = idx.length ? idx.map(k=>"문단 "+(+k+1)+" 「"+(wraps[k] ? wraps[k].dataset.snip : "")+"」").join(" ・ ") : "-";
+    const how = idx.map(k=>(+k+1)+") "+clean(D.memos[k])).join(" ") + (D.overall.trim() ? (idx.length?" ":"")+"전체: "+clean(D.overall) : "");
+    sendBtn.disabled = true; msg.textContent = "보내는 중…";
+    try{
+      await pushOrder("클로드","원고 수정: "+clean(p.title)+" | "+clean(p.file)+" | "+(idx.length ? "특정 부분" : "전체")+" | "+target+" | "+how+" | "+(p.artifact||"-"));
+      D.memos = {}; D.overall = ""; lsDel(fbKey(p)); renderOrders(); renderTeam(); renderBell(); renderOffice();
+      F.post = null; F.sentMsg = "‘"+p.title+"’ 피드백을 보냈어요."; renderCoach();
+    }catch(e){ sendBtn.disabled = false; msg.textContent = failText(e); }
+  });
+  refresh();
+  const panel = el("aside",{class:"fb-panel"}, el("h4",{class:"sub"},"보낼 메모 ", cnt), list, el("label",{class:"f"}, el("b",{},"전체 피드백"), overall), el("div",{class:"btnrow"}, sendBtn, el("button",{class:"sbtn",type:"button",onclick:()=>{ F.post = null; renderCoach(); }},"다른 원고 고르기")), msg, el("p",{class:"hint2"},"쓰던 메모는 자동 저장돼요. 보내면 노션 업무지시에 '원고 수정'으로 들어가요."));
+  box.append(el("h3",{class:"fb-title"}, p.title), el("div",{class:"fb-wrap"}, paper, panel), feedbackHistory());
+}
+function feedbackHistory(){
+  const wrap = el("div",{class:"tone-hist"});
+  if (COACH.fb.sentMsg){ wrap.append(el("p",{class:"kw-sum"}, COACH.fb.sentMsg)); }
+  wrap.append(el("h4",{class:"sub"},"보낸 피드백 기록"));
+  const L = ordersOf("원고 수정:").slice(0,15);
+  if (!L.length){ wrap.append(el("p",{class:"empty2"},"아직 보낸 피드백이 없어요.")); return wrap; }
+  wrap.append(el("ul",{class:"hl"}, ...L.map(o=>{ const p = orderParts(o), c = cleanOrder(p.body); const rs = o.results.find(r=>r.url); return el("li",{class:"pl tall"}, el("span",{class:"txt"}, el("b",{class:"otitle"}, c.title), c.sub ? el("small",{}, c.sub) : null, el("small",{}, p.when)), rs ? el("a",{class:"sbtn",href:rs.url,target:"_blank",rel:"noopener"},"원고 보기") : null, stateTag(o)); })));
+  return wrap;
+}
+
+// ③ 지침·꿀팁
+function renderRules(box){
+  box.append(el("p",{class:"hint2"},"원고를 쓸 때 클로드가 읽는 규칙의 핵심만 모았어요. 원본은 라이브러리 파일이에요."));
+  const cards = el("div",{class:"gcards"});
+  for (const g of GUIDE_CARDS) cards.append(el("details",{class:"gcard",open:""}, el("summary",{}, g.name, el("small",{}, " "+g.file)), el("ul",{}, ...g.pts.map(t=>el("li",{}, t)))));
+  if (VISITED.length) cards.append(el("details",{class:"gcard"}, el("summary",{},"다녀온 곳 기준표", el("small",{}," 써즈_다녀온곳.md")), el("ul",{}, ...VISITED.map(t=>el("li",{}, t))), el("p",{class:"hint2"},"확인된 곳만 경험 문단을 써요. 나머지는 [경험 확인] 메모만 남겨요.")));
+  box.append(cards);
+  box.append(el("h4",{class:"sub"},"새 규칙·꿀팁 추가"));
+  const ta = el("textarea",{rows:"3",class:"tarea","aria-label":"새 규칙·꿀팁",placeholder:"예: 정보글에 숙소 끼워팔기 금지"}); ta.value = lsGet("dongbang.rule.draft","");
+  ta.addEventListener("input",()=>lsSet("dongbang.rule.draft", ta.value));
+  const msg = el("span",{class:"hint2"});
+  const add = el("button",{class:"pbtn",type:"button",onclick:async()=>{
+    const t = ta.value.replace(/\s*\n+\s*/g," / ").replace(/[|]/g,"/").trim(); if (!t){ msg.textContent = "규칙을 먼저 적어 주세요."; return; }
+    add.disabled = true; msg.textContent = "보내는 중…";
+    try{ await pushOrder("클로드","규칙 추가: "+t); ta.value = ""; lsDel("dongbang.rule.draft"); renderOrders(); renderTeam(); renderBell(); renderOffice(); renderCoach(); }
+    catch(e){ add.disabled = false; msg.textContent = failText(e); }
+  }},"규칙 추가");
+  box.append(ta, el("div",{class:"btnrow"}, add, msg), el("p",{class:"hint2"},"추가하면 아래 대기 목록에 쌓이고, 클로드가 라이브러리 파일에 합치면 ‘반영됨’으로 바뀌어요."));
+  const all = ordersOf("규칙 추가:"), wait = all.filter(o=>!o.done), done = all.filter(o=>o.done).slice(0,10);
+  const row = (o)=>{ const p = orderParts(o), t = p.body.replace(/^규칙 추가:\s*/,""); const res = o.results.map(r=>r.text).filter(Boolean)[0]; return el("li",{class:"pl tall"}, el("span",{class:"txt"}, el("b",{class:"otitle"}, t), res ? el("small",{}, res) : null, el("small",{}, p.when)), o.done ? el("span",{class:"tag done"},"반영됨") : stateTag(o)); };
+  box.append(el("h4",{class:"sub"},"대기 중 "+wait.length+"개"), wait.length ? el("ul",{class:"hl"}, ...wait.map(row)) : el("p",{class:"empty2"},"대기 중인 규칙이 없어요."));
+  box.append(el("h4",{class:"sub"},"최근 바뀐 규칙"), done.length ? el("ul",{class:"hl"}, ...done.map(row)) : el("p",{class:"empty2"},"아직 반영된 규칙이 없어요."));
+}
+
+
 // ===== 회의록 채팅창 (노션 '동방 회의록' JSON: 07:40·23:00 예약 작업이 씀) =====
 function meetSeen(){ try{ return JSON.parse(localStorage.getItem("dongbang.meetSeen")||"[]"); }catch(e){ return HOME.meetSeenMem||[]; } }
 function markMeetSeen(id){ const s = meetSeen(); if (s.includes(id)) return; s.push(id); const v = s.slice(-60); HOME.meetSeenMem = v; try{ localStorage.setItem("dongbang.meetSeen", JSON.stringify(v)); }catch(e){} }
@@ -2306,7 +2645,7 @@ function renderBell(){
   document.getElementById("bell-pop").replaceChildren(...(items.length ? items.map(([txt,fn])=>el("button",{type:"button",onclick:()=>{document.getElementById("bell-pop").hidden=true; fn();}},txt)) : [el("p",{class:"hint2",style:"padding:8px"},"새 알림이 없어요.")]));
 }
 
-function renderHome(){ renderOneLine(); renderOffice(); renderProfile(); renderStats(); renderTodo(); renderWhat(); renderCalendar(); renderSeason(); renderBell(); }
+function renderHome(){ for (const f of [renderOneLine, renderOffice, renderProfile, renderStats, renderTodo, renderWhat, renderCalendar, renderSeason, renderBell]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
 function loadHome(){ if (!mcp){ HOME.statsState=HOME.ordersState=HOME.logState=HOME.seasonState="off"; HOME.meet.state="off"; HOME.repState="off"; if (HOME.kwState==="loading") HOME.kwState="off"; renderHome(); renderOrders(); renderLog(); renderKeywords(); renderReportFull(); renderStatsView(); renderMeet(); return; } loadStats(); loadOrders(); loadLog(); loadKeywords(); loadReport(); loadSeason(); loadMeetings(); }
 
 renderQuick(); renderOrders(); renderLog(); renderKeywords(); renderHome(); renderTools(); renderSoon(); renderMeet(); watchMeet();
@@ -2322,7 +2661,8 @@ document.getElementById("cal-prev").addEventListener("click", ()=>{ HOME.calMont
 document.getElementById("cal-next").addEventListener("click", ()=>{ HOME.calMonth = addMonths(HOME.calMonth,1); renderCalendar(); renderSeason(); });
 document.getElementById("cal-today").addEventListener("click", ()=>{ HOME.calMonth = kstToday().slice(0,7); renderCalendar(); renderSeason(); });
 try{ const h = (location.hash||"").slice(1); if (VIEWS.includes(h) && h!=="home") showView(h); }catch(e){}
-document.getElementById("order-btn").addEventListener("click", ()=>{ goto("h-order","home"); setTimeout(()=>document.getElementById("order-text").focus({preventScroll:true}), 400); });
+document.getElementById("order-btn").addEventListener("click", ()=>openOrderModal());
+document.getElementById("order-text").addEventListener("focus", e=>{ e.target.blur(); openOrderModal(); });
 document.addEventListener("click", e=>{ if (HOME.peek && !e.target.closest(".spr")){ HOME.peek = null; HOME.peekLock = false; if (stageOn()) stageSync(); } if (!e.target.closest(".searchbox")) document.getElementById("search-pop").hidden = true; if (!e.target.closest(".bell-wrap")) document.getElementById("bell-pop").hidden = true; });
 document.addEventListener("keydown", e=>{ if (e.key==="Escape"){ document.getElementById("search-pop").hidden = true; document.getElementById("bell-pop").hidden = true; } });
 

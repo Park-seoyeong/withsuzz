@@ -111,10 +111,38 @@ const guidePath = join(dirname(draftsDir), "써즈_중국글_구성가이드.md"
 let guide = {};
 try { guide = parseChinaGuide(readFileSync(guidePath, "utf8")); } catch { console.warn("중국글 구성가이드를 읽지 못함:", guidePath); }
 
+
+// 원고 코치: 말투 교정기 문항(오늘 것)·학습 기록·다녀온 곳 표. 라이브러리 파일은 읽기만 한다.
+const libDir = dirname(draftsDir);
+let tone = null;
+try {
+  const h = readFileSync(join(draftsDir, "말투교정기", "써즈_말투교정기.html"), "utf8");
+  const m = h.match(/<script type="application\/json" id="quiz-data">([\s\S]*?)<\/script>/);
+  if (m) tone = JSON.parse(m[1]);
+} catch { console.warn("말투 교정기 문항을 읽지 못함"); }
+let toneHistory = [];
+try {
+  const md = readFileSync(join(libDir, "써즈_말투학습기록.md"), "utf8");
+  const sec = md.split("## 날짜별 기록")[1] || "";
+  for (const part of sec.split(/\n(?=### )/)) {
+    const h = part.match(/^###\s*(\d{4}-\d{2}-\d{2})\s*(.*)$/m);
+    if (!h) continue;
+    const body = part.replace(/^###.*\n/, "").trim();
+    toneHistory.push({ date: h[1], title: h[2].trim(), body });
+  }
+  toneHistory.sort((a, b) => b.date.localeCompare(a.date));
+} catch { console.warn("말투 학습 기록을 읽지 못함"); }
+let visited = [];
+try {
+  const md = readFileSync(join(libDir, "써즈_다녀온곳.md"), "utf8");
+  const sec = md.split("## 확인됨")[1] || "";
+  visited = sec.split(/\n## /)[0].split("\n").filter((l) => l.startsWith("- ")).map((l) => l.slice(2).replace(/\s*\(.*$/, "").trim()).filter(Boolean);
+} catch { console.warn("다녀온 곳 표를 읽지 못함"); }
+const jsonSafe = (x) => JSON.stringify(x).replace(/</g, "\\u003c");
 const tpl = readFileSync(join(here, "template.html"), "utf8");
 const data = JSON.stringify(posts).replace(/</g, "\\u003c");
 const guideData = JSON.stringify(guide).replace(/</g, "\\u003c");
-const out = tpl.replace("/*__POSTS__*/[]", data).replace("/*__GUIDE_CHINA__*/{}", guideData).replace("__BUILT__", new Date().toISOString())
+const out = tpl.replace("/*__POSTS__*/[]", data).replace("/*__GUIDE_CHINA__*/{}", guideData).replace("/*__TONE__*/null", () => jsonSafe(tone)).replace("/*__TONE_HISTORY__*/[]", () => jsonSafe(toneHistory)).replace("/*__VISITED__*/[]", () => jsonSafe(visited)).replace("__BUILT__", new Date().toISOString())
   // 동방.zip 그림: img/<이름>.webp → data URI (template의 DONGBANG.images 자리)
   .replace(/__IMG_([a-z_]+)__/g, (m, name) => {
     try { return "data:image/webp;base64," + readFileSync(join(here, "img", name + ".webp")).toString("base64"); }
