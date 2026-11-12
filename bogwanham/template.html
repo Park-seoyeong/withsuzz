@@ -307,7 +307,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .tdot.t-auto{background:var(--sunk)!important;color:var(--muted)}
 .next-note{font-size:11px;color:var(--muted);margin:0}
 /* 월간 달력 + 시즌 소재 */
-.cal-grid.one{grid-template-columns:minmax(0,1fr)!important}.cal-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.cstat{display:grid;gap:8px;margin:6px 0 14px}.cstat h4{margin:0;font-size:14px}.cbar{display:grid;grid-template-columns:96px minmax(0,1fr) 84px;gap:10px;align-items:center;font-size:13px}.cbar .tr{height:12px;border-radius:99px;background:#EEF2F8;overflow:hidden}.cbar .tr i{display:block;height:100%;border-radius:99px;background:var(--p-sky)}.cbar.c2 .tr i{background:var(--p-lav)}.cbar span:last-child{text-align:right;color:var(--muted)}.cstat small{color:var(--muted);font-size:12px;line-height:1.5}.cal-grid.one{grid-template-columns:minmax(0,1fr)!important}.cal-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
 .cal-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .cal-head h3{margin:0;font:700 16px var(--round);letter-spacing:.06em}
 .cal-nav{margin-left:auto;display:flex;gap:6px;align-items:center}
@@ -322,7 +322,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .cal-cell.over{border-color:var(--over-line);background:var(--over-bg)}
 .cal-cell .dn{font-size:11px;color:var(--muted);display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
 .cal-cell .dn b{font-weight:700;color:var(--ink)}
-.ci.sponsor{color:#4B2F9E;font-weight:800;box-shadow:inset 0 0 0 1.5px #B9A6EB}
+.ci.sponsor{color:#1E4FA8;font-weight:800;box-shadow:inset 0 0 0 1.5px #8FB1EC}
 .ci{display:block;width:100%;text-align:left;border:0;border-radius:8px;padding:2px 5px;font-size:11px;line-height:1.35;color:#4A5568;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none;background:var(--p-lav)}
 .ci.s-published{background:var(--p-mint)}.ci.s-scheduled{background:var(--p-sky)}.ci.s-todo{background:var(--p-lav)}
 .ci.insta{box-shadow:inset 0 0 0 1px var(--p-pink)}
@@ -352,7 +352,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .undated h4{margin:0 0 8px;font:700 13px var(--round)}
 .undated ul{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .undated li a,.undated li button{border:0;border-radius:999px;padding:4px 11px;font-size:12px;background:var(--p-lav);color:#4A5568;text-decoration:none;cursor:pointer}
-.undated li.sponsor a,.undated li.sponsor button{color:#4B2F9E;font-weight:800;box-shadow:inset 0 0 0 1.5px #B9A6EB}
+.undated li.sponsor a,.undated li.sponsor button{color:#1E4FA8;font-weight:800;box-shadow:inset 0 0 0 1.5px #8FB1EC}
 .cal-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted)}
 .cal-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:-1px}
 .season{max-height:760px;grid-template-rows:none}
@@ -768,6 +768,10 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
         <div class="cal" id="cal"></div>
         <div class="cal-legend" id="cal-legend"></div>
         <div class="undated" id="cal-undated"></div>
+      </section>
+      <section class="hcard" aria-labelledby="h-calstat" id="cal-stats-card">
+        <div class="hcard-head"><h3 id="h-calstat">이번 달 주제 통계</h3><span class="deco" id="calstat-sub"></span></div>
+        <div id="cal-stats"></div>
       </section>
     </div>
   </section>
@@ -2507,10 +2511,42 @@ function renderCalendar(){
       el("div",{class:"dn"}, el("b",{}, String(Number(d.slice(8,10)))), bc?el("span",{}, bc+"편"):null),
       ...chips, items.length>MAXV ? el("button",{type:"button",class:"cal-more",onclick:()=>{ (HOME.calOpen = HOME.calOpen||new Set()).add(d); renderCalendar(); }},"+"+(items.length-MAXV)+"편 더 보기") : (open && items.length>3 ? el("button",{type:"button",class:"cal-more",onclick:()=>{ HOME.calOpen.delete(d); renderCalendar(); }},"접기") : null)));
   }
-  box.replaceChildren(...kids); renderUndated();
+  box.replaceChildren(...kids); renderUndated(); try{ renderCalStats(); }catch(e){ if (window.console) console.warn(e); }
   document.getElementById("cal-legend").replaceChildren(
     el("span",{},el("i",{style:"background:var(--p-mint)"}),"게시됨"), el("span",{},el("i",{style:"background:var(--p-sky)"}),"예약됨"), el("span",{},el("i",{style:"background:var(--p-lav)"}),"아이디어"),
-    el("span",{},"★ 마감"), el("span",{class:"sponsor-leg"},"체험단·협찬 글은 진한 보라"), el("span",{},el("i",{style:"background:#E58AA0;width:6px;height:6px"}),"중국 글"), el("span",{},"🌸☀️🍁❄️ 시즌"), el("span",{},el("i",{style:"background:var(--over-bg);box-shadow:inset 0 0 0 1.5px var(--over-line)"}),"하루 3편 넘음"), el("span",{},"✎ 원고 없는 글은 눌러서 원고 쓰기"), el("span",{},"날짜 없는 원고는 아래 따로 모아 봐요"));
+    el("span",{},"★ 마감"), el("span",{class:"sponsor-leg"},"체험단·협찬 글은 진한 파랑"), el("span",{},el("i",{style:"background:#E58AA0;width:6px;height:6px"}),"중국 글"), el("span",{},"🌸☀️🍁❄️ 시즌"), el("span",{},el("i",{style:"background:var(--over-bg);box-shadow:inset 0 0 0 1.5px var(--over-line)"}),"하루 3편 넘음"), el("span",{},"✎ 원고 없는 글은 눌러서 원고 쓰기"), el("span",{},"날짜 없는 원고는 아래 따로 모아 봐요"));
+}
+
+// ===== 캘린더 하단: 이번 달 주제 통계 (블로그 글만, 인스타 제외) =====
+const FOOD_RX = /맛집|식당|레스토랑|카페|디저트|빵|베이커리|맥주|이자카야|술집|밥집|먹|라멘|우동|스시|초밥|오마카세|뷔페|브런치|푸드|미식|간식|혼밥|웨이팅|메뉴|맛/;
+function calStatItems(ym){
+  const out = [], y = Number(ym.slice(0,4)), m = Number(ym.slice(5,7)), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  for (let dd=1; dd<=days; dd++){ const d = ym+"-"+String(dd).padStart(2,"0"); for (const it of calItemsFor(d)){ if (!it.insta) out.push(it); } }
+  return out;
+}
+function calStatKind(it){
+  const r = it.row || {}, reg = r.region||"", ty = r.type||"";
+  const area = FOOD_RX.test(it.title) ? "맛집·리뷰" : (reg==="국내" ? "국내" : reg ? "해외" : "분류 없음");
+  const kind = ty==="협찬" ? "체험단·협찬" : ty==="후기" ? "후기" : ty==="이슈" ? "이슈" : ty==="정보성" ? "정보" : "분류 없음";
+  return {area, kind};
+}
+function renderCalStats(){
+  const box = document.getElementById("cal-stats"); if (!box) return;
+  const ym = HOME.calMonth, y = Number(ym.slice(0,4)), m = Number(ym.slice(5,7));
+  const items = calStatItems(ym), n = items.length;
+  document.getElementById("h-calstat").textContent = (ym===kstToday().slice(0,7) ? "이번 달" : m+"월")+" 주제 통계";
+  document.getElementById("calstat-sub").textContent = y+"년 "+m+"월 · 블로그 "+n+"편";
+  if (!n){ box.replaceChildren(el("p",{class:"muted"}, notionState==="loading" ? "노션 불러오는 중…" : "이 달에 잡힌 블로그 글이 없어요.")); return; }
+  const kinds = items.map(calStatKind);
+  const block = (title, key, order, cls, note)=>{
+    const cnt = new Map(order.map(k=>[k,0])); kinds.forEach(k=>cnt.set(k[key], (cnt.get(k[key])||0)+1));
+    return el("div",{class:"cstat"}, el("h4",{}, title),
+      ...[...cnt.entries()].filter(([k,c])=>c>0 || k!=="분류 없음").map(([k,c])=>el("div",{class:"cbar "+cls}, el("span",{},k), el("span",{class:"tr"}, el("i",{style:"width:"+Math.round(c/n*100)+"%"})), el("span",{}, c+"편 · "+Math.round(c/n*100)+"%"))),
+      note ? el("small",{}, note) : null);
+  };
+  box.replaceChildren(
+    block("지역·주제","area",["해외","국내","맛집·리뷰","분류 없음"],"c1","제목에 맛집·카페·먹거리 말이 있으면 '맛집·리뷰', 나머지는 노션 구분(일본·중국·동남아·해외=해외)으로 나눠요."),
+    block("글 종류","kind",["후기","정보","이슈","체험단·협찬","분류 없음"],"c2","노션 콘텐츠 유형 기준이에요. 협찬은 체험단으로 묶었어요."));
 }
 
 // ===== 시즌 소재 추천: 노션 '시즌별 소재 추천 (월별)' JSON을 읽음 =====
