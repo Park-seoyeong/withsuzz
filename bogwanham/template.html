@@ -1088,7 +1088,7 @@ function renderWeek(){
       if (isBlog(row)) chips.push(el("button",{class:ccls,type:"button",title:"원고 파일 없음 · 눌러서 "+(writeOrderFor(row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(row)},"✎ "+label));
       else chips.push(el("a",{class:ccls,href:notionLink(row.id),target:"_blank",rel:"noopener",title:"원고 파일 없음 · 노션에서 열기"},label));
     }
-    const bc = blogCount(d), over = bc > MAX_PER_DAY;
+    const bc = blogCount(d), over = bc > MAX_PER_DAY && d >= today;
     days.append(el("div",{class:"day"+(d===today?" today":"")+(over?" over":""),title:over?"블로그 글이 하루 "+MAX_PER_DAY+"편을 넘어요":null},
       el("div",{class:"day-label"},el("b",{},DAYNAMES[weekday(d)]),el("span",{},md(d)+(bc?" · "+bc+"편":""))),
       el("div",{style:"display:grid;gap:4px;min-width:0"}, chips.length?chips:el("span",{class:"day-label"},"—"))
@@ -1253,7 +1253,7 @@ function renderArchive(){
       el("div",{class:"card-row"},
         s.day?el("span",{class:"pill late"},"날짜 지남 "+md(s.day)):el("span",{class:"pill todo"},"날짜 미정"),
         sm?el("span",{class:"pill season",title:"시즌 "+sm+"월까지"},seasonEmoji(sm)+" ~"+sm+"월"):null,
-        el("span",{class:"day-label"},"작성 "+md(p.written)+(s.notion?"":" · 노션 미연결"))),
+        el("span",{class:"day-label"},"작성 "+md(wDay(p))+(s.notion?"":" · 노션 미연결"))),
       el("div",{class:"card-row"}, dayIn, btn),
       warn));
   }
@@ -1376,7 +1376,7 @@ function renderList(){
     const s = st(p.id);
     list.append(el("li",{}, el("button",{class:"item",type:"button","aria-current":String(selected===p.id),onclick:()=>select(p.id)},
       el("span",{class:"item-title"+dlClass(p)},...titleWithDeadline(p)),
-      el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(p.written)), s.notion?null:el("span",{},"· 노션 미연결"), (()=>{ const c = postCat(p); return el("span",{class:"tag"}, c.area+" · "+c.kind); })())
+      el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(wDay(p))), s.notion?null:el("span",{},"· 노션 미연결"), (()=>{ const c = postCat(p); return el("span",{class:"tag"}, c.area+" · "+c.kind); })())
     )));
   }
 }
@@ -1580,7 +1580,7 @@ async function loadNotion(refresh){
     notion.clear();
     for (const r of all){
       const id = pageIdFromUrl(r.url); if (!id) continue;
-      notion.set(id, {id, title:r.title||"(제목 없음)", day:(r.d||"").slice(0,10), status:r.status||"아이디어", platform:r.platform||"", region:r.region||"", type:r.type||"", area:r.area||"", kind:r.kind||"", cta:r.cta});
+      notion.set(id, {id, title:String(r.title||"").replace(/\s*\(\d\)\s*$/,"")||"(제목 없음)", day:(r.d||"").slice(0,10), status:r.status||"아이디어", platform:r.platform||"", region:r.region||"", type:r.type||"", area:r.area||"", kind:r.kind||"", cta:r.cta});
     }
     notionState = "ok";
   }catch(e){
@@ -1708,7 +1708,7 @@ function renderProfile(){
     avatar("profile","big"),
     el("div",{class:"who"}, el("b",{},"써즈 동방장"), el("span",{},"써즈의 동네방네 · withsuzz")),
     el("div",{class:"nums"},
-      el("div",{},el("b",{},num(visitInfo().n)),"오늘 방문자", freshTag(visitInfo().at)),
+      el("div",{},el("b",{},num(visitInfo().n)),"오늘 방문자 (지금까지)", freshTag(visitInfo().at)),
       el("div",{},el("b",{},num(pubVal("neighbors"))),"이웃"),
       el("div",{},el("b",{},num(pubVal("totalVisitors"))),"누적 방문자"),
       el("div",{},el("b",{},String(unpublishedCount())),"미발행 원고")));
@@ -1787,20 +1787,22 @@ function cleanOrder(text){
 }
 function orderWriteInfo(o){ const m = String(o.text).match(/^원고 작성:\s*([^|]*?)\s*\|[^|]*\|[^|]*\|\s*([0-9a-f]{32})\s*\|/i); return m ? {title:m[1], notionId:m[2].toLowerCase()} : null; }
 
+function wDay(p){ const t=kstToday(); return p.written>t ? t : p.written; }
+function maskSecret(t){ return String(t).replace(/(비밀번호|비번|패스워드|password|pw)\s*(?:는|은|:|：|=)?\s*[^\s,·|)]{3,}/gi,"$1 ●●●●"); }
 function parseOrders(text){
   const body = (text.match(/<content>([\s\S]*?)<\/content>/)||[,text])[1];
   const out = []; let cur = null;
   for (const raw of body.split("\n")){
     const top = raw.match(/^- \[( |x|X)\]\s+(.*)$/);
     if (top){
-      let t = unesc(top[2]).trim(), owner = "클로드";
+      let t = maskSecret(unesc(top[2])).trim(), owner = "클로드";
       const m = t.match(/^\[담당\s*:\s*(클로드|지피티|어사이드|자동)\]\s*/);
       if (m){ owner = m[1]; t = t.slice(m[0].length); }
       cur = {done: top[1]!==" ", owner, text: t, results: []}; out.push(cur); continue;
     }
     const child = raw.match(/^(?:\t|\s{2,})+(?:[-*]\s+(?:\[[ xX]\]\s+)?)?(.+)$/);
     if (child && cur){
-      const line = unesc(child[1]).replace(/<\/?[a-z][^>]*>/gi,"").trim(); if (!line) continue;
+      const line = maskSecret(unesc(child[1])).replace(/<\/?[a-z][^>]*>/gi,"").trim(); if (!line) continue;
       if (/^클로드에 요청함/.test(line)) continue;
       if (/^처리 중/.test(line)){ cur.working = line; continue; }
       const link = line.match(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/) || line.match(/(https?:\/\/\S+)/);
@@ -1903,7 +1905,7 @@ function renderTeam(){
   const auto = HOME.orders.filter(o=>o.owner==="자동" && !o.done).length;
   box.replaceChildren(...[el("span",{class:"team-k"},"오늘의 팀"), ...TEAM.map(t=>{
     const mine = HOME.orders.filter(o=>o.owner===t.key);
-    const wait = mine.filter(o=>!o.done).length, done = mine.filter(o=>o.done).length;
+    const fin = o=>o.done || (o.results.length && /임시저장함|처리 완료|완료했|반영했|끝냈/.test(o.results.map(r=>r.text).join(" "))); const wait = mine.filter(o=>!fin(o)).length, done = mine.filter(fin).length;
     const ms = last[t.key];
     const showTime = t.key!=="클로드";
     const resting = showTime && (!ms || Date.now()-ms > 24*3600e3);
@@ -2636,12 +2638,12 @@ function renderCalendar(){
   const y = Number(ym.slice(0,4)), m = Number(ym.slice(5,7));
   document.getElementById("h-cal").textContent = (ym===cur ? "이번 달" : m+"월")+" 블로그 캘린더";
   let mp = 0; for (let dd=1; dd<=new Date(Date.UTC(y, m, 0)).getUTCDate(); dd++) mp += blogCount(ym+"-"+String(dd).padStart(2,"0"));
-  document.getElementById("cal-sub").textContent = y+"년 "+m+"월 · "+(ym===cur?"이번 달 ":m+"월 ")+mp+"포";
+  document.getElementById("cal-sub").textContent = y+"년 "+m+"월 · "+(ym===cur?"이번 달 ":m+"월 ")+mp+"편";
   const first = ym+"-01", startDow = weekday(first), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const weeks = Math.ceil((startDow+days)/7), kids = DAYNAMES.map((n,i)=>el("div",{class:"cal-dow"+(i===0?" sun":"")}, n));
   for (let i=0; i<weeks*7; i++){
     const d = addDays(first, i-startDow), inMonth = d.slice(0,7)===ym;
-    const items = calItemsFor(d), bc = blogCount(d), over = bc>MAX_PER_DAY;
+    const items = calItemsFor(d), bc = blogCount(d), over = bc>MAX_PER_DAY && d >= today;
     const open = HOME.calOpen && HOME.calOpen.has(d), MAXV = open ? 99 : 10;
     const chips = items.slice(0,MAXV).map(it=>{
       const sm = seasonMonth({title:it.title, file:""}), p = it.post;
@@ -3329,6 +3331,7 @@ function renderHomeFlow(){
 // 홈 ① 인사 + 지금 할 일
 function renderHomeNow(){
   const hello = document.getElementById("hello"), box = document.getElementById("t-now"); if (!hello || !box) return;
+  if (notionState==="loading"){ hello.replaceChildren("써즈님, 오늘 할 일을 불러오는 중이에요…"); box.replaceChildren(el("p",{class:"muted"},"노션 불러오는 중…")); return; }
   const t = kstToday(), today = itemsOnDay(t), left = today.filter(i=>!i.published).length, quota = dayQuota(today), show = Math.min(left, quota);
   const pubTodayN = today.filter(i=>i.published).length;
   hello.replaceChildren(...["써즈님, ", ...(show>0 ? ["오늘은 ", el("em",{},"원고 "+show+"편"), "만 올리면 돼요"] : [today.length ? (left>0 ? "오늘 "+pubTodayN+"편 올렸어요" : "오늘 올릴 원고는 다 끝났어요") : "오늘은 올릴 원고가 없어요"]), " ", el("button",{class:"sbtn",type:"button",style:"font-size:13px;vertical-align:middle",onclick:openReportModal},"오늘 보고 보기")]);
