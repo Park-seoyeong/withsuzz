@@ -2496,7 +2496,7 @@ function renderCalendar(){
   for (let i=0; i<weeks*7; i++){
     const d = addDays(first, i-startDow), inMonth = d.slice(0,7)===ym;
     const items = calItemsFor(d), bc = blogCount(d), over = bc>MAX_PER_DAY;
-    const open = HOME.calOpen && HOME.calOpen.has(d), MAXV = open ? 99 : (window.innerWidth<=720 ? 2 : 3);
+    const open = HOME.calOpen && HOME.calOpen.has(d), MAXV = open ? 99 : 10;
     const chips = items.slice(0,MAXV).map(it=>{
       const sm = seasonMonth({title:it.title, file:""}), p = it.post;
       const kidsC = [it.china ? el("i",{class:"cn",title:"중국 글"}) : null, p && p.deadline ? el("span",{class:"star"},"★") : null, p && p.deadline ? el("span",{class:"dl"},"~"+md(p.deadline)) : null, sm ? seasonEmoji(sm)+" " : null, (it.insta?"[인] ":"")+it.title];
@@ -2509,7 +2509,7 @@ function renderCalendar(){
     });
     kids.push(el("div",{class:"cal-cell"+(inMonth?"":" out")+(d===today?" today":"")+(over?" over":""),title:over?"블로그 글이 하루 "+MAX_PER_DAY+"편을 넘어요":null},
       el("div",{class:"dn"}, el("b",{}, String(Number(d.slice(8,10)))), bc?el("span",{}, bc+"편"):null),
-      ...chips, items.length>MAXV ? el("button",{type:"button",class:"cal-more",onclick:()=>{ (HOME.calOpen = HOME.calOpen||new Set()).add(d); renderCalendar(); }},"+"+(items.length-MAXV)+"편 더 보기") : (open && items.length>3 ? el("button",{type:"button",class:"cal-more",onclick:()=>{ HOME.calOpen.delete(d); renderCalendar(); }},"접기") : null)));
+      ...chips, items.length>MAXV ? el("button",{type:"button",class:"cal-more",onclick:()=>{ (HOME.calOpen = HOME.calOpen||new Set()).add(d); renderCalendar(); }},"+"+(items.length-MAXV)+"편 더 보기") : (open && items.length>10 ? el("button",{type:"button",class:"cal-more",onclick:()=>{ HOME.calOpen.delete(d); renderCalendar(); }},"접기") : null)));
   }
   box.replaceChildren(...kids); renderUndated(); try{ renderCalStats(); }catch(e){ if (window.console) console.warn(e); }
   document.getElementById("cal-legend").replaceChildren(
