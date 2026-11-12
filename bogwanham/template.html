@@ -68,6 +68,7 @@ h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-heigh
 .chip{display:block;width:100%;text-align:left;border:0;border-radius:5px;padding:4px 6px;font-size:12px;line-height:1.35;background:var(--surface);color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip.s-published{background:var(--ok-soft);color:var(--ok)}
 .chip.s-published::before{content:"✓ "}
+.skipwrap{display:flex;gap:2px;align-items:stretch}.skipwrap .ci{flex:1;min-width:0}.skipx{border:0;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;padding:0 4px;border-radius:6px;opacity:.35}.skipx:hover,.skipx.ask{opacity:1;background:var(--p-pink,#ffd9e2);color:var(--fg)}
 .chip.s-late{background:var(--warn-soft);color:var(--warn)}
 .chip.s-scheduled{background:var(--sched-soft);color:var(--sched)}
 .chip.s-other{background:transparent;color:var(--muted);border:1px dashed var(--line)}
@@ -1018,7 +1019,7 @@ function linkedPostFor(notionId){ for (const p of POSTS) if ((local[p.id]||{}).n
 function isBlog(row){ return !/인스타/.test(row.platform||""); }
 function blogCount(d){
   let n = 0;
-  for (const row of notion.values()) if (row.day===d && isBlog(row)) n++;
+  for (const row of notion.values()) if (row.day===d && isBlog(row) && !SKIP.has(row.id)) n++;
   for (const p of POSTS){ const s = st(p.id); if (!s.row && s.day===d && s.status!=="hold") n++; }
   return n;
 }
@@ -2631,15 +2632,25 @@ function writeControl(row){
 
 // ===== 이번 달 블로그 캘린더 (노션 플래너를 월간 달력으로) =====
 function addMonths(ym, n){ const d = new Date(Date.UTC(Number(ym.slice(0,4)), Number(ym.slice(5,7))-1+n, 1)); return d.toISOString().slice(0,7); }
+// 안 쓸 소재: 노션 글은 지우지 않고 사이트 캘린더·목록에서만 숨겨요(보관함 db skip, 여러 기기 공유). 되돌리기는 맨 아래 "숨긴 소재"
+const SKIP = new Set();
+function skipRow(row){ SKIP.add(row.id); try{ if (db) db.doc("skip/"+row.id).set({title:row.title, at:new Date().toISOString()}); }catch(e){} rerender(); }
+function unskipRow(id){ SKIP.delete(id); try{ if (db) db.doc("skip/"+id).delete(); }catch(e){} rerender(); }
+function skipBtn(row){
+  if (!row || row.status==="게시됨") return null;
+  const b = el("button",{type:"button",class:"skipx",title:"안 쓸 소재로 빼기(노션 글은 그대로 두고 캘린더에서만 숨겨요)","aria-label":"안 쓸 소재로 빼기"},"✕");
+  b.addEventListener("click",(e)=>{ e.stopPropagation(); if (b.dataset.ask){ skipRow(row); } else { b.dataset.ask="1"; b.textContent="빼기?"; b.classList.add("ask"); setTimeout(()=>{ if (b.isConnected){ delete b.dataset.ask; b.textContent="✕"; b.classList.remove("ask"); } },3000); } });
+  return b;
+}
 function calItemsFor(d){
   const out = [];
-  for (const r of notion.values()){ if (r.day!==d) continue; out.push({title:r.title, status:FROM_NOTION[r.status]||"todo", china:r.region==="중국", insta:!isBlog(r), post:linkedPostFor(r.id), row:r}); }
+  for (const r of notion.values()){ if (r.day!==d || SKIP.has(r.id)) continue; out.push({title:r.title, status:FROM_NOTION[r.status]||"todo", china:r.region==="중국", insta:!isBlog(r), post:linkedPostFor(r.id), row:r}); }
   for (const p of POSTS){ const s = st(p.id); if (s.row || s.day!==d || s.status==="hold") continue; out.push({title:p.title, status:s.status, china:isChinaPost(p), insta:false, post:p, row:null}); }
   return out;
 }
 function undatedItems(){
   const out = [];
-  for (const r of notion.values()){ if (r.day || !isBlog(r) || r.status==="게시됨") continue; out.push({title:r.title, post:linkedPostFor(r.id), row:r, sp:r.type==="협찬"}); }
+  for (const r of notion.values()){ if (r.day || !isBlog(r) || r.status==="게시됨" || SKIP.has(r.id)) continue; out.push({title:r.title, post:linkedPostFor(r.id), row:r, sp:r.type==="협찬"}); }
   for (const p of POSTS){ const s = st(p.id); if (s.row || s.day || s.status==="published" || s.status==="hold") continue; out.push({title:p.title, post:p, row:null, sp:false}); }
   return out;
 }
@@ -2651,10 +2662,11 @@ function renderUndated(){
   const lis = list.slice(0,MAX).map(it=>{
     const ic = it.post ? el("button",{type:"button",title:"원고 열기",onclick:()=>openPost(it.post)}, shortTitle(it.title,26))
                        : el("button",{type:"button",class:"nopost",title:"원고 파일 없음, 눌러서 "+(writeOrderFor(it.row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(it.row)}, "✎ "+shortTitle(it.title,26));
-    return el("li",{class:it.sp?"sponsor":""}, ic);
+    return el("li",{class:it.sp?"sponsor":""}, ic, it.row && !it.post ? skipBtn(it.row) : null);
   });
   if (list.length>MAX) lis.push(el("li",{class:"hint2"},"외 "+(list.length-MAX)+"편 (원고보관함에서 보기)"));
-  box.replaceChildren(el("h4",{},"날짜 안 정해진 원고 "+list.length+"편"), list.length ? el("ul",{}, ...lis) : el("p",{class:"hint2"},"날짜가 비어 있는 원고가 없어요."));
+  const hid = [...SKIP].map(id=>notion.get(id)).filter(Boolean);
+  box.replaceChildren(el("h4",{},"날짜 안 정해진 원고 "+list.length+"편"), list.length ? el("ul",{}, ...lis) : el("p",{class:"hint2"},"날짜가 비어 있는 원고가 없어요."), hid.length ? el("details",{class:"rules"}, el("summary",{},"안 쓸 소재로 뺀 것 "+hid.length+"개"), el("ul",{}, ...hid.map(r=>el("li",{}, shortTitle(r.title,26), " ", el("button",{type:"button",class:"sbtn",onclick:()=>unskipRow(r.id)},"되돌리기"))))) : null);
 }
 function renderCalendar(){
   const box = document.getElementById("cal"); if (!box) return;
@@ -2676,7 +2688,7 @@ function renderCalendar(){
       const cls = "ci s-"+it.status+(it.insta?" insta":"")+(ty==="협찬"?" sponsor":"")+(p ? dlClass(p) : "");
       const tip = it.title+" · "+SHORT[it.status]+(p&&p.deadline?" · 마감 "+md(p.deadline):"");
       if (p) return el("button",{class:cls,type:"button",title:tip,onclick:()=>openPost(p)},...kidsC);
-      if (!it.insta) return el("button",{class:cls+" nopost",type:"button",title:tip+" · 원고 파일 없음, 눌러서 "+(writeOrderFor(it.row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(it.row)},"✎ ",...kidsC);
+      if (!it.insta){ const bt = el("button",{class:cls+" nopost",type:"button",title:tip+" · 원고 파일 없음, 눌러서 "+(writeOrderFor(it.row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(it.row)},"✎ ",...kidsC), x = skipBtn(it.row); return x ? el("div",{class:"skipwrap"}, bt, x) : bt; }
       return el("a",{class:cls,href:notionLink(it.row.id),target:"_blank",rel:"noopener",title:tip+" · 노션에서 열기"},...kidsC);
     });
     kids.push(el("div",{class:"cal-cell"+(inMonth?"":" out")+(d===today?" today":"")+(over?" over":""),title:over?"블로그 글이 하루 "+MAX_PER_DAY+"편을 넘어요":null},
@@ -3872,6 +3884,7 @@ selected = (visible()[0]||{}).id || null; renderList(); renderViewer();
     rerender(); if (!editing()) renderViewer();
     if (first){ first = false; loadNotion(false); }
   }, err=>{ clearTimeout(timer); note("저장소를 읽지 못했어요 ("+(err&&err.code||"오류")+")."); loadNotion(false); });
+  db.collection("skip").onSnapshot(snap=>{ SKIP.clear(); for (const d of snap.docs) SKIP.add(d.id); try{ rerender(); }catch(e){} }, ()=>{});
   db.collection("rss").onSnapshot(snap=>{
     rssItems.clear();
     for (const d of snap.docs){ const x = d.data()||{}; if (x.url) rssItems.set(x.url, x); }
