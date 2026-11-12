@@ -66,7 +66,8 @@ h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-heigh
 .day-label{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;display:flex;justify-content:space-between;gap:4px}
 .day-label b{color:var(--fg)}
 .chip{display:block;width:100%;text-align:left;border:0;border-radius:5px;padding:4px 6px;font-size:12px;line-height:1.35;background:var(--surface);color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chip.s-published{background:var(--ok-soft);color:var(--ok);text-decoration:line-through}
+.chip.s-published{background:var(--ok-soft);color:var(--ok)}
+.chip.s-published::before{content:"✓ "}
 .chip.s-late{background:var(--warn-soft);color:var(--warn)}
 .chip.s-scheduled{background:var(--sched-soft);color:var(--sched)}
 .chip.s-other{background:transparent;color:var(--muted);border:1px dashed var(--line)}
@@ -1085,7 +1086,7 @@ function renderWeek(){
       if (row.day!==d || linkedPostFor(row.id)) continue;
       const label = (row.platform==="인스타"?"[인스타] ":"")+row.title;
       const ccls = "chip s-other"+(row.status==="게시됨"?" s-published":(row.day<today?" s-late":""));
-      if (isBlog(row)) chips.push(el("button",{class:ccls,type:"button",title:"원고 파일 없음 · 눌러서 "+(writeOrderFor(row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(row)},"✎ "+label));
+      if (isBlog(row)) chips.push(el("button",{class:ccls,type:"button",title:"원고 파일 없음 · 눌러서 "+(writeOrderFor(row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(row)},(row.status==="게시됨" ? "✓ " : row.day<today ? "" : "✎ ")+label));
       else chips.push(el("a",{class:ccls,href:notionLink(row.id),target:"_blank",rel:"noopener",title:"원고 파일 없음 · 노션에서 열기"},label));
     }
     const bc = blogCount(d), over = bc > MAX_PER_DAY && d >= today;
@@ -3607,7 +3608,9 @@ function renderDetail(){
         try{ await pushOrder("어사이드", rb.make(memo.value)); msg2.textContent = "맡겼어요. 다음 확인 때(최대 30분) 시작해요."; renderOrders(); renderBell(); renderToss(); }catch(err){ x.disabled = false; msg2.textContent = failText(err); } }},"어사이드에게 사진 찾기 맡기기");
       return [el("p",{class:"muted"},"사진 자리 "+rb.n+"곳에 무료·공식 사진을 찾아 네이버에 임시저장해 줘요."+(p.artifact ? "" : " (이 원고는 아티팩트가 아직 없어서 맡길 수 없어요)")), memo, ask, own, msg2];
     },
-    4: ()=>[el("p",{class:"muted"},"네이버 글쓰기의 임시저장 목록에서 이 글을 열어 확인해요. 고칠 곳이 있으면 ‘고칠 곳 있어요’로 보내요."), el("a",{class:"tbtn",href:"https://blog.naver.com/withsuzz?Redirect=Write",target:"_blank",rel:"noopener",onclick:()=>{ setStep(p,"draft",true); }},"네이버에서 열어 보기"), el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.fb.back = HOME.cur; COACH.tab = "fb"; showView("coach"); }},"고칠 곳 있어요")],
+    4: ()=>[(()=>{ const mk = (String(p.html||"").replace(/<[^>]+>/g,"\n").match(/\[(?:확인 필요|경험 확인|써즈 후기)[^\]]*\]/g)||[]); const w = it.aside && it.aside.text ? it.aside.text : "";
+        return el("div",{class:"hint2"}, w ? el("p",{style:"margin:0 0 4px"}, w) : null, mk.length ? el("details",{open:""}, el("summary",{},"원고에서 확인할 곳 "+mk.length+"곳"), el("ul",{style:"margin:4px 0 0 18px;padding:0"}, ...mk.slice(0,12).map(x=>el("li",{},x.slice(0,70))))) : el("span",{},"원고에 확인 표시는 없어요")); })(),
+      el("p",{class:"muted"},"네이버 글쓰기의 임시저장 목록에서 이 글을 열어 확인해요. 고칠 곳이 있으면 ‘고칠 곳 있어요’로 보내요."), el("a",{class:"tbtn",href:"https://blog.naver.com/withsuzz?Redirect=Write",target:"_blank",rel:"noopener",onclick:()=>{ setStep(p,"draft",true); }},"네이버에서 열어 보기"), el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.fb.back = HOME.cur; COACH.tab = "fb"; showView("coach"); }},"고칠 곳 있어요")],
     5: ()=>{ const yes = el("button",{class:"tbtn",type:"button"},"발행 완료로 바꾸기");
       yes.addEventListener("click",()=>{ const ok = el("button",{class:"tbtn",type:"button"},"네, 발행했어요"), no = el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ msg.textContent = ""; }},"취소");
         ok.addEventListener("click", async()=>{ ok.disabled = true; msg.textContent = "저장 중…"; try{ await changeStatus(p.id,"published"); msg.textContent = "발행 완료로 바꿨어요."; celebrate("발행 완료!","토끼",it.title); }catch(e){ ok.disabled = false; msg.textContent = failText(e); } });
