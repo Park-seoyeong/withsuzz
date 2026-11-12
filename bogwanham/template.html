@@ -646,7 +646,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .olderm{margin-top:8px}
 .quick{overflow:visible}
 .frame.ftab.dots{display:grid;place-items:center;background:var(--sunk);font-size:16px;font-weight:700;color:var(--muted)}
-@media (max-width:720px){.quick{grid-template-columns:repeat(5,1fr)!important}.quick a{font-size:11px}}
+@media (max-width:720px){.quick{grid-template-columns:repeat(6,1fr)!important}.quick a{font-size:11px}}
 </style>
 
 <div class="page">
@@ -1477,7 +1477,7 @@ function jsonBlock(text){
 }
 function unesc(s){ return s.replace(/\\([~*_\[\]()#>`|-])/g,"$1"); }
 const VIEWS = ["home","vault","calendar","season","stats","keywords","coach","tools","more","post","team"];
-const TAB_OF = {team:"team", home:"home", vault:"vault", calendar:"calendar", coach:"vault", post:"vault", keywords:"more", season:"more", more:"more", stats:"more", tools:"more"};
+const TAB_OF = {team:"team", home:"home", vault:"vault", calendar:"calendar", coach:"vault", post:"vault", keywords:"keywords", season:"more", more:"more", stats:"more", tools:"more"};
 function showView(v, opts){
   if (!VIEWS.includes(v)) v = "home";
   HOME.view = v;
@@ -1517,8 +1517,8 @@ function urgentDeadline(){
 }
 function shortTitle(s, n=14){ s = String(s); return s.length>n ? s.slice(0,n)+"…" : s; }
 
-const MENU = [["🏠","홈","home"],["🗓️","캘린더","calendar"],["✍️","원고","vault"],["🏢","팀","team"],["⋯","더보기","more"]];
-const TAB_FACE = {home:"원고", calendar:"캘린더", vault:"키워드", team:"통계"};
+const MENU = [["🏠","홈","home"],["🗓️","캘린더","calendar"],["✍️","원고","vault"],["🔑","키워드","keywords"],["🏢","팀","team"],["⋯","더보기","more"]];
+const TAB_FACE = {home:"원고", calendar:"캘린더", vault:"원고", keywords:"키워드", team:"통계"};
 function renderQuick(){
   document.getElementById("quick").replaceChildren(...MENU.map(([ic,label,v])=>
     el("a",{href:"#"+v, "aria-current":TAB_OF[HOME.view]===v?"page":null, onclick:(e)=>{ e.preventDefault(); showView(v); }}, el("span",{class:"ic"}, imgOf(TAB_FACE[v]) ? avatar(TAB_FACE[v],"ftab") : el("span",{class:"frame ftab dots"},"⋯")), label)));
@@ -3319,7 +3319,7 @@ function renderMoreBanner(){
 }
 function renderMoreLinks(){
   renderMoreBanner();
-  const L = [["🌸","시즌 캘린더","season","월별 시즌 소재 추천"],["🎓","원고 코치","coach","말투·피드백·규칙"],["🔑","유입 키워드","keywords","추천·유입 키워드"],["📊","블로그 통계","stats","방문자·이웃"],["🧰","툴","tools","자주 쓰는 곳"]];
+  const L = [["🌸","시즌 캘린더","season","월별 시즌 소재 추천"],["🎓","원고 코치","coach","말투·피드백·규칙"],["📊","블로그 통계","stats","방문자·이웃"],["🧰","툴","tools","자주 쓰는 곳"]];
   for (const id of ["more-links","vault-links"]){
     const b = document.getElementById(id); if (!b) continue;
     const mine = id==="vault-links" ? L.slice(0,2) : L;
