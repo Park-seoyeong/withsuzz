@@ -656,12 +656,13 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 
 /* ===== 팀 탭 ===== */
 #view-team .office-wrap,#view-team .office{max-width:none;width:100%}
+#view-team .tstage .office-wrap{width:50%;min-width:340px;margin:0 auto}
+@media (max-width:700px){#view-team .tstage .office-wrap{width:100%;min-width:0}}
 #view-team{grid-template-columns:minmax(0,1fr)!important}
 #view-team .hcard{min-width:0;width:100%;grid-area:auto!important}
 #view-team .team .sc,#view-team .team>*{white-space:nowrap;writing-mode:horizontal-tb}
 #view-team .cast>*{min-width:0;word-break:keep-all}
 .tstage{padding:14px}
-.tstage .office-wrap{margin:0}
 .meetline{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
 .cbub.sm{font-size:14px;font-weight:500}.cbub.sm .nm2{color:var(--st-todo)}
 .cbub.sm::before{box-shadow:-1px 1px 0 var(--line)}
@@ -863,6 +864,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
         <div class="tabs" id="tabs" role="group" aria-label="상태로 거르기"></div>
         <b class="lh">주제 분류</b>
         <div id="catfilter"></div>
+        <div id="migrate-box"></div>
       </div>
     </aside>
     <section class="listbox" aria-label="원고 목록">
@@ -1303,10 +1305,33 @@ function renderTabs(){
 }
 
 function postCat(p){
-  const row = (st(p.id).row)||{}; const reg = row.region||"", ty = row.type||"";
-  const area = /일상|리뷰/.test(reg) ? "일상·리뷰" : reg ? (/^(일본|중국|동남아|해외)/.test(reg) ? "해외" : "국내") : (isChinaPost(p) ? "해외" : "분류 없음");
-  const kind = ty==="협찬" ? "체험단·협찬" : ty==="후기" ? "후기" : ty==="이슈" ? "이슈" : ty==="정보성" ? "정보" : "분류 없음";
-  return {area, kind};
+  const row = st(p.id).row || null;
+  const a = effArea(row) || (isChinaPost(p) ? "중국" : "");
+  return {area: areaGroup(a), kind: effKind(row) || "분류 없음", areaDetail: a};
+}
+const MIG = {running:false, done:0, total:0, msg:""};
+function migrateTargets(){ return [...notion.values()].filter(r=>isBlog(r) && (!r.area || !r.kind) && (r.region||r.type)); }
+function renderMigrate(){
+  const box = document.getElementById("migrate-box"); if (!box) return;
+  const todo = migrateTargets();
+  if (!todo.length && !MIG.running){ box.replaceChildren(MIG.msg ? el("small",{class:"hint2"},MIG.msg) : ""); return; }
+  const btn = el("button",{class:"pbtn",type:"button",style:"padding:5px 14px;font-size:13px",disabled:MIG.running?"":null}, MIG.running ? "옮기는 중 "+MIG.done+"/"+MIG.total : "노션 분류 새 칸으로 옮기기 ("+todo.length+"건)");
+  btn.addEventListener("click", async ()=>{
+    if (!mcp){ MIG.msg = failText({code:"notion_off"}); renderMigrate(); return; }
+    MIG.running = true; MIG.done = 0; MIG.msg = ""; const list = migrateTargets(); MIG.total = list.length; renderMigrate();
+    try{
+      for (const r of list){
+        const m = legacyMap(r), props = {};
+        if (!r.area && m.area) props["지역"] = m.area;
+        if (!r.kind && m.kind) props["글 종류"] = m.kind;
+        if (Object.keys(props).length){ await updateNotion(r.id, props); if (props["지역"]) r.area = props["지역"]; if (props["글 종류"]) r.kind = props["글 종류"]; }
+        MIG.done++; if (MIG.done%5===0) renderMigrate();
+      }
+      MIG.msg = "옮기기 끝: "+MIG.done+"건. 노션 '지역'·'글 종류' 칸에 들어갔어요.";
+    }catch(e){ MIG.msg = "중간에 멈췄어요("+MIG.done+"/"+MIG.total+"): "+failText(e); }
+    MIG.running = false; rerender();
+  });
+  box.replaceChildren(el("small",{class:"hint2"},"새 칸이 비어 있는 글을 지금 분류 규칙대로 채워요(노션에 저장)."), btn, MIG.msg ? el("small",{class:"hint2"},MIG.msg) : "");
 }
 function renderCatFilter(){
   const box = document.getElementById("catfilter"); if (!box) return;
@@ -1318,7 +1343,7 @@ function renderCatFilter(){
       el("button",{class:"tab",type:"button","aria-pressed":String(!cur),onclick:()=>{ set(""); renderList(); }},"전체 "+base.length),
       ...[...cnt.entries()].filter(([k,c])=>c>0).map(([k,c])=>el("button",{class:"tab",type:"button","aria-pressed":String(cur===k),onclick:()=>{ set(cur===k?"":k); renderList(); }},k+" "+c))));
   };
-  box.replaceChildren(grp("지역·주제","area",["해외","국내","일상·리뷰","분류 없음"],catArea,v=>{catArea=v;}), grp("글 종류","kind",["후기","정보","이슈","체험단·협찬","분류 없음"],catKind,v=>{catKind=v;}));
+  box.replaceChildren(grp("지역","area",["국내","해외","분류 없음"],catArea,v=>{catArea=v;}), grp("글 종류","kind",["정보","이슈","후기","일상리뷰","체험단·협찬","분류 없음"],catKind,v=>{catKind=v;}));
 }
 function visible(){
   const q = query.trim().toLowerCase();
@@ -1338,7 +1363,7 @@ function visible(){
 
 function renderList(){
   const list = document.getElementById("list"); list.replaceChildren();
-  try{ renderCatFilter(); }catch(e){}
+  try{ renderCatFilter(); renderMigrate(); }catch(e){}
   const rows = visible();
   if (!rows.length){ list.append(el("li",{class:"empty"}, query?"찾는 원고가 없어요.":"이 상태인 원고가 없어요.")); return; }
   for (const p of rows){
@@ -1472,7 +1497,7 @@ function openMsWin(){ const w = document.getElementById("mswin"); if (!w) return
 function closeMsWin(){ const w = document.getElementById("mswin"); if (w) w.hidden = true; document.body.style.overflow = ""; }
 document.getElementById("ms-close").addEventListener("click", closeMsWin);
 document.addEventListener("keydown",(e)=>{ if (e.key==="Escape" && msOpen() && !document.getElementById("bigmodal")) closeMsWin(); });
-const NOTION_OPTS = {"구분":["일본","중국","국내","해외","동남아","일상리뷰"], "콘텐츠 유형":["정보성","후기","협찬","이슈"]};
+const NOTION_OPTS = {get "지역"(){ return AREA_OPTS; }, get "글 종류"(){ return KIND_OPTS; }};
 function renderMsCat(p){
   const box = document.getElementById("ms-cat"); if (!box) return;
   const s = st(p.id), row = s.row, msg = el("span",{class:"hint2"});
@@ -1481,12 +1506,12 @@ function renderMsCat(p){
     const sl = el("select",{"aria-label":label,disabled:row?null:""}, el("option",{value:"",selected:!cur},"(비어 있음)"), ...opts.map(o=>el("option",{value:o,selected:o===cur},o)));
     sl.addEventListener("change", async ()=>{
       const v = sl.value; msg.textContent = "노션에 저장 중…";
-      try{ if (!mcp) throw {code:"notion_off"}; await updateNotion(s.notion, {[prop]: v || null}); if (prop==="구분") row.region = v; else row.type = v; msg.textContent = "노션에도 바꿨어요."; rerender(); }
+      try{ if (!mcp) throw {code:"notion_off"}; await updateNotion(s.notion, {[prop]: v || null}); if (prop==="지역") row.area = v; else row.kind = v; msg.textContent = "노션에도 바꿨어요."; rerender(); }
       catch(e){ msg.textContent = failText(e); sl.value = cur || ""; }
     });
     return el("label",{},label, sl);
   };
-  box.replaceChildren(sel("구분","구분",row?row.region:""), sel("콘텐츠 유형","콘텐츠 유형",row?row.type:""), msg);
+  box.replaceChildren(sel("지역","지역",row?effArea(row):""), sel("글 종류","글 종류",row?effKind(row):""), msg);
   if (!row) msg.textContent = "노션 항목을 연결하면 여기서 바꿀 수 있어요";
 }
 const MSC = {text:"", scope:"특정 부분", target:""};
@@ -1542,14 +1567,14 @@ async function loadNotion(refresh){
       if (cursor) data.start_cursor = cursor;
       const res = await mcp.callTool("Notion","notion-query-data-sources",{data}, refresh?{cache:{refresh:true}}:{cache:false});
       const pl = res.payload || {};
-      for (const r of (pl.results||[])) all.push({url:r.url, title:r["게시물 제목"], d:r["date:게시 날짜:start"], status:r["상태"], platform:r["플랫폼"], region:r["구분"], type:r["콘텐츠 유형"], cta:r["CTA"]});
+      for (const r of (pl.results||[])) all.push({url:r.url, title:r["게시물 제목"], d:r["date:게시 날짜:start"], status:r["상태"], platform:r["플랫폼"], region:r["구분"], type:r["콘텐츠 유형"], area:r["지역"], kind:r["글 종류"], cta:r["CTA"]});
       if (!pl.has_more || !pl.next_cursor) break;
       cursor = pl.next_cursor;
     }
     notion.clear();
     for (const r of all){
       const id = pageIdFromUrl(r.url); if (!id) continue;
-      notion.set(id, {id, title:r.title||"(제목 없음)", day:(r.d||"").slice(0,10), status:r.status||"아이디어", platform:r.platform||"", region:r.region||"", type:r.type||"", cta:r.cta});
+      notion.set(id, {id, title:r.title||"(제목 없음)", day:(r.d||"").slice(0,10), status:r.status||"아이디어", platform:r.platform||"", region:r.region||"", type:r.type||"", area:r.area||"", kind:r.kind||"", cta:r.cta});
     }
     notionState = "ok";
   }catch(e){
@@ -2645,11 +2670,29 @@ function blogCatOf(title){
   for (const x of rssItems.values()){ const t = String(x.title).toLowerCase().replace(/\s+/g,""), cl = String(x.title).toLowerCase(); const hit = toks.filter(w=>cl.includes(w)||t.includes(w)).length, sc = hit/toks.length; if (sc>bs){ bs = sc; best = x.category||""; } }
   return bs>=0.6 ? best.trim() : "";
 }
-function calStatKind(it){
-  const r = it.row || {}, reg = r.region||"", ty = r.type||"";
-  const area = /일상|리뷰/.test(reg) ? "일상·리뷰" : (!reg ? "분류 없음" : /^(일본|중국|동남아|해외)/.test(reg) ? "해외" : "국내");
-  const kind = ty==="협찬" ? "체험단·협찬" : ty==="후기" ? "후기" : ty==="이슈" ? "이슈" : ty==="정보성" ? "정보" : "분류 없음";
+// ===== 노션 새 분류: 지역(서울·수도권·국내 그외·일본·중국·동남아·기타 해외) + 글 종류(정보·이슈·후기·일상리뷰·체험단·협찬) =====
+const AREA_OPTS = ["서울","수도권","국내 그외","일본","중국","동남아","기타 해외"];
+const KIND_OPTS = ["정보","이슈","후기","일상리뷰","체험단·협찬"];
+const SEOUL_RX = /서울|노량진|광화문|잠실|롯데타운|롯데월드|목동|서울대입구|논현|고척|용산|국립현대미술관|김포공항|서도호|한강|명동|강남|홍대|성수|여의도|더현대|아실리아/;
+const METRO_RX = /인천|파라다이스시티|다산|곤지암|안양|수도권|dmz|DMZ|에버랜드|공항철도|마티나|스카이라운지|히어로락|일산|고양|파주|수원|판교|분당|성남|부천|가평|양평|이천|포천|석모도/;
+const REVIEWITEM_RX = /클렌징|밴딩|쇼핑몰|피부과|시술|캐리어|인스타360|화장품후기|코르딕스/;
+function legacyMap(r){
+  const t = r.title||"", reg = r.region||"", ty = r.type||"";
+  let area = "";
+  if (reg==="일본"||reg==="중국"||reg==="동남아") area = reg;
+  else if (reg==="해외") area = "기타 해외";
+  else area = SEOUL_RX.test(t) ? "서울" : METRO_RX.test(t) ? "수도권" : "국내 그외";
+  let kind = ty==="협찬" ? "체험단·협찬" : ty==="이슈" ? "이슈" : ty==="정보성" ? "정보" : ty==="후기" ? "후기" : "";
+  if (kind!=="체험단·협찬" && (reg==="일상리뷰" || (kind==="후기" && REVIEWITEM_RX.test(t)))) kind = "일상리뷰";
   return {area, kind};
+}
+function effArea(r){ return (r && r.area) || (r && (r.region||r.type) ? legacyMap(r).area : ""); }
+function effKind(r){ return (r && r.kind) || (r && (r.region||r.type) ? legacyMap(r).kind : ""); }
+function areaGroup(a){ return !a ? "분류 없음" : /^(서울|수도권|국내 그외)$/.test(a) ? "국내" : "해외"; }
+function calStatKind(it){
+  const r = it.row || null;
+  const a = effArea(r), k = effKind(r);
+  return {area: areaGroup(a), kind: k || "분류 없음", areaDetail: a || "구분 없음"};
 }
 function renderCalStats(){
   const box = document.getElementById("cal-stats"); if (!box) return;
@@ -2663,7 +2706,7 @@ function renderCalStats(){
     const cnt = new Map(order.map(k=>[k,0])); kinds.forEach(k=>cnt.set(k[key], (cnt.get(k[key])||0)+1));
     const rows = [...cnt.entries()].filter(([k,c])=>c>0).map(([k,c])=>{
       const mine = items.filter((it,ix)=>kinds[ix][key]===k);
-      const sub = new Map(); mine.forEach(it=>{ const r = it.row||{}; const v = subKey==="region" ? (r.region||"구분 없음") : (r.type||"유형 없음"); sub.set(v,(sub.get(v)||0)+1); });
+      const sub = new Map(); mine.forEach(it=>{ const v = calStatKind(it).areaDetail; sub.set(v,(sub.get(v)||0)+1); });
       const subs = [...sub.entries()].sort((a,b)=>b[1]-a[1]).map(([v,c2])=>el("span",{class:"tag"}, v+" "+c2+"편 · "+Math.round(c2/c*100)+"%"));
       const cats = new Map(); mine.forEach(it=>{ const c0 = blogCatOf(it.title) || "카테고리 확인 안 됨"; cats.set(c0,(cats.get(c0)||0)+1); });
       const catTags = [...cats.entries()].sort((a,b)=>b[1]-a[1]).map(([v,c2])=>el("span",{class:"tag wait"}, v+" "+c2+"편"));
@@ -2673,8 +2716,8 @@ function renderCalStats(){
     return el("div",{class:"cstat"}, el("h4",{}, title), ...rows, note ? el("small",{}, note) : null);
   };
   box.replaceChildren(
-    block("지역·주제","area",["해외","국내","일상·리뷰","분류 없음"],"c1","노션 구분 기준이에요. 일상리뷰는 그대로, 일본·중국·동남아·해외는 해외, 그 밖의 값(국내, 서울, 강원 등)은 국내로 묶어요. 줄을 누르면 세부 통계가 펼쳐져요.","region"),
-    block("글 종류","kind",["후기","정보","이슈","체험단·협찬","분류 없음"],"c2","노션 콘텐츠 유형 기준이에요. 협찬은 체험단으로 묶었어요. 줄을 누르면 세부 통계가 펼쳐져요.","region"));
+    block("지역","area",["국내","해외","분류 없음"],"c1","노션 '지역' 칸 기준이에요. 서울·수도권·국내 그외는 국내, 일본·중국·동남아·기타 해외는 해외로 묶어요. 줄을 누르면 세부 지역이 펼쳐져요.","region"),
+    block("글 종류","kind",["정보","이슈","후기","일상리뷰","체험단·협찬","분류 없음"],"c2","노션 '글 종류' 칸 기준이에요. 줄을 누르면 그 종류의 지역별 편수가 펼쳐져요.","region"));
 }
 
 // ===== 시즌 소재 추천: 노션 '시즌별 소재 추천 (월별)' JSON을 읽음 =====
