@@ -914,6 +914,7 @@ const DONGBANG = {
     {ic:"🗓️", name:"노션 소셜 미디어 플래너", desc:"발행 날짜·상태의 원본 캘린더", href:"https://www.notion.so/3173bc48977181c1897be37dd691f271", bg:"var(--p-sky)"},
     {ic:"🗒️", name:"노션 SNS 페이지", desc:"플래너·아이디어·업무지시·회의록이 모인 폴더", href:"https://www.notion.so/3173bc48977180709dd8d7f20a35d37f", bg:"var(--p-pink)"},
     {ic:"✳️", name:"클로드 블로그 포스팅 프로젝트", desc:"원고·가이드 파일과 스레드가 있는 프로젝트", href:"https://claude.ai/code/project/chan_013EmicFDfpZVk4BtXNQqtKT", bg:"var(--p-lav)"},
+    {ic:"✍️", name:"원고 구성 대화", desc:"원고 구성을 잡고 고치는 전용 클로드 대화", href:"https://claude.ai/code/session_014NH56auPcWKRBpepNYugXA", bg:"var(--p-pink)"},
     {ic:"💬", name:"원고 작업 스레드", desc:"이 사이트를 만들고 고치는 클로드 대화", href:"https://claude.ai/code/session_014NH56Xtxjau4iBx9S7Z8oL", bg:"var(--p-mint)"}
   ]
 };
@@ -2663,7 +2664,7 @@ function openWrite(row){
 }
 
 // ===== 하루 순서용 입구: 대화로 진행 · 특가 접수 · 카드뉴스 · 블로그 비교 =====
-function threadHref(){ const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); return (t&&t.href)||"#"; }
+function threadHref(){ const t = DONGBANG.tools.find(x=>x.name==="원고 구성 대화"); return (t&&t.href)||"#"; }
 // 누르면 글 정보가 담긴 문장이 복사되고 클로드 대화가 새 탭으로 열려요(거기에 붙여 넣고 이어서 말하기)
 function chatBtn(label, textFn, cls){
   const a = el("a",{class:cls||"tbtn ghost",target:"_blank",rel:"noopener",href:threadHref(),title:"문장이 복사되고 클로드 대화가 열려요. 붙여 넣고 이어서 말해 주세요"}, label);
