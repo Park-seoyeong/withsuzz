@@ -3522,10 +3522,11 @@ function renderHomeWeek(){
   const rows = [];
   for (let i=0;i<7;i++){
     const d = addDays(ws,i), its = itemsOnDay(d); tot += its.length; pubN += its.filter(x=>x.published).length;
+    if (d!==t && d!==addDays(t,1)) continue;
     rows.push(el("div",{class:"wk"+(d===t?" today":"")}, el("div",{class:"d"}, el("b",{},DAYNAMES[weekday(d)]), md(d)),
       el("div",{class:"items"}, ...(its.length ? its.map(x=>el("button",{class:"ri",type:"button",onclick:()=>openDetail(x.key)}, stageChip(x), el("span",{}, shortTitle(x.title,24)))) : [el("span",{class:"none"}, notionState==="ok" ? "잡힌 원고 없음" : "…")]))));
   }
-  box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("캘린더","mini"), "이번 주 일정 · "+md(ws)+"~"+md(addDays(ws,6))), el("small",{}, pubN+"/"+tot+"편 완료")), ...rows);
+  box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("캘린더","mini"), "오늘·내일 일정"), el("small",{}, "이번 주 "+pubN+"/"+tot+"편 완료")), ...rows, el("a",{class:"tiny",href:"#calendar",onclick:(e)=>{ e.preventDefault(); showView("calendar"); }},"이번 주 전체는 캘린더에서 ›"));
 }
 function renderHomeVisit(){
   const box = document.getElementById("t-visit"); if (!box) return;
