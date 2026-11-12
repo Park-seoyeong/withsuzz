@@ -68,6 +68,8 @@ h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;line-heigh
 .chip{display:block;width:100%;text-align:left;border:0;border-radius:5px;padding:4px 6px;font-size:12px;line-height:1.35;background:var(--surface);color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip.s-published{background:var(--ok-soft);color:var(--ok)}
 .chip.s-published::before{content:"✓ "}
+.scw{display:inline-flex;align-items:center;gap:5px}.hint2,.tiny,.sc{font-size:max(13px,1em)}.sbar{display:inline-flex;gap:2px}.sbar i{width:7px;height:7px;border-radius:50%;background:var(--line)}.sbar i.on{background:var(--p-mint,#9fdcc0)}.sbar i.now{background:var(--p-pink,#f5a9bd)}
+@media (max-width:560px){.flowrow{grid-template-columns:minmax(0,1fr)}.flowrow .fs small{font-size:13px}.cal-cell{min-height:64px;padding:3px}.cal-cell .ci{font-size:12px}.cal-dow{font-size:12px}.sbar i{width:9px;height:9px}.pc3{gap:10px}}
 .skipwrap{display:flex;gap:2px;align-items:stretch}.skipwrap .ci{flex:1;min-width:0}.skipx{border:0;background:transparent;color:var(--muted);font-size:12px;cursor:pointer;padding:0 4px;border-radius:6px;opacity:.35}.skipx:hover,.skipx.ask{opacity:1;background:var(--p-pink,#ffd9e2);color:var(--fg)}
 .chip.s-late{background:var(--warn-soft);color:var(--warn)}
 .chip.s-scheduled{background:var(--sched-soft);color:var(--sched)}
@@ -3306,7 +3308,13 @@ function itemsOnDay(t){
   for (const p of POSTS){ const s = st(p.id); if (!s.row && s.day===t && s.status!=="hold") out.push(mkItem(p, null)); }
   return out;
 }
-function stageChip(it){
+// 글 하나의 진행 점 5개: 키워드 → 원고 → 사진 → 임시저장 → 발행
+function stageBar(it){
+  const cur = it.published ? 6 : (it.cur||1);
+  return el("span",{class:"sbar",role:"img","aria-label":"진행 "+Math.min(cur-1,5)+"/5 단계 끝"}, ...[1,2,3,4,5].map(n=>el("i",{class:n<cur?"on":n===cur?"now":"",title:STAGES[n-1]})));
+}
+function stageChip(it){ return el("span",{class:"scw"}, stageChip0(it), stageBar(it)); }
+function stageChip0(it){
   if (it.published) return el("span",{class:"sc c-mint"},"완료");
   if (!it.post && !it.order) return el("span",{class:"sc c-blue"},"할 일");
   if (it.drafted) return el("span",{class:"sc c-mint"},"임시저장함");
