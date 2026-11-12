@@ -330,6 +330,8 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .ci.dl-past .star{color:var(--over-fg)}
 .ci .cn{display:inline-block;width:6px;height:6px;border-radius:50%;background:#E58AA0;margin-right:3px;vertical-align:1px}
 .ci .dl{font-size:10px;margin:0 3px 0 0}
+.ci.nopost,.undated li button.nopost{cursor:pointer;outline:1px dashed #9AA8C7;outline-offset:-1px}
+.ci.nopost:hover,.undated li button.nopost:hover{filter:brightness(.96)}
 .cal-more{cursor:pointer;border:0;background:none;text-align:left;font-size:10.5px;color:var(--muted);padding-left:4px}
 .nopost-box>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
 .nopost-box>summary::-webkit-details-marker{display:none}
@@ -2435,12 +2437,14 @@ function undatedItems(){
   for (const p of POSTS){ const s = st(p.id); if (s.row || s.day || s.status==="published" || s.status==="hold") continue; out.push({title:p.title, post:p, row:null, sp:false}); }
   return out;
 }
+// 캘린더에서 원고 파일 없는 노션 글을 누르면: 이미 원고 작성을 맡겼으면 진행 화면, 아니면 원고 쓰기 창
+function openWriteFromCal(row){ if (writeOrderFor(row)) openDetail("r:"+row.id); else openWrite(row); }
 function renderUndated(){
   const box = document.getElementById("cal-undated"); if (!box) return;
   const list = undatedItems(), MAX = 40;
   const lis = list.slice(0,MAX).map(it=>{
     const ic = it.post ? el("button",{type:"button",title:"원고 열기",onclick:()=>openPost(it.post)}, shortTitle(it.title,26))
-                       : el("a",{href:notionLink(it.row.id),target:"_blank",rel:"noopener",title:"원고 파일 없음, 노션에서 열기"}, shortTitle(it.title,26));
+                       : el("button",{type:"button",class:"nopost",title:"원고 파일 없음, 눌러서 "+(writeOrderFor(it.row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(it.row)}, "✎ "+shortTitle(it.title,26));
     return el("li",{class:it.sp?"sponsor":""}, ic);
   });
   if (list.length>MAX) lis.push(el("li",{class:"hint2"},"외 "+(list.length-MAX)+"편 (원고보관함에서 보기)"));
@@ -2465,8 +2469,9 @@ function renderCalendar(){
       const ty = (it.row && it.row.type) || (p && st(p.id).row && st(p.id).row.type) || "";
       const cls = "ci s-"+it.status+(it.insta?" insta":"")+(ty==="협찬"?" sponsor":"")+(p ? dlClass(p) : "");
       const tip = it.title+" · "+SHORT[it.status]+(p&&p.deadline?" · 마감 "+md(p.deadline):"");
-      return p ? el("button",{class:cls,type:"button",title:tip,onclick:()=>openPost(p)},...kidsC)
-               : el("a",{class:cls,href:notionLink(it.row.id),target:"_blank",rel:"noopener",title:tip+" · 원고 파일 없음, 노션에서 열기"},...kidsC);
+      if (p) return el("button",{class:cls,type:"button",title:tip,onclick:()=>openPost(p)},...kidsC);
+      if (!it.insta) return el("button",{class:cls+" nopost",type:"button",title:tip+" · 원고 파일 없음, 눌러서 "+(writeOrderFor(it.row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(it.row)},"✎ ",...kidsC);
+      return el("a",{class:cls,href:notionLink(it.row.id),target:"_blank",rel:"noopener",title:tip+" · 노션에서 열기"},...kidsC);
     });
     kids.push(el("div",{class:"cal-cell"+(inMonth?"":" out")+(d===today?" today":"")+(over?" over":""),title:over?"블로그 글이 하루 "+MAX_PER_DAY+"편을 넘어요":null},
       el("div",{class:"dn"}, el("b",{}, String(Number(d.slice(8,10)))), bc?el("span",{}, bc+"편"):null),
@@ -2475,7 +2480,7 @@ function renderCalendar(){
   box.replaceChildren(...kids); renderUndated();
   document.getElementById("cal-legend").replaceChildren(
     el("span",{},el("i",{style:"background:var(--p-mint)"}),"게시됨"), el("span",{},el("i",{style:"background:var(--p-sky)"}),"예약됨"), el("span",{},el("i",{style:"background:var(--p-lav)"}),"아이디어"),
-    el("span",{},"★ 마감"), el("span",{class:"sponsor-leg"},"체험단·협찬 글은 진한 보라"), el("span",{},el("i",{style:"background:#E58AA0;width:6px;height:6px"}),"중국 글"), el("span",{},"🌸☀️🍁❄️ 시즌"), el("span",{},el("i",{style:"background:var(--over-bg);box-shadow:inset 0 0 0 1.5px var(--over-line)"}),"하루 3편 넘음"), el("span",{},"날짜 없는 원고는 안 나와요"));
+    el("span",{},"★ 마감"), el("span",{class:"sponsor-leg"},"체험단·협찬 글은 진한 보라"), el("span",{},el("i",{style:"background:#E58AA0;width:6px;height:6px"}),"중국 글"), el("span",{},"🌸☀️🍁❄️ 시즌"), el("span",{},el("i",{style:"background:var(--over-bg);box-shadow:inset 0 0 0 1.5px var(--over-line)"}),"하루 3편 넘음"), el("span",{},"✎ 원고 없는 글은 눌러서 원고 쓰기"), el("span",{},"날짜 없는 원고는 아래 따로 모아 봐요"));
 }
 
 // ===== 시즌 소재 추천: 노션 '시즌별 소재 추천 (월별)' JSON을 읽음 =====
