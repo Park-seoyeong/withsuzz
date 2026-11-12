@@ -2524,6 +2524,12 @@ function calStatItems(ym){
   for (let dd=1; dd<=days; dd++){ const d = ym+"-"+String(dd).padStart(2,"0"); for (const it of calItemsFor(d)){ if (!it.insta) out.push(it); } }
   return out;
 }
+function blogCatOf(title){
+  const toks = String(title).toLowerCase().split(/[\s,·/()\[\]+\-]+/).filter(w=>w.length>=2); if (!toks.length) return "";
+  let best = "", bs = 0;
+  for (const x of rssItems.values()){ const t = String(x.title).toLowerCase().replace(/\s+/g,""), cl = String(x.title).toLowerCase(); const hit = toks.filter(w=>cl.includes(w)||t.includes(w)).length, sc = hit/toks.length; if (sc>bs){ bs = sc; best = x.category||""; } }
+  return bs>=0.6 ? best.trim() : "";
+}
 function calStatKind(it){
   const r = it.row || {}, reg = r.region||"", ty = r.type||"";
   const area = /일상|리뷰/.test(reg) ? "일상·리뷰" : (reg==="국내" ? "국내" : reg ? "해외" : "분류 없음");
@@ -2544,8 +2550,10 @@ function renderCalStats(){
       const mine = items.filter((it,ix)=>kinds[ix][key]===k);
       const sub = new Map(); mine.forEach(it=>{ const r = it.row||{}; const v = subKey==="region" ? (r.region||"구분 없음") : (r.type||"유형 없음"); sub.set(v,(sub.get(v)||0)+1); });
       const subs = [...sub.entries()].sort((a,b)=>b[1]-a[1]).map(([v,c2])=>el("span",{class:"tag"}, v+" "+c2+"편 · "+Math.round(c2/c*100)+"%"));
+      const cats = new Map(); mine.forEach(it=>{ const c0 = blogCatOf(it.title) || "카테고리 확인 안 됨"; cats.set(c0,(cats.get(c0)||0)+1); });
+      const catTags = [...cats.entries()].sort((a,b)=>b[1]-a[1]).map(([v,c2])=>el("span",{class:"tag wait"}, v+" "+c2+"편"));
       const list = el("ul",{class:"cdetail"}, ...mine.sort((a,b)=>String(a.row&&a.row.day||"").localeCompare(String(b.row&&b.row.day||""))).map(it=>el("li",{}, el("small",{}, it.row&&it.row.day ? md(it.row.day)+" " : ""), it.title)));
-      return el("details",{class:"cdet"}, el("summary",{}, el("div",{class:"cbar "+cls}, el("span",{}, el("b",{class:"tri"},"▸ "), k), el("span",{class:"tr"}, el("i",{style:"width:"+Math.round(c/n*100)+"%"})), el("span",{}, c+"편 · "+Math.round(c/n*100)+"%"))), el("div",{class:"cdbody"}, el("div",{class:"btnrow"}, ...subs), list));
+      return el("details",{class:"cdet"}, el("summary",{}, el("div",{class:"cbar "+cls}, el("span",{}, el("b",{class:"tri"},"▸ "), k), el("span",{class:"tr"}, el("i",{style:"width:"+Math.round(c/n*100)+"%"})), el("span",{}, c+"편 · "+Math.round(c/n*100)+"%"))), el("div",{class:"cdbody"}, el("small",{},"노션 구분"), el("div",{class:"btnrow"}, ...subs), el("small",{},"블로그 카테고리 (최근 글 기준)"), el("div",{class:"btnrow"}, ...catTags), list));
     });
     return el("div",{class:"cstat"}, el("h4",{}, title), ...rows, note ? el("small",{}, note) : null);
   };
