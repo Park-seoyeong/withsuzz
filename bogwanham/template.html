@@ -1964,6 +1964,11 @@ function reportView(full){
       el("div",{class:"score"}, "메인 "+(m.kw||"–")+(m.volume!=null?" · 검색 "+num(m.volume):"")+(m.docs!=null?" · 문서 "+num(m.docs):"")+(m.ratio!=null?" · 비율 "+m.ratio:"")),
       t.why ? el("div",{class:"hint2"}, t.why) : null,
       el("div",{class:"row"}, ...[t.competition?"경쟁 "+t.competition:"", t.peak?"피크 "+t.peak:"", t.experiencePossible?"경험 쓰기 쉬움":"", t.buyIntent?"구매의도":""].filter(Boolean).map(w=>el("span",{class:"tag"},w))));
+    try{
+      const nk = normT(m.kw||""), hit = nk.length>=2 ? POSTS.find(p=>normT(p.title).includes(nk)) : null;
+      if (hit){ const si = mkItem(hit, st(hit.id).row); card.append(el("div",{class:"row"}, stageChip(si), el("button",{class:"tbtn ghost",type:"button",onclick:()=>openDetail(si.key)},"원고 열기"))); }
+      else card.append(el("div",{class:"row"}, el("span",{class:"sc c-blue"},"원고 없음"), chatBtn("원고 만들기", ()=>"이 키워드로 원고 만들자: "+(t.topic||m.kw)+" (메인 "+(m.kw||"")+")", "tbtn ghost")));
+    }catch(e){}
     if (full){
       if (subs.length) card.append(el("div",{class:"hint2"}, "서브: "+subs.join(", ")));
       if ((t.titles||[]).length) card.append(el("div",{class:"hint2"}, "제목 후보: "+t.titles.join(" / ")));
@@ -3276,6 +3281,7 @@ function itemsOnDay(t){
 function stageChip(it){
   if (it.published) return el("span",{class:"sc c-mint"},"완료");
   if (!it.post && !it.order) return el("span",{class:"sc c-blue"},"할 일");
+  if (it.drafted) return el("span",{class:"sc c-mint"},"임시저장함");
   if (it.cur===3 && it.aside && it.aside.state!=="blocked") return el("span",{class:"sc c-pink"}, it.aside.state==="working" ? "사진 작업 중" : "사진 대기");
   if (it.cur===3 && it.aside) return el("span",{class:"sc c-amber"},"막힘");
   return el("span",{class:"sc c-pink"}, STAGES[it.cur-1]+(it.cur===2?" 중":""));
