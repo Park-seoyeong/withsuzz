@@ -1152,7 +1152,14 @@ function openArchivePlan(){
 function renderArchive(){
   const box = document.getElementById("archive"); box.replaceChildren();
   const rows = POSTS.filter(inArchive).sort((a,b)=>b.written.localeCompare(a.written));
-  if (!rows.length){ box.append(el("p",{class:"hint"},"보관함이 비어 있어요.")); return; }
+  // 노션에만 있고 날짜가 지났는데 아직 게시됨이 아닌 블로그 글(원고 파일 없음)도 미발행으로 보관함에 올림
+  const tdy = kstToday();
+  const lateNoFile = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && r.day && r.day<tdy && !linkedPostFor(r.id)).sort((a,b)=>a.day.localeCompare(b.day));
+  for (const r of lateNoFile) box.append(el("div",{class:"card"},
+    el("b",{class:"card-title"}, r.title),
+    el("div",{class:"card-row"}, el("span",{class:"pill late"},"날짜 지남 "+md(r.day)), el("span",{class:"pill todo"},"원고 없음 · 발행 확인 안 됨"), r.type?el("span",{class:"tag"},r.type):null),
+    dayEditor(r), writeControl(r)));
+  if (!rows.length && !lateNoFile.length){ box.append(el("p",{class:"hint"},"보관함이 비어 있어요.")); return; }
   for (const p of rows){
     const s = st(p.id);
     const sm = seasonMonth(p);
