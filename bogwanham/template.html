@@ -333,6 +333,11 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .ci.nopost,.undated li button.nopost{cursor:pointer;outline:1px dashed #9AA8C7;outline-offset:-1px}
 .ci.nopost:hover,.undated li button.nopost:hover{filter:brightness(.96)}
 .cal-more{cursor:pointer;border:0;background:none;text-align:left;font-size:10.5px;color:var(--muted);padding-left:4px}
+.flowrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
+.flowrow .fs{background:#F4F7FC;border-radius:16px;padding:10px 12px;display:grid;gap:6px;align-content:start;min-width:0}
+.flowrow .fs b{font-size:13px}.flowrow .fs small{font-size:12px;color:var(--muted);line-height:1.5}
+.flowrow .fs.done{background:#E9F7F0}.flowrow .fs .btnrow{display:flex;flex-wrap:wrap;gap:4px}
+@media (max-width:720px){.flowrow{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .nopost-box>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
 .nopost-box>summary::-webkit-details-marker{display:none}
 .nopost-box>summary h2{margin:0}
@@ -668,6 +673,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     <div class="vhome view" id="view-home">
     <div class="toss" id="toss-home">
       <div class="hellorow"><span class="hchar" id="hello-char"></span><h2 class="hello" id="hello"></h2></div>
+      <section class="tcard" id="t-flow" aria-label="오늘 하루 순서"></section>
       <div class="pc3">
         <div class="tcol">
           <section class="tcard" id="t-left" aria-label="오늘 원고 리스트"></section>
@@ -717,6 +723,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
         <div class="hcard-head"><h3 id="h-order">업무지시</h3><span class="deco">✎</span></div>
         <div class="memo">
           <button class="pbtn" type="button" id="order-modal-btn" style="padding:12px 20px;font-size:15px">업무지시 쓰기 ✎</button>
+          <div class="btnrow" style="margin-top:8px"><button class="sbtn" type="button" id="deal-btn">특가 접수</button><button class="sbtn" type="button" id="cardnews-btn">카드뉴스 시키기</button><button class="sbtn" type="button" id="compare-btn">블로그 비교 분석</button></div>
           <textarea id="order-text" hidden></textarea><button type="button" id="order-save" hidden></button><span class="hint2" id="order-note"></span>
           <p class="next-note">어사이드: 09:00~23:30 30분마다 확인 · 클로드: 10:00·11:40·14:40·17:40·02:40 · 17시 이후는 바로 처리 <a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="급할 때만: '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-left:6px">지금 바로 처리</a></p>
         </div>
@@ -2427,7 +2434,7 @@ function editControl(p){
     wrap.dataset.open = "1";
   });
   const lastO = ordersOf("원고 수정:").find(o=>o.owner==="어사이드" && normT(cleanOrder(orderParts(o).body).title)===normT(p.title));
-  wrap.append(open, msg, lastO ? el("span",{class:"hint2"}, "수정 요청 상태: "+reviseState(lastO)[0]) : null);
+  wrap.append(open, chatBtn("클로드와 대화로 고치기", ()=>"원고 같이 고치자: "+oneLine(p.title)+" | 아티팩트 "+(p.artifact||"-")+" | 어디를 어떻게 고칠지 말해 줄게", "sbtn"), msg, lastO ? el("span",{class:"hint2"}, "수정 요청 상태: "+reviseState(lastO)[0]) : null);
   return wrap;
 }
 function writeControl(row){
@@ -2618,7 +2625,7 @@ function bigModal(cfg){
   back.addEventListener("mousedown", e=>{ if (e.target===back) closeBtn.click(); });
   box.append(el("div",{class:"bm-head"}, el("div",{}, el("b",{class:"bm-title"}, cfg.title), cfg.sub ? el("small",{}, cfg.sub) : null), closeBtn),
     el("div",{class:"bm-body"}, ...rows),
-    el("div",{class:"bm-foot"}, sendBtn, el("span",{class:"hint2"},"Ctrl+Enter로도 보내요"), status));
+    el("div",{class:"bm-foot"}, sendBtn, cfg.chat ? chatBtn("클로드와 대화로 구성 잡기", ()=>cfg.chat(vals), "sbtn") : null, el("span",{class:"hint2"},"Ctrl+Enter로도 보내요"), status));
   back.append(box); document.body.append(back); document.body.style.overflow = "hidden";
   const first = cfg.fields.find(f=>!f.readonly && f.kind!=="text") || cfg.fields.find(f=>!f.readonly);
   if (first && first.el) setTimeout(()=>first.el.focus({preventScroll:true}), 50);
@@ -2639,7 +2646,8 @@ function matchTop5(title){
 function openWrite(row){
   const m = matchTop5(row.title);
   const clean = (s)=>String(s||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
-  bigModal({title:"원고 쓰기", sub:row.title, draftKey:"write."+row.id, doneText:autoWhen()+" 때 쓰고, 끝나면 이 항목에 원고 열기가 떠요.", afterLabel:"이 원고 보기", after:()=>openDetail("r:"+row.id),
+  bigModal({title:"원고 쓰기", sub:row.title, draftKey:"write."+row.id,
+    chat:(v)=>"원고 구성 같이 잡자: "+oneLine(row.title)+" | "+(oneLine(row.region)||"-")+" | "+(oneLine(row.type)||"-")+" | 노션 항목 "+row.id+" | 지금까지 적은 구성·경험: "+(oneLine(v.flow)||"-")+" | 메인 키워드 "+(oneLine(v.main)||"-")+" | 가이드라인 "+(oneLine(v.guide)||"-")+" — 순서와 흐름을 같이 잡고, 끝나면 원고를 써 줘", doneText:autoWhen()+" 때 쓰고, 끝나면 이 항목에 원고 열기가 떠요.", afterLabel:"이 원고 보기", after:()=>openDetail("r:"+row.id),
     fields:[
       {k:"topic",label:"주제",kind:"text",value:row.title,readonly:true,hint:"노션 제목(자동)"},
       {k:"main",label:"메인 키워드",kind:"text",value:m?(m.main||{}).kw||"":"",ph:"예: 노량진 대방어",hint:m?"오늘 키워드 리포트에서 가져왔어요(고쳐도 돼요)":"리포트에 맞는 항목이 없어요. 직접 적어도 돼요"},
@@ -2651,6 +2659,46 @@ function openWrite(row){
     onSend: async (v)=>{
       const body = "원고 작성: "+clean(row.title)+" | "+(clean(row.region)||"-")+" | "+(clean(row.type)||"-")+" | "+row.id+" | - | 구성·경험: "+(clean(v.flow)||"-")+" | 가이드라인: "+(clean(v.guide)||"-")+" | 메인: "+(clean(v.main)||"-")+" | 서브: "+(clean(v.subs)||"-")+" | 사진 메모: "+(clean(v.photo)||"-")+" | 링크 자리: "+(clean(v.link)||"-")+" | 적용 가이드: "+writeGuides(row).join(" + ");
       await pushOrder("클로드", body); renderOrders(); renderTeam(); renderBell(); renderOffice(); try{ renderTodo(); }catch(e){}
+    }});
+}
+
+// ===== 하루 순서용 입구: 대화로 진행 · 특가 접수 · 카드뉴스 · 블로그 비교 =====
+function threadHref(){ const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); return (t&&t.href)||"#"; }
+// 누르면 글 정보가 담긴 문장이 복사되고 클로드 대화가 새 탭으로 열려요(거기에 붙여 넣고 이어서 말하기)
+function chatBtn(label, textFn, cls){
+  const a = el("a",{class:cls||"tbtn ghost",target:"_blank",rel:"noopener",href:threadHref(),title:"문장이 복사되고 클로드 대화가 열려요. 붙여 넣고 이어서 말해 주세요"}, label);
+  a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText(typeof textFn==="function" ? textFn() : textFn); a.textContent = "복사됨 · 열린 대화에 붙여 넣으세요"; setTimeout(()=>{ a.textContent = label; }, 4000); }catch(e){} });
+  return a;
+}
+function oneLine(x){ return String(x||"").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").replace(/\s+/g," ").trim(); }
+function openDealModal(){
+  bigModal({title:"특가 접수", sub:"링크와 메모만 넣으면 어사이드가 확인·캡처하고 원고까지 이어져요", draftKey:"deal", sendLabel:"어사이드에게 보내기",
+    doneText:"어사이드가 내용 확인, 상세페이지 캡처·무료 이미지, 수익링크 발급까지 하고 클로드에게 원고 작성을 넘겨요.",
+    fields:[{k:"link",label:"특가 링크",kind:"text",ph:"https://…"},{k:"memo",label:"메모",kind:"area",rows:6,ph:"무슨 특가인지, 기한, 눈에 띈 점, 꼭 넣을 것이 있으면 적어 주세요",hint:"선택"}],
+    check:(v)=>String(v.link||"").trim() ? "" : "특가 링크를 먼저 넣어 주세요.",
+    onSend: async (v)=>{
+      const body = "특가 접수: "+oneLine(v.link)+" | 메모: "+(oneLine(v.memo)||"-")+" | 순서: 1) 링크를 열어 내용·가격·기한 확인 2) 상세페이지 캡처와 사이트 안 무료 정보 이미지 다운로드 3) 수익링크 발급 4) 확인한 사실·이미지·수익링크를 이 항목 하위 블록에 정리하고 '[담당:클로드] 원고 작성: <주제> | 메인 … | 꼭 넣을 정보 … | 링크 자리: 수익링크' 항목을 새로 만들어 클로드에게 넘기기";
+      await pushOrder("어사이드", body); renderOrders(); renderTeam(); renderBell(); renderOffice();
+    }});
+}
+function openCardNewsModal(){
+  bigModal({title:"카드뉴스 시키기", sub:"원고를 카드뉴스로 만들어 달라고 클로드에게 보내요", draftKey:"cardnews", sendLabel:"클로드에게 보내기",
+    doneText:"다음 자동 처리 때 클로드가 만들어요. 서둘러야 하면 홈의 '바로 처리'를 누르세요.",
+    fields:[{k:"title",label:"글 제목",kind:"text",ph:"예: 2026 스키장 개장일"},{k:"link",label:"원고 아티팩트 링크",kind:"text",ph:"https://claude.ai/artifact/…",hint:"선택"},{k:"memo",label:"넣고 싶은 내용·장수",kind:"area",rows:5,ph:"예: 5장, 개장일 표 위주로",hint:"선택"}],
+    check:(v)=>String(v.title||"").trim() ? "" : "글 제목을 먼저 적어 주세요.",
+    onSend: async (v)=>{
+      await pushOrder("클로드","카드뉴스 만들기: "+oneLine(v.title)+" | 원고 "+(oneLine(v.link)||"-")+" | 요청 "+(oneLine(v.memo)||"-")+" | 규칙: 4:5, 검정·흰색+#f04e23, 서명 '써즈의 동네방네', 결과는 아티팩트 링크 1줄로 하위 블록에");
+      renderOrders(); renderTeam(); renderBell(); renderOffice();
+    }});
+}
+function openCompareModal(){
+  bigModal({title:"블로그 비교 분석", sub:"다른 블로그 글을 내 블로그와 비교해 달라고 어사이드에게 보내요", draftKey:"compare", sendLabel:"어사이드에게 보내기",
+    doneText:"어사이드가 비교 결과와 반영할 점을 하위 블록에 적어요. 확인하고 지침에 올릴 건 '규칙 추가'로 보내 주세요.",
+    fields:[{k:"link",label:"분석할 블로그 링크",kind:"text",ph:"https://blog.naver.com/…"},{k:"memo",label:"보고 싶은 점",kind:"area",rows:5,ph:"예: 제목·소제목 구성, 사진 수, 키워드 배치",hint:"선택"}],
+    check:(v)=>String(v.link||"").trim() ? "" : "블로그 링크를 먼저 넣어 주세요.",
+    onSend: async (v)=>{
+      await pushOrder("어사이드","블로그 비교 분석: "+oneLine(v.link)+" | 요청 이 블로그를 써즈 블로그(blog.naver.com/withsuzz)와 비교(제목·구성·사진·키워드·톤) | 보고 싶은 점 "+(oneLine(v.memo)||"-")+" | 결과는 하위 블록에 정리하고 '반영할 점'을 따로 적기(규칙 추가는 써즈가 확인한 뒤 보냄)");
+      renderOrders(); renderTeam(); renderBell(); renderOffice();
     }});
 }
 function openOrderModal(){
@@ -3003,6 +3051,25 @@ function renderHomeReport(){
   ];
   box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("통계","mini"), "오늘 현황·보고"), el("small",{}, md(t))), el("div",{class:"rgrid"}, ...rows), homeMeetLine());
 }
+// 홈 ⓪ 하루 순서: 아침 키워드 → 오늘 원고 → 이미지 → 최종 확인·업로드 (써즈가 실제로 일하는 순서)
+function renderHomeFlow(){
+  const box = document.getElementById("t-flow"); if (!box) return;
+  const t = kstToday(), items = itemsOnDay(t).filter(i=>!i.published), all = itemsOnDay(t);
+  const need2 = items.filter(i=>i.cur===2), need3 = items.filter(i=>i.cur===3), need4 = items.filter(i=>i.cur>=4);
+  const kwOk = reportToday();
+  const step = (n,title,done,line,...acts)=>el("div",{class:"fs"+(done?" done":"")}, el("b",{}, n+". "+title+(done?" ✓":"")), el("small",{}, line), el("div",{class:"btnrow"}, ...acts.filter(Boolean)));
+  const first = (list)=>list[0] ? ()=>openDetail(list[0].key) : null;
+  const goBtn = (label,fn)=>fn ? el("button",{class:"tbtn",type:"button",onclick:fn},label) : null;
+  const names = need2.map(i=>i.title).slice(0,3).join(" / ");
+  box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("원고","mini"), "오늘 하루 순서"), el("small",{}, md(t))),
+    el("div",{class:"flowrow"},
+      step(1,"아침 키워드", kwOk, kwOk ? "오늘 추천 키워드 "+HOME.rep.top5.length+"개가 왔어요" : (HOME.repState==="loading" ? "불러오는 중…" : "아직 안 왔어요. 아침에 어사이드가 채워요"), el("button",{class:"tbtn ghost",type:"button",onclick:()=>showView("keywords")},"키워드 보기")),
+      step(2,"원고", all.length>0 && !need2.length, !all.length ? "오늘 잡힌 원고가 없어요" : need2.length ? "원고가 필요한 글 "+need2.length+"편: "+names : "오늘 원고는 다 준비됐어요",
+        need2.length ? goBtn("원고 쓰기", first(need2)) : null, need2.length ? chatBtn("대화로 구성 잡기", ()=>"오늘 원고 구성 같이 잡자: "+need2.map(i=>oneLine(i.title)).join(" / ")+" — 하나씩 흐름을 잡고 원고까지 써 줘", "tbtn ghost") : null),
+      step(3,"이미지", all.length>0 && !need3.length && !need2.length, need3.length ? "사진이 필요한 글 "+need3.length+"편" : !all.length ? "—" : need2.length ? "원고가 끝나면 이어져요" : "사진은 다 정해졌어요", need3.length ? goBtn("사진 맡기기", first(need3)) : null),
+      step(4,"최종 확인·업로드", all.length>0 && !items.length, need4.length ? "확인하고 올릴 글 "+need4.length+"편" : items.length ? "앞 단계가 끝나면 이어져요" : (all.length ? "오늘 건 다 올렸어요" : "—"), need4.length ? goBtn("확인하러 가기", first(need4)) : null)),
+    el("div",{class:"btnrow",style:"margin-top:8px"}, el("span",{class:"hint2"},"그 밖에: "), el("button",{class:"sbtn",type:"button",onclick:openDealModal},"특가 접수"), el("button",{class:"sbtn",type:"button",onclick:openCardNewsModal},"카드뉴스 시키기"), el("button",{class:"sbtn",type:"button",onclick:openCompareModal},"블로그 비교 분석")));
+}
 // 홈 ① 인사 + 지금 할 일
 function renderHomeNow(){
   const hello = document.getElementById("hello"), box = document.getElementById("t-now"); if (!hello || !box) return;
@@ -3195,7 +3262,7 @@ function renderHomeLog(){
   const rows = HOME.log.map(parseLogLine).slice(-6).reverse();
   box.replaceChildren(head, ...(rows.length ? rows.map(x=>el("div",{class:"lg"}, el("time",{}, x.when||""), el("span",{}, el("b",{}, x.who+" "), String(x.what).slice(0,80)))) : [el("p",{class:"muted"},"아직 기록이 없어요.")]));
 }
-function renderToss(){ for (const f of [renderHomeReport, renderHomeNow, renderHomeLeft, renderHomeWeek, renderHomeVisit, renderHomeInKw, renderHomeLog, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
+function renderToss(){ for (const f of [renderHomeFlow, renderHomeReport, renderHomeNow, renderHomeLeft, renderHomeWeek, renderHomeVisit, renderHomeInKw, renderHomeLog, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
 
 // 더보기·원고 화면 위 바로가기
 function renderMoreBanner(){
@@ -3436,6 +3503,7 @@ document.getElementById("home-search").addEventListener("focus", renderSearch);
 document.getElementById("bell-btn").addEventListener("click", ()=>{ const p = document.getElementById("bell-pop"); p.hidden = !p.hidden; });
 { const sb = document.getElementById("arch-suggest"); if (sb) sb.addEventListener("click", openArchivePlan); }
 document.getElementById("menu-btn").addEventListener("click", ()=>showView("vault"));
+for (const [id,fn] of [["deal-btn",openDealModal],["cardnews-btn",openCardNewsModal],["compare-btn",openCompareModal]]){ const b = document.getElementById(id); if (b) b.addEventListener("click", fn); }
 (function(){ const a = document.getElementById("order-open"); if (!a) return; if (isEvening()){ a.className = "pbtn"; a.style.padding = "4px 14px"; a.style.fontSize = "13px"; a.textContent = "바로 처리"; } const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); a.href = (t && t.href) || "#";
   a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText("업무지시 확인해"); a.textContent = "복사됨 · 붙여 넣고 보내세요"; setTimeout(()=>{ a.textContent = isEvening() ? "바로 처리" : "지금 바로 처리"; }, 4000); }catch(e){} }); })();
 document.getElementById("cal-prev").addEventListener("click", ()=>{ HOME.calMonth = addMonths(HOME.calMonth,-1); renderCalendar(); renderSeason(); });
