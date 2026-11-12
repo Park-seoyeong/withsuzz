@@ -2532,7 +2532,7 @@ function blogCatOf(title){
 }
 function calStatKind(it){
   const r = it.row || {}, reg = r.region||"", ty = r.type||"";
-  const area = /일상|리뷰/.test(reg) ? "일상·리뷰" : (reg==="국내" ? "국내" : reg ? "해외" : "분류 없음");
+  const area = /일상|리뷰/.test(reg) ? "일상·리뷰" : (!reg ? "분류 없음" : /^(일본|중국|동남아|해외)/.test(reg) ? "해외" : "국내");
   const kind = ty==="협찬" ? "체험단·협찬" : ty==="후기" ? "후기" : ty==="이슈" ? "이슈" : ty==="정보성" ? "정보" : "분류 없음";
   return {area, kind};
 }
@@ -2553,12 +2553,12 @@ function renderCalStats(){
       const cats = new Map(); mine.forEach(it=>{ const c0 = blogCatOf(it.title) || "카테고리 확인 안 됨"; cats.set(c0,(cats.get(c0)||0)+1); });
       const catTags = [...cats.entries()].sort((a,b)=>b[1]-a[1]).map(([v,c2])=>el("span",{class:"tag wait"}, v+" "+c2+"편"));
       const list = el("ul",{class:"cdetail"}, ...mine.sort((a,b)=>String(a.row&&a.row.day||"").localeCompare(String(b.row&&b.row.day||""))).map(it=>el("li",{}, el("small",{}, it.row&&it.row.day ? md(it.row.day)+" " : ""), it.title)));
-      return el("details",{class:"cdet"}, el("summary",{}, el("div",{class:"cbar "+cls}, el("span",{}, el("b",{class:"tri"},"▸ "), k), el("span",{class:"tr"}, el("i",{style:"width:"+Math.round(c/n*100)+"%"})), el("span",{}, c+"편 · "+Math.round(c/n*100)+"%"))), el("div",{class:"cdbody"}, el("small",{},"노션 구분"), el("div",{class:"btnrow"}, ...subs), el("small",{},"블로그 카테고리 (최근 글 기준)"), el("div",{class:"btnrow"}, ...catTags), list));
+      return el("details",{class:"cdet"}, el("summary",{}, el("div",{class:"cbar "+cls}, el("span",{}, el("b",{class:"tri"},"▸ "), k), el("span",{class:"tr"}, el("i",{style:"width:"+Math.round(c/n*100)+"%"})), el("span",{}, c+"편 · "+Math.round(c/n*100)+"%"))), el("div",{class:"cdbody"}, el("small",{},"노션 구분"), el("div",{class:"btnrow"}, ...subs), list));
     });
     return el("div",{class:"cstat"}, el("h4",{}, title), ...rows, note ? el("small",{}, note) : null);
   };
   box.replaceChildren(
-    block("지역·주제","area",["해외","국내","일상·리뷰","분류 없음"],"c1","노션 구분 기준이에요. 일상리뷰는 그대로, 국내는 국내, 일본·중국·동남아·해외는 해외로 묶었어요. 줄을 누르면 세부 통계가 펼쳐져요.","region"),
+    block("지역·주제","area",["해외","국내","일상·리뷰","분류 없음"],"c1","노션 구분 기준이에요. 일상리뷰는 그대로, 일본·중국·동남아·해외는 해외, 그 밖의 값(국내, 서울, 강원 등)은 국내로 묶어요. 줄을 누르면 세부 통계가 펼쳐져요.","region"),
     block("글 종류","kind",["후기","정보","이슈","체험단·협찬","분류 없음"],"c2","노션 콘텐츠 유형 기준이에요. 협찬은 체험단으로 묶었어요. 줄을 누르면 세부 통계가 펼쳐져요.","region"));
 }
 
