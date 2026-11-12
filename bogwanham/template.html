@@ -2518,7 +2518,7 @@ function renderCalendar(){
 }
 
 // ===== 캘린더 하단: 이번 달 주제 통계 (블로그 글만, 인스타 제외) =====
-const FOOD_RX = /리뷰|일상|사용기|언박싱|추천템|구매|맛집|식당|레스토랑|카페|디저트|빵|베이커리|맥주|이자카야|술집|밥집|먹|라멘|우동|스시|초밥|오마카세|뷔페|브런치|푸드|미식|간식|혼밥|웨이팅|메뉴|맛/;
+const FOOD_RX = /리뷰|일상|사용기|언박싱/;
 function calStatItems(ym){
   const out = [], y = Number(ym.slice(0,4)), m = Number(ym.slice(5,7)), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   for (let dd=1; dd<=days; dd++){ const d = ym+"-"+String(dd).padStart(2,"0"); for (const it of calItemsFor(d)){ if (!it.insta) out.push(it); } }
