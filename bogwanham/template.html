@@ -75,6 +75,29 @@ a.chip{text-decoration:none}
 @media (max-width:760px){.days{grid-template-columns:1fr}.day{min-height:0;grid-template-columns:72px 1fr;align-items:start}.day-label{flex-direction:column}}
 
 .main{display:grid;grid-template-columns:minmax(280px,380px) minmax(0,1fr);gap:18px;align-items:start}
+.main2{grid-template-columns:minmax(260px,340px) minmax(0,1fr)!important}
+.lside .filters{border-bottom:0}.lh{font-size:13px;margin-top:6px}
+.catgrp{display:grid;gap:6px;margin-bottom:6px}.catgrp small{color:var(--muted);font-size:12px}
+.catgrp .row{display:flex;flex-wrap:wrap;gap:4px}
+.main2 .list{max-height:none}
+.item .cats{display:flex;gap:4px;flex-wrap:wrap}
+.mswin{position:fixed;inset:0;z-index:150;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr)}
+.mswin[hidden]{display:none}
+.ms-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--surface)}
+.ms-bar b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-body{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;padding:14px 18px;min-height:0}
+.ms-body .viewer{overflow:auto;align-content:start;min-height:0}
+.ms-chat{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;min-height:0}
+.ms-chat h3{margin:0;font-size:15px}
+.ms-log{overflow:auto;display:grid;gap:10px;align-content:start;min-height:0}
+.ms-msg{display:grid;gap:4px;justify-items:end}
+.ms-msg .bub{background:#E8F0FF;border-radius:16px 16px 4px 16px;padding:8px 12px;font-size:14px;line-height:1.55;max-width:92%;white-space:pre-wrap}
+.ms-msg .st{font-size:12px;color:var(--muted)}
+.ms-in{display:grid;gap:8px}
+.ms-in textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:14px;padding:9px 12px;font:inherit;font-size:14px;line-height:1.55;resize:vertical;min-height:84px;background:var(--bg);color:var(--fg)}
+.ms-in .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+@media (max-width:900px){.main2{grid-template-columns:1fr!important}.ms-body{grid-template-columns:1fr;overflow:auto}.ms-body .viewer{overflow:visible}.ms-chat{grid-template-rows:auto auto auto}}
+
 @media (max-width:900px){.main{grid-template-columns:1fr}}
 
 .listbox{background:var(--surface);border:1px solid var(--line);border-radius:10px;display:grid;min-width:0}
@@ -832,19 +855,27 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     <div class="cards" id="nopost"></div>
   </details>
 
-  <div class="main">
-    <section class="listbox" aria-label="원고 목록">
+  <div class="main main2">
+    <aside class="listbox lside" aria-label="원고 거르기">
       <div class="filters">
-        <div class="tabs" id="tabs" role="group" aria-label="상태로 거르기"></div>
         <input class="search" id="search" type="search" placeholder="제목·파일 이름으로 찾기" aria-label="원고 찾기">
+        <b class="lh">발행 태그</b>
+        <div class="tabs" id="tabs" role="group" aria-label="상태로 거르기"></div>
+        <b class="lh">주제 분류</b>
+        <div id="catfilter"></div>
       </div>
+    </aside>
+    <section class="listbox" aria-label="원고 목록">
       <ul class="list" id="list"></ul>
     </section>
-
-    <section class="viewer" id="viewer" aria-live="polite"></section>
   </div>
   <p class="hint">발행일·상태는 노션 소셜 미디어 플래너가 원본이에요. 여기서 바꾸면 노션도 바뀌고, 점선 칸은 원고 파일이 없는 노션 항목이에요. 원고 목록은 drafts 폴더의 새서식 파일 기준이에요(만든 시각 <span id="built">__BUILT__</span>). 새 원고가 생기면 Claude에게 "보관함 새로고침"이라고 하면 다시 올려요.</p>
   </div>
+</div>
+
+<div class="mswin" id="mswin" hidden role="dialog" aria-modal="true" aria-label="원고창">
+  <div class="ms-bar"><b id="ms-title">원고</b><button class="sbtn" type="button" id="ms-close">닫기 ✕</button></div>
+  <div class="ms-body"><section class="viewer" id="viewer" aria-live="polite"></section><aside class="ms-chat" id="ms-chat"></aside></div>
 </div>
 
 <script>
@@ -940,7 +971,7 @@ const local = {};          // 보관함 db: id -> {status, day, memo, notion}
 const notion = new Map();  // 노션 page id -> {id, title, day, status, platform}
 const rssItems = new Map(); // 블로그 RSS: url -> {title, url, date, category}
 let db = null, mcp = null, dbReady = false, notionState = "loading";
-let filter = "todo", query = "", selected = null, weekOffset = 0;
+let filter = "todo", query = "", selected = null, weekOffset = 0, catArea = "", catKind = "";
 
 function kstHour(){ return new Date(Date.now()+9*3600e3).getUTCHours(); }
 function isEvening(){ const h = kstHour(); return h>=17 || h<3; }   // 17시 이후는 자동 처리를 기다리지 않고 바로 처리
@@ -1210,7 +1241,7 @@ function renderArchive(){
       } else { btn.disabled = false; warn.textContent = "날짜를 넣지 못했어요. 아래 원고 칸의 안내를 보세요."; }
     }},"날짜 정하기");
     box.append(el("div",{class:"card"},
-      el("button",{class:"card-title"+dlClass(p),type:"button",onclick:()=>{select(p.id);document.getElementById("viewer").scrollIntoView({behavior:"smooth",block:"start"});}},...titleWithDeadline(p)),
+      el("button",{class:"card-title"+dlClass(p),type:"button",onclick:()=>{select(p.id);}},...titleWithDeadline(p)),
       el("div",{class:"card-row"},
         s.day?el("span",{class:"pill late"},"날짜 지남 "+md(s.day)):el("span",{class:"pill todo"},"날짜 미정"),
         sm?el("span",{class:"pill season",title:"시즌 "+sm+"월까지"},seasonEmoji(sm)+" ~"+sm+"월"):null,
@@ -1271,6 +1302,24 @@ function renderTabs(){
   }
 }
 
+function postCat(p){
+  const row = (st(p.id).row)||{}; const reg = row.region||"", ty = row.type||"";
+  const area = /일상|리뷰/.test(reg) ? "일상·리뷰" : reg ? (/^(일본|중국|동남아|해외)/.test(reg) ? "해외" : "국내") : (isChinaPost(p) ? "해외" : "분류 없음");
+  const kind = ty==="협찬" ? "체험단·협찬" : ty==="후기" ? "후기" : ty==="이슈" ? "이슈" : ty==="정보성" ? "정보" : "분류 없음";
+  return {area, kind};
+}
+function renderCatFilter(){
+  const box = document.getElementById("catfilter"); if (!box) return;
+  const q = query.trim().toLowerCase();
+  const base = POSTS.filter(p=>{ const s = st(p.id); if (filter==="late" && !isLate(p.id)) return false; if (["todo","scheduled","published","hold"].includes(filter) && s.status!==filter) return false; if (q && !(p.title.toLowerCase().includes(q)||p.file.toLowerCase().includes(q))) return false; return true; });
+  const grp = (label, key, order, cur, set)=>{
+    const cnt = new Map(order.map(k=>[k,0])); base.forEach(p=>{ const v = postCat(p)[key]; cnt.set(v,(cnt.get(v)||0)+1); });
+    return el("div",{class:"catgrp"}, el("small",{},label), el("div",{class:"row"},
+      el("button",{class:"tab",type:"button","aria-pressed":String(!cur),onclick:()=>{ set(""); renderList(); }},"전체 "+base.length),
+      ...[...cnt.entries()].filter(([k,c])=>c>0).map(([k,c])=>el("button",{class:"tab",type:"button","aria-pressed":String(cur===k),onclick:()=>{ set(cur===k?"":k); renderList(); }},k+" "+c))));
+  };
+  box.replaceChildren(grp("지역·주제","area",["해외","국내","일상·리뷰","분류 없음"],catArea,v=>{catArea=v;}), grp("글 종류","kind",["후기","정보","이슈","체험단·협찬","분류 없음"],catKind,v=>{catKind=v;}));
+}
 function visible(){
   const q = query.trim().toLowerCase();
   return POSTS.filter(p=>{
@@ -1278,6 +1327,7 @@ function visible(){
     if (filter==="late" && !isLate(p.id)) return false;
     if (["todo","scheduled","published","hold"].includes(filter) && s.status!==filter) return false;
     if (q && !(p.title.toLowerCase().includes(q) || p.file.toLowerCase().includes(q))) return false;
+    if (catArea || catKind){ const c = postCat(p); if (catArea && c.area!==catArea) return false; if (catKind && c.kind!==catKind) return false; }
     return true;
   }).sort((a,b)=>{
     const sa = st(a.id), sb = st(b.id);
@@ -1288,13 +1338,14 @@ function visible(){
 
 function renderList(){
   const list = document.getElementById("list"); list.replaceChildren();
+  try{ renderCatFilter(); }catch(e){}
   const rows = visible();
   if (!rows.length){ list.append(el("li",{class:"empty"}, query?"찾는 원고가 없어요.":"이 상태인 원고가 없어요.")); return; }
   for (const p of rows){
     const s = st(p.id);
     list.append(el("li",{}, el("button",{class:"item",type:"button","aria-current":String(selected===p.id),onclick:()=>select(p.id)},
       el("span",{class:"item-title"+dlClass(p)},...titleWithDeadline(p)),
-      el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(p.written)), s.notion?null:el("span",{},"· 노션 미연결"))
+      el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(p.written)), s.notion?null:el("span",{},"· 노션 미연결"), (()=>{ const c = postCat(p); return el("span",{class:"tag"}, c.area+" · "+c.kind); })())
     )));
   }
 }
@@ -1402,7 +1453,7 @@ function renderViewer(force){
         el("label",{class:"field wide"},"노션 플래너 항목",linkSel),
         el("label",{class:"field wide"},"메모",memoIn)
       ),
-      el("div",{class:"actions"}, copyBtn, editControl(p),
+      el("div",{class:"actions"}, copyBtn,
         p.artifact?el("a",{class:"linkbtn",href:p.artifact,target:"_blank",rel:"noopener"},"원고 아티팩트 열기"):null,
         s.notion?el("a",{class:"linkbtn",href:notionLink(s.notion),target:"_blank",rel:"noopener"},"노션열기"):null,
         el("span",{class:"save-note",id:"save-note"}, dbReady?"":"저장소 연결 중…")),
@@ -1413,7 +1464,51 @@ function renderViewer(force){
   );
 }
 
-function select(id){ selected = id; renderWeek(); renderList(); renderViewer(true); }
+function select(id, opts){ selected = id; renderWeek(); renderList(); renderViewer(true); if (!(opts&&opts.quiet)) openMsWin(); }
+function msOpen(){ const w = document.getElementById("mswin"); return !!(w && !w.hidden); }
+function openMsWin(){ const w = document.getElementById("mswin"); if (!w) return; const p = byId.get(selected); if (!p) return; document.getElementById("ms-title").textContent = p.title; w.hidden = false; document.body.style.overflow = "hidden"; renderMsChat(true); }
+function closeMsWin(){ const w = document.getElementById("mswin"); if (w) w.hidden = true; document.body.style.overflow = ""; }
+document.getElementById("ms-close").addEventListener("click", closeMsWin);
+document.addEventListener("keydown",(e)=>{ if (e.key==="Escape" && msOpen() && !document.getElementById("bigmodal")) closeMsWin(); });
+const MSC = {text:"", scope:"특정 부분", target:""};
+function msRequests(p){ const nt = normT(p.title); return ordersOf("원고 수정:").filter(o=>o.owner==="어사이드" && normT(cleanOrder(orderParts(o).body).title)===nt).reverse(); }
+function renderMsChat(force){
+  const box = document.getElementById("ms-chat"); if (!box) return;
+  const p = byId.get(selected); if (!p) return;
+  const keep = box.querySelector("textarea");
+  if (!force && keep && (document.activeElement===keep || keep.value.trim())) { const lg = box.querySelector(".ms-log"); if (lg) fillMsLog(lg, p); return; }
+  const log = el("div",{class:"ms-log"}); fillMsLog(log, p);
+  const note = el("span",{class:"hint2"});
+  const scope = el("select",{"aria-label":"수정 범위",style:"border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px"}, ...[["특정 부분","특정 부분만"],["글 흐름","글 흐름(순서·구성)"],["전체","전체 다시"]].map(([v,l])=>el("option",{value:v,selected:MSC.scope===v},l)));
+  scope.addEventListener("change",()=>{ MSC.scope = scope.value; });
+  const target = el("textarea",{rows:"2",placeholder:"고칠 부분을 원고에서 드래그해 '선택한 글 가져오기'를 누르세요(특정 부분일 때)","aria-label":"수정할 부분",style:"min-height:48px"}); target.value = MSC.target;
+  target.addEventListener("input",()=>{ MSC.target = target.value; });
+  const pick = el("button",{class:"sbtn",type:"button"},"선택한 글 가져오기");
+  pick.addEventListener("click",()=>{ const t = String(getSelection()||"").trim(); if (!t){ note.textContent = "왼쪽 원고에서 고칠 글을 먼저 드래그해 주세요."; return; } target.value = (target.value?target.value+"\n":"")+t; MSC.target = target.value; note.textContent = "선택한 글을 넣었어요."; });
+  const ta = el("textarea",{rows:"4",placeholder:"어떻게 고칠까요? 예: 도입을 더 짧게, 경험 얘기를 앞으로, 이 표는 빼기","aria-label":"수정 요청 내용"}); ta.value = MSC.text;
+  ta.addEventListener("input",()=>{ MSC.text = ta.value; });
+  const send = el("button",{class:"pbtn",type:"button",style:"padding:6px 16px"},"어사이드에게 보내기");
+  send.addEventListener("click", async ()=>{
+    if (!ta.value.trim()){ note.textContent = "어떻게 고칠지 적어 주세요."; ta.focus(); return; }
+    send.disabled = true; note.textContent = "업무지시 보내는 중…";
+    try{ await pushOrder("어사이드", reviseBody(p, scope.value, target.value, ta.value)); MSC.text = ""; MSC.target = ""; renderOrders(); renderTeam(); renderBell(); renderOffice(); renderMsChat(true); const n2 = box.querySelector(".hint2"); if (n2) n2.textContent = "보냈어요. 어사이드가 확인하고 클로드가 고쳐요."; }
+    catch(e){ send.disabled = false; note.textContent = failText(e); }
+  });
+  box.replaceChildren(
+    el("div",{style:"display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"}, el("h3",{},"수정 대화창"), chatBtn("클로드와 대화로 고치기", ()=>"원고 같이 고치자: "+oneLine(p.title)+" | 아티팩트 "+(p.artifact||"-")+" | 어디를 어떻게 고칠지 말해 줄게", "sbtn")),
+    log,
+    el("div",{class:"ms-in"}, el("div",{class:"row"}, el("span",{class:"hint2"},"범위"), scope, pick), target, ta, el("div",{class:"row"}, send, note)));
+  setTimeout(()=>{ log.scrollTop = log.scrollHeight; }, 20);
+}
+function fillMsLog(log, p){
+  const reqs = msRequests(p);
+  const items = reqs.length ? reqs.map(o=>{
+    const body = orderParts(o).body, sc = (body.match(/\|\s*범위\s*([^|]*?)\s*\|/)||[])[1]||"", how = (body.match(/\|\s*요청\s*(.*)$/)||[])[1]||body;
+    const [lab] = reviseState(o);
+    return el("div",{class:"ms-msg"}, el("div",{class:"bub"}, how), el("span",{class:"st"}, (sc?sc+" · ":"")+orderParts(o).when+" · "+lab));
+  }) : [el("p",{class:"muted",style:"margin:0"},"아직 수정 요청이 없어요. 아래에 고칠 점을 적어 보내면 어사이드가 확인하고 클로드가 고쳐요.")];
+  log.replaceChildren(...items);
+}
 function editing(){ const a = document.activeElement; return a && a.id && a.id.startsWith("f-"); }
 
 async function loadNotion(refresh){
@@ -1675,6 +1770,7 @@ function renderOrderFilters(){
   box.replaceChildren(tabs, sel);
 }
 function renderOrders(){
+  try{ if (typeof msOpen==="function" && msOpen()) renderMsChat(false); }catch(e){}
   const ul = document.getElementById("order-list"); ul.replaceChildren();
   if (HOME.ordersState!=="ok"){ ul.append(el("li",{class:"empty2"}, HOME.ordersState==="loading"?"불러오는 중…":"업무지시 페이지를 읽지 못했어요.")); return; }
   const list = [...HOME.orders].reverse().filter(o=>(HOME.orderFilter==="전체"||orderState(o)===HOME.orderFilter) && (HOME.ownerFilter==="전체"||o.owner===HOME.ownerFilter));
