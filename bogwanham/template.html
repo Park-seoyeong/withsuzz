@@ -713,6 +713,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
         <div class="tcol">
           <section class="tcard report" id="t-report" aria-label="오늘 현황과 보고"></section>
           <section class="tcard" id="t-visit" aria-label="방문자와 발행 숫자"></section>
+          <section class="tcard" id="t-money" aria-label="월 50만원 목표"></section>
           <section class="tcard" id="t-inkw" aria-label="오늘 유입 키워드"></section>
         </div>
         <div class="tcol">
@@ -3543,7 +3544,29 @@ function renderHomeLog(){
   const rows = HOME.log.map(parseLogLine).slice(-6).reverse();
   box.replaceChildren(head, ...(rows.length ? rows.map(x=>el("div",{class:"lg"}, el("time",{}, x.when||""), el("span",{}, el("b",{}, x.who+" "), String(x.what).slice(0,80)))) : [el("p",{class:"muted"},"아직 기록이 없어요.")]));
 }
-function renderToss(){ for (const f of [renderHomeFlow, renderHomeReport, renderHomeNow, renderHomeLeft, renderHomeWeek, renderHomeVisit, renderHomeInKw, renderHomeLog, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
+// 홈: 월 50만원 목표 (수익은 직접 입력, 브랜드커넥트·애드포스트·세시간전이 연동되면 자동으로 채울 자리)
+const GOAL_WON = 500000;
+function renderHomeMoney(){
+  const box = document.getElementById("t-money"); if (!box) return;
+  const ym = kstToday().slice(0,7), key = "dongbang.income."+ym;
+  const rows = [...notion.values()].filter(x=>isBlog(x) && x.day && x.day.slice(0,7)===ym && x.status==="게시됨");
+  const cta = rows.filter(x=>x.cta && !/^없음/.test(String(x.cta).trim())).length;
+  const v = lsGet(key, {}) || {}, num0 = k=>Number(v[k])||0, total = num0("bc")+num0("ad")+num0("sh");
+  const pct = Math.min(100, Math.round(total*100/GOAL_WON));
+  const inp = (k,label)=>{ const i = el("input",{type:"number",min:"0",step:"1000",inputmode:"numeric","aria-label":label+" 이번 달 수익(원)",value:v[k]!=null?String(v[k]):"",placeholder:"0",style:"width:100%;min-height:36px;box-sizing:border-box"});
+    i.addEventListener("change",()=>{ const n = lsGet(key,{})||{}; n[k] = i.value===""?0:Number(i.value); lsSet(key,n); renderHomeMoney(); });
+    return el("label",{class:"hint2",style:"display:grid;gap:2px"}, label, i); };
+  box.replaceChildren(
+    el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("통계","mini"), "월 50만원 목표"), el("small",{}, ym.slice(5)+"월")),
+    el("div",{class:"rgrid"},
+      el("div",{class:"rrow"}, el("b",{},"이번 달 올린 글"), el("div",{class:"v"}, notionState==="ok" ? el("em",{},rows.length+"편") : "불러오는 중…")),
+      el("div",{class:"rrow"}, el("b",{},"수익 링크 있는 글"), el("div",{class:"v"}, notionState==="ok" ? el("em",{},cta+"편") : "…"))),
+    el("div",{class:"hint2",style:"margin:8px 0 4px"}, "수익 "+num(total)+"원 / "+num(GOAL_WON)+"원 ("+pct+"%)"),
+    el("div",{style:"height:8px;border-radius:99px;background:var(--line);overflow:hidden"}, el("div",{style:"height:100%;width:"+pct+"%;background:var(--p-mint,#bde5d2)"})),
+    el("div",{style:"display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px"}, inp("bc","브랜드커넥트"), inp("ad","애드포스트"), inp("sh","세시간전")),
+    el("p",{class:"hint2",style:"margin:6px 0 0"}, "직접 적으면 이 브라우저에 저장돼요. 연동되면 자동으로 채울게요."));
+}
+function renderToss(){ for (const f of [renderHomeFlow, renderHomeMoney, renderHomeReport, renderHomeNow, renderHomeLeft, renderHomeWeek, renderHomeVisit, renderHomeInKw, renderHomeLog, renderHomeBlock, renderHomeKw, renderHomeAsk, renderDetail]){ try{ f(); }catch(e){ if (window.console) console.warn(f.name, e); } } }
 
 // 더보기·원고 화면 위 바로가기
 function renderMoreBanner(){
