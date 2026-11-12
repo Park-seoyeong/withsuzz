@@ -2040,7 +2040,9 @@ function renderStatsView(){
     el("div",{class:"stat"},el("span",{},"오늘 방문자"),el("b",{},num(vi.n)), freshTag(vi.at)),
     el("div",{class:"stat"},el("span",{},"이웃"),el("b",{},num(pubVal("neighbors")))),
     el("div",{class:"stat",style:"grid-column:1/-1"},el("span",{},"누적 방문자"),el("b",{},num(pubVal("totalVisitors")))))];
-  kids.push(el("div",{}, el("p",{class:"hint2"},"최근 30일 방문자"), sparkline(vis.slice(-30))));
+  { const pts = vis.slice(-30), mx = pts.length ? pts.reduce((m,x)=>x.cnt>m.cnt?x:m, pts[0]) : null;
+    kids.push(el("div",{}, el("p",{class:"hint2"},"최근 30일 방문자"+(mx ? " · 최고 "+num(mx.cnt)+"명("+md(mx.date)+")" : "")), sparkline(pts),
+      pts.length>1 ? el("div",{class:"hint2",style:"display:flex;justify-content:space-between;font-size:12px"}, el("span",{},md(pts[0].date)), el("span",{},md(pts[pts.length-1].date)+" "+num(pts[pts.length-1].cnt)+"명")) : null)); }
   for (const [kind,name] of [["daily","일간 유입 키워드 TOP 10"],["monthly","월간 유입 키워드 TOP 10"]]){
     const L = latestKwItems(kind);
     kids.push(el("h4",{class:"sub"}, name+(L?" · "+(kind==="daily"?md(L.date):Number(String(L.month).slice(5,7))+"월"):"")));
