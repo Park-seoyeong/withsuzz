@@ -336,7 +336,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .flowrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:8px}
 .flowrow .fs{background:#F4F7FC;border-radius:16px;padding:10px 12px;display:grid;gap:6px;align-content:start;min-width:0}
 .flowrow .fs b{font-size:13px}.flowrow .fs small{font-size:12px;color:var(--muted);line-height:1.5}
-.flowrow .fs.done{background:#E9F7F0}.flowrow .fs .btnrow{display:flex;flex-wrap:wrap;gap:4px}
+.flowrow .fs .tbtn,.flowrow .fs .sbtn{white-space:nowrap;text-align:center}.flowrow .fs .btnrow.col{flex-direction:column;align-items:stretch}.flowrow .fs .btnrow.col .tbtn{white-space:normal;text-align:left;padding:8px 12px;font-size:13px;line-height:1.35}.flowrow .fs.done{background:#E9F7F0}.flowrow .fs .btnrow{display:flex;flex-wrap:wrap;gap:4px}
 @media (max-width:720px){.flowrow{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .nopost-box>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px}
 .nopost-box>summary::-webkit-details-marker{display:none}
@@ -3057,17 +3057,18 @@ function renderHomeFlow(){
   const t = kstToday(), items = itemsOnDay(t).filter(i=>!i.published), all = itemsOnDay(t);
   const need2 = items.filter(i=>i.cur===2), need3 = items.filter(i=>i.cur===3), need4 = items.filter(i=>i.cur>=4);
   const kwOk = reportToday();
-  const step = (n,title,done,line,...acts)=>el("div",{class:"fs"+(done?" done":"")}, el("b",{}, n+". "+title+(done?" ✓":"")), el("small",{}, line), el("div",{class:"btnrow"}, ...acts.filter(Boolean)));
+  const step = (n,title,done,line,...acts)=>el("div",{class:"fs"+(done?" done":"")}, el("b",{}, n+". "+title+(done?" ✓":"")), el("small",{}, line), el("div",{class:"btnrow"+(acts.some(a=>a&&a.dataset&&a.dataset.col)?" col":"")}, ...acts.filter(Boolean)));
   const first = (list)=>list[0] ? ()=>openDetail(list[0].key) : null;
   const goBtn = (label,fn)=>fn ? el("button",{class:"tbtn",type:"button",onclick:fn},label) : null;
+  const listBtns = (list,label)=>list.map(i=>el("button",{class:"tbtn",type:"button","data-col":"1",title:i.title,onclick:()=>openDetail(i.key)},label+" · "+(i.title.length>22 ? i.title.slice(0,21)+"…" : i.title)));
   const names = need2.map(i=>i.title).slice(0,3).join(" / ");
   box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("원고","mini"), "오늘 하루 순서"), el("small",{}, md(t))),
     el("div",{class:"flowrow"},
       step(1,"아침 키워드", kwOk, kwOk ? "오늘 추천 키워드 "+HOME.rep.top5.length+"개가 왔어요" : (HOME.repState==="loading" ? "불러오는 중…" : "아직 안 왔어요. 아침에 어사이드가 채워요"), el("button",{class:"tbtn ghost",type:"button",onclick:()=>showView("keywords")},"키워드 보기")),
       step(2,"원고", all.length>0 && !need2.length, !all.length ? "오늘 잡힌 원고가 없어요" : need2.length ? "원고가 필요한 글 "+need2.length+"편: "+names : "오늘 원고는 다 준비됐어요",
         need2.length ? goBtn("원고 쓰기", first(need2)) : null, need2.length ? chatBtn("대화로 구성 잡기", ()=>"오늘 원고 구성 같이 잡자: "+need2.map(i=>oneLine(i.title)).join(" / ")+" — 하나씩 흐름을 잡고 원고까지 써 줘", "tbtn ghost") : null),
-      step(3,"이미지", all.length>0 && !need3.length && !need2.length, need3.length ? "사진이 필요한 글 "+need3.length+"편" : !all.length ? "—" : need2.length ? "원고가 끝나면 이어져요" : "사진은 다 정해졌어요", need3.length ? goBtn("사진 맡기기", first(need3)) : null),
-      step(4,"최종 확인·업로드", all.length>0 && !items.length, need4.length ? "확인하고 올릴 글 "+need4.length+"편" : items.length ? "앞 단계가 끝나면 이어져요" : (all.length ? "오늘 건 다 올렸어요" : "—"), need4.length ? goBtn("확인하러 가기", first(need4)) : null)),
+      step(3,"이미지", all.length>0 && !need3.length && !need2.length, need3.length ? "사진이 필요한 글 "+need3.length+"편" : !all.length ? "—" : need2.length ? "원고가 끝나면 이어져요" : "사진은 다 정해졌어요", ...(need3.length>1 ? listBtns(need3,"사진") : [need3.length ? goBtn("사진 맡기기", first(need3)) : null])),
+      step(4,"최종 확인·업로드", all.length>0 && !items.length, need4.length ? "확인하고 올릴 글 "+need4.length+"편" : items.length ? "앞 단계가 끝나면 이어져요" : (all.length ? "오늘 건 다 올렸어요" : "—"), ...(need4.length>1 ? listBtns(need4,"확인") : [need4.length ? goBtn("확인하러 가기", first(need4)) : null]))),
     el("div",{class:"btnrow",style:"margin-top:8px"}, el("span",{class:"hint2"},"그 밖에: "), el("button",{class:"sbtn",type:"button",onclick:openDealModal},"특가 접수"), el("button",{class:"sbtn",type:"button",onclick:openCardNewsModal},"카드뉴스 시키기"), el("button",{class:"sbtn",type:"button",onclick:openCompareModal},"블로그 비교 분석")));
 }
 // 홈 ① 인사 + 지금 할 일
