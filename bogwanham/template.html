@@ -1545,8 +1545,8 @@ function renderMsChat(force){
   const pick = el("button",{class:"sbtn",type:"button"},"선택한 글 가져오기");
   pick.addEventListener("click",()=>{ const t = String(getSelection()||"").trim(); if (!t){ note.textContent = "왼쪽 원고에서 고칠 글을 먼저 드래그해 주세요."; return; } target.value = (target.value?target.value+"\n":"")+t; MSC.target = target.value; note.textContent = "선택한 글을 넣었어요."; });
   const ta = el("textarea",{rows:"4",placeholder:"어떻게 고칠까요? 예: 도입을 더 짧게, 경험 얘기를 앞으로, 이 표는 빼기","aria-label":"수정 요청 내용"}); ta.value = MSC.text;
-  ta.addEventListener("input",()=>{ MSC.text = ta.value; });
-  const send = el("button",{class:"pbtn",type:"button",style:"padding:6px 16px"},"어사이드에게 보내기");
+  const send = el("button",{class:"pbtn",type:"button",style:"padding:6px 16px"},"어사이드에게 보내기"); send.disabled = !ta.value.trim();
+  ta.addEventListener("input",()=>{ MSC.text = ta.value; send.disabled = !ta.value.trim(); });
   send.addEventListener("click", async ()=>{
     if (!ta.value.trim()){ note.textContent = "어떻게 고칠지 적어 주세요."; ta.focus(); return; }
     send.disabled = true; note.textContent = "업무지시 보내는 중…";
@@ -1566,7 +1566,8 @@ function fillMsLog(log, p){
     const [lab] = reviseState(o);
     return el("div",{class:"ms-msg"}, el("div",{class:"bub"}, how), el("span",{class:"st"}, (sc?sc+" · ":"")+orderParts(o).when+" · "+lab));
   }) : [el("p",{class:"muted",style:"margin:0"},"아직 수정 요청이 없어요. 아래에 고칠 점을 적어 보내면 어사이드가 확인하고 클로드가 고쳐요.")];
-  log.replaceChildren(...items);
+  if (items.length>3){ const older = items.slice(0,-3); log.replaceChildren(el("details",{class:"rules"}, el("summary",{},"이전 수정 기록 "+older.length+"개"), ...older), ...items.slice(-3)); }
+  else log.replaceChildren(...items);
 }
 function editing(){ const a = document.activeElement; return a && a.id && a.id.startsWith("f-"); }
 
