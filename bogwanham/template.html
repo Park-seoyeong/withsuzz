@@ -84,7 +84,7 @@ a.chip{text-decoration:none}
 .mswin{position:fixed;inset:0;z-index:150;background:var(--bg);display:grid;grid-template-rows:auto minmax(0,1fr)}
 .mswin[hidden]{display:none}
 .ms-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--surface)}
-.ms-bar b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ms-cat{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-left:auto}.ms-cat label{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--muted)}.ms-cat select{border:1px solid var(--line);border-radius:999px;padding:4px 12px;font-size:13px;background:var(--bg);color:var(--fg)}.ms-bar b{font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ms-body{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:14px;padding:14px 18px;min-height:0}
 .ms-body .viewer{overflow:auto;align-content:start;min-height:0}
 .ms-chat{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:14px;min-height:0}
@@ -874,7 +874,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 </div>
 
 <div class="mswin" id="mswin" hidden role="dialog" aria-modal="true" aria-label="원고창">
-  <div class="ms-bar"><b id="ms-title">원고</b><button class="sbtn" type="button" id="ms-close">닫기 ✕</button></div>
+  <div class="ms-bar"><b id="ms-title">원고</b><div class="ms-cat" id="ms-cat"></div><button class="sbtn" type="button" id="ms-close">닫기 ✕</button></div>
   <div class="ms-body"><section class="viewer" id="viewer" aria-live="polite"></section><aside class="ms-chat" id="ms-chat"></aside></div>
 </div>
 
@@ -1462,14 +1462,32 @@ function renderViewer(force){
     ),
     el("div",{class:"paper"},post)
   );
+  try{ if (typeof msOpen==="function" && msOpen() && !document.querySelector("#ms-cat select:focus")) renderMsCat(p); }catch(e){}
 }
 
 function select(id, opts){ selected = id; renderWeek(); renderList(); renderViewer(true); if (!(opts&&opts.quiet)) openMsWin(); }
 function msOpen(){ const w = document.getElementById("mswin"); return !!(w && !w.hidden); }
-function openMsWin(){ const w = document.getElementById("mswin"); if (!w) return; const p = byId.get(selected); if (!p) return; document.getElementById("ms-title").textContent = p.title; w.hidden = false; document.body.style.overflow = "hidden"; renderMsChat(true); }
+function openMsWin(){ const w = document.getElementById("mswin"); if (!w) return; const p = byId.get(selected); if (!p) return; document.getElementById("ms-title").textContent = p.title; renderMsCat(p); w.hidden = false; document.body.style.overflow = "hidden"; renderMsChat(true); }
 function closeMsWin(){ const w = document.getElementById("mswin"); if (w) w.hidden = true; document.body.style.overflow = ""; }
 document.getElementById("ms-close").addEventListener("click", closeMsWin);
 document.addEventListener("keydown",(e)=>{ if (e.key==="Escape" && msOpen() && !document.getElementById("bigmodal")) closeMsWin(); });
+const NOTION_OPTS = {"구분":["일본","중국","국내","해외","동남아","일상리뷰"], "콘텐츠 유형":["정보성","후기","협찬","이슈"]};
+function renderMsCat(p){
+  const box = document.getElementById("ms-cat"); if (!box) return;
+  const s = st(p.id), row = s.row, msg = el("span",{class:"hint2"});
+  const sel = (label, prop, cur)=>{
+    const opts = [...NOTION_OPTS[prop]]; if (cur && !opts.includes(cur)) opts.push(cur);
+    const sl = el("select",{"aria-label":label,disabled:row?null:""}, el("option",{value:"",selected:!cur},"(비어 있음)"), ...opts.map(o=>el("option",{value:o,selected:o===cur},o)));
+    sl.addEventListener("change", async ()=>{
+      const v = sl.value; msg.textContent = "노션에 저장 중…";
+      try{ if (!mcp) throw {code:"notion_off"}; await updateNotion(s.notion, {[prop]: v || null}); if (prop==="구분") row.region = v; else row.type = v; msg.textContent = "노션에도 바꿨어요."; rerender(); }
+      catch(e){ msg.textContent = failText(e); sl.value = cur || ""; }
+    });
+    return el("label",{},label, sl);
+  };
+  box.replaceChildren(sel("구분","구분",row?row.region:""), sel("콘텐츠 유형","콘텐츠 유형",row?row.type:""), msg);
+  if (!row) msg.textContent = "노션 항목을 연결하면 여기서 바꿀 수 있어요";
+}
 const MSC = {text:"", scope:"특정 부분", target:""};
 function msRequests(p){ const nt = normT(p.title); return ordersOf("원고 수정:").filter(o=>o.owner==="어사이드" && normT(cleanOrder(orderParts(o).body).title)===nt).reverse(); }
 function renderMsChat(force){
