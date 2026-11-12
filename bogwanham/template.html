@@ -2518,7 +2518,7 @@ function renderCalendar(){
 }
 
 // ===== 캘린더 하단: 이번 달 주제 통계 (블로그 글만, 인스타 제외) =====
-const FOOD_RX = /맛집|식당|레스토랑|카페|디저트|빵|베이커리|맥주|이자카야|술집|밥집|먹|라멘|우동|스시|초밥|오마카세|뷔페|브런치|푸드|미식|간식|혼밥|웨이팅|메뉴|맛/;
+const FOOD_RX = /리뷰|일상|사용기|언박싱|추천템|구매|맛집|식당|레스토랑|카페|디저트|빵|베이커리|맥주|이자카야|술집|밥집|먹|라멘|우동|스시|초밥|오마카세|뷔페|브런치|푸드|미식|간식|혼밥|웨이팅|메뉴|맛/;
 function calStatItems(ym){
   const out = [], y = Number(ym.slice(0,4)), m = Number(ym.slice(5,7)), days = new Date(Date.UTC(y, m, 0)).getUTCDate();
   for (let dd=1; dd<=days; dd++){ const d = ym+"-"+String(dd).padStart(2,"0"); for (const it of calItemsFor(d)){ if (!it.insta) out.push(it); } }
@@ -2526,7 +2526,7 @@ function calStatItems(ym){
 }
 function calStatKind(it){
   const r = it.row || {}, reg = r.region||"", ty = r.type||"";
-  const area = FOOD_RX.test(it.title) ? "맛집·리뷰" : (reg==="국내" ? "국내" : reg ? "해외" : "분류 없음");
+  const area = FOOD_RX.test(it.title) ? "일상·리뷰" : (reg==="국내" ? "국내" : reg ? "해외" : "분류 없음");
   const kind = ty==="협찬" ? "체험단·협찬" : ty==="후기" ? "후기" : ty==="이슈" ? "이슈" : ty==="정보성" ? "정보" : "분류 없음";
   return {area, kind};
 }
@@ -2545,7 +2545,7 @@ function renderCalStats(){
       note ? el("small",{}, note) : null);
   };
   box.replaceChildren(
-    block("지역·주제","area",["해외","국내","맛집·리뷰","분류 없음"],"c1","제목에 맛집·카페·먹거리 말이 있으면 '맛집·리뷰', 나머지는 노션 구분(일본·중국·동남아·해외=해외)으로 나눠요."),
+    block("지역·주제","area",["해외","국내","일상·리뷰","분류 없음"],"c1","제목에 맛집·카페·먹거리 말이 있으면 '맛집·리뷰', 나머지는 노션 구분(일본·중국·동남아·해외=해외)으로 나눠요."),
     block("글 종류","kind",["후기","정보","이슈","체험단·협찬","분류 없음"],"c2","노션 콘텐츠 유형 기준이에요. 협찬은 체험단으로 묶었어요."));
 }
 
