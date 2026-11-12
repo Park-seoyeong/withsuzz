@@ -656,8 +656,11 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 
 /* ===== 팀 탭 ===== */
 #view-team .office-wrap,#view-team .office{max-width:none;width:100%}
-#view-team .tstage .office-wrap{width:50%;min-width:340px;margin:0 auto}
-@media (max-width:700px){#view-team .tstage .office-wrap{width:100%;min-width:0}}
+#view-team .tstage{display:grid;grid-template-columns:minmax(340px,50%) minmax(0,1fr);gap:14px;align-items:start}
+#view-team .tstage .hcard-head{grid-column:1/-1}
+#view-team .tstage .office-wrap{width:100%;margin:0}
+#view-team .tstage .cast{grid-template-columns:1fr 1fr;align-content:start}
+@media (max-width:900px){#view-team .tstage{grid-template-columns:1fr}}
 #view-team{grid-template-columns:minmax(0,1fr)!important}
 #view-team .hcard{min-width:0;width:100%;grid-area:auto!important}
 #view-team .team .sc,#view-team .team>*{white-space:nowrap;writing-mode:horizontal-tb}
