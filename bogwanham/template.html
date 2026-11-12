@@ -2623,6 +2623,28 @@ function lsSet(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e)
 function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} delete COACH_MEM[k]; }
 const COACH_MEM = {};
 function closeBigModal(){ const b = document.getElementById("bigmodal"); if (b) b.remove(); document.body.style.overflow = ""; }
+// ===== 오늘 보고창 =====
+function openReportModal(){
+  closeBigModal();
+  const t = kstToday(), y = addDays(t,-1), all = itemsOnDay(t), doneT = all.filter(i=>i.published), leftT = all.filter(i=>!i.published), doneY = itemsOnDay(y).filter(i=>i.published), lateY = itemsOnDay(y).filter(i=>!i.published);
+  const ym = t.slice(0,7); let monthN = 0; try{ monthN = calStatItems(ym).filter(i=>i.status==="published"||i.status==="done"||(i.row&&i.row.status==="게시됨")).length; }catch(e){}
+  const bl = (()=>{ try{ return blockers(); }catch(e){ return []; } })();
+  const sec = (title, kids)=>el("section",{class:"hcard",style:"padding:14px 16px;box-shadow:none;border:1px solid var(--line)"}, el("h4",{style:"margin:0 0 8px;font-size:15px"}, title), kids);
+  const list = (arr, fmt, empty)=>arr.length ? el("ul",{class:"cdetail"}, ...arr.map(i=>el("li",{}, fmt(i)))) : el("p",{class:"muted",style:"margin:0"}, empty);
+  const back = el("div",{class:"bm-back",id:"bigmodal"}), box = el("div",{class:"bm",role:"dialog","aria-modal":"true","aria-label":"오늘 보고",style:"height:auto;max-height:calc(100vh - 32px)"});
+  const close = ()=>closeBigModal();
+  box.append(
+    el("div",{class:"bm-head"}, el("div",{}, el("b",{class:"bm-title"},"오늘 보고"), el("small",{}, md(t)+" · 오늘 "+doneT.length+"편 올림 · 남은 원고 "+leftT.length+"편")), el("button",{class:"sbtn",type:"button",onclick:close},"닫기 ✕")),
+    el("div",{class:"bm-body"},
+      sec("오늘 올린 글 "+doneT.length+"편", list(doneT, i=>i.title, "아직 올린 글이 없어요")),
+      sec("오늘 남은 글 "+leftT.length+"편", list(leftT, i=>[el("button",{class:"ri",type:"button",onclick:()=>{ close(); openDetail(i.key); }}, stageChip(i), el("span",{}, i.title))], "남은 원고가 없어요")),
+      sec("어제("+md(y)+") 올린 글 "+doneY.length+"편", [list(doneY, i=>i.title, "어제 올린 글이 없어요"), lateY.length ? el("p",{class:"muted",style:"margin:8px 0 0"},"어제 날짜인데 아직 안 올라간 글 "+lateY.length+"편: "+lateY.map(i=>i.title).join(" / ")) : null]),
+      sec("이번 달", el("p",{style:"margin:0"}, ym.slice(5)+"월에 올린 글 "+monthN+"편")),
+      bl.length ? sec("막힌 것 "+bl.length+"건", list(bl, b=>b.title+" · "+b.sub, "")) : null));
+  back.append(box); back.addEventListener("click",(e)=>{ if (e.target===back) close(); });
+  document.body.append(back); document.body.style.overflow = "hidden";
+}
+
 function bigModal(cfg){
   closeBigModal();
   const key = "dongbang.draft."+cfg.draftKey, saved = lsGet(key, null) || {}, vals = {};
@@ -3128,7 +3150,8 @@ function renderHomeFlow(){
 function renderHomeNow(){
   const hello = document.getElementById("hello"), box = document.getElementById("t-now"); if (!hello || !box) return;
   const t = kstToday(), today = itemsOnDay(t), left = today.filter(i=>!i.published).length, quota = dayQuota(today), show = Math.min(left, quota);
-  hello.replaceChildren(...["써즈님, ", ...(show>0 ? ["오늘은 ", el("em",{},"원고 "+show+"편"), "만 올리면 돼요"] : [today.length ? (left>0 ? "오늘 상한 "+MAX_PER_DAY+"편은 다 올렸어요" : "오늘 올릴 원고는 다 끝났어요") : "오늘은 올릴 원고가 없어요"])]);
+  const pubTodayN = today.filter(i=>i.published).length;
+  hello.replaceChildren(...["써즈님, ", ...(show>0 ? ["오늘은 ", el("em",{},"원고 "+show+"편"), "만 올리면 돼요"] : [today.length ? (left>0 ? "오늘 "+pubTodayN+"편 올렸어요" : "오늘 올릴 원고는 다 끝났어요") : "오늘은 올릴 원고가 없어요"]), " ", el("button",{class:"sbtn",type:"button",style:"font-size:13px;vertical-align:middle",onclick:openReportModal},"오늘 보고 보기")]);
   const pubN = today.filter(i=>i.published).length;
   if (notionState==="ok"){ if (HOME.pubSeen!=null && HOME.pubSeen<MAX_PER_DAY && pubN>=MAX_PER_DAY) celebrate("오늘 "+MAX_PER_DAY+"편 다 올렸어요!","고양이","수고했어요"); HOME.pubSeen = pubN; }
   const hc = document.getElementById("hello-char");
