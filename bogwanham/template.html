@@ -513,6 +513,7 @@ h4.sub{margin:10px 0 2px;font-size:14px;color:var(--ink)}
 .fb-row{display:flex;gap:10px;align-items:flex-start}.fb-text{flex:1;min-width:0;font-size:15px;line-height:1.8}
 .fb-text *{max-width:100%}
 .fb-btn{flex:none;border:1px solid var(--line);background:var(--sunk);color:var(--muted);border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer}
+@media (pointer:coarse){button,.tbtn,.sbtn,.pbtn,.tab,select,input[type=checkbox]+label{min-height:44px}.fb-btn{min-height:36px}}
 @media (hover:hover){.fb-block:not(.has) .fb-btn{opacity:0;transition:opacity .15s}.fb-block:not(.has):hover .fb-btn,.fb-block:not(.has) .fb-btn:focus-visible{opacity:1}}
 .fb-panel{position:sticky;top:12px;display:grid;gap:10px}
 .fb-list{margin:0;padding-left:18px;font-size:13px}
@@ -1838,7 +1839,8 @@ function renderOrders(){
   for (const o of list.slice(0,40)){
     const m = o.text.match(/^(.*?)\s*·\s*(\d{1,2}\/\d{1,2}\s+\d{1,2}:\d{2})$/);
     const stt = orderState(o);
-    const res = o.results.map(r=>el("small",{class:"res"}, r.url ? el("a",{class:"sbtn",href:r.url,target:"_blank",rel:"noopener"},"원고 보기") : r.text));
+    const resItems = o.results.map(r=>el("small",{class:"res"}, r.url ? el("a",{class:"sbtn",href:r.url,target:"_blank",rel:"noopener"},"링크") : r.text));
+    const res = resItems.length>1 ? [el("details",{class:"rules"}, el("summary",{},"결과 "+resItems.length+"개 보기"), ...resItems)] : resItems;
     const c = cleanOrder(m?m[1]:o.text);
     ul.append(el("li",{class:"pl tall"}, teamDot(o.owner),
       el("span",{class:"txt"}, el("b",{class:"otitle"}, c.title), c.sub ? el("small",{}, c.sub) : null, el("small",{}, teamBadge(o.owner), c.kind ? " · "+c.kind : "", m?" · "+m[2]:"", o.working ? " · "+o.working : ""), c.link ? el("a",{class:"sbtn",href:c.link,target:"_blank",rel:"noopener"},"원고 보기") : null, ...res),
