@@ -2791,17 +2791,33 @@ function openReportModal(){
   const ym = t.slice(0,7); let monthN = 0; try{ monthN = calStatItems(ym).filter(i=>i.status==="published"||i.status==="done"||(i.row&&i.row.status==="게시됨")).length; }catch(e){}
   const bl = (()=>{ try{ return blockers(); }catch(e){ return []; } })();
   const sec = (title, kids)=>el("section",{class:"hcard",style:"padding:14px 16px;box-shadow:none;border:1px solid var(--line)"}, el("h4",{style:"margin:0 0 8px;font-size:15px"}, title), kids);
+  // 서영이 직접 해야 할 일: 막힌 것 · 임시저장 확인/발행 · 사진 · 원고 맡기기
+  const mine = [], goTo = (key)=>()=>{ close(); openDetail(key); };
+  bl.forEach(b=>mine.push({t:b.title, s:b.sub, go:b.key?goTo(b.key):null}));
+  try{
+    const unpub = POSTS.map(p=>mkItem(p, st(p.id).row)).filter(i=>!i.published).sort((x,y)=>String(x.day||"9").localeCompare(String(y.day||"9")));
+    for (const i of unpub){
+      const n = (String((i.post&&i.post.html)||"").match(/\[(?:확인 필요|경험 확인|써즈 후기)[^\]]*\]/g)||[]).length;
+      if (i.drafted) mine.push({t:"임시저장 확인하고 발행하기: "+i.title, s:(n?"원고에 [확인 필요] "+n+"곳 · ":"")+"어사이드가 네이버에 임시저장해 뒀어요"+(i.day?" · "+md(i.day):""), go:goTo(i.key)});
+      else if (i.cur===3 && !i.aside && i.day && i.day<=addDays(t,1)) mine.push({t:"사진 맡기거나 정하기: "+i.title, s:"원고는 끝났어요"+(i.day?" · "+md(i.day):""), go:goTo(i.key)});
+    }
+  }catch(e){}
+  try{ for (const i of itemsOnDay(t)) if (!i.published && !i.post && !i.writing) mine.push({t:"원고 쓰기 맡기기: "+i.title, s:"오늘 날짜인데 원고 파일이 없어요", go:goTo(i.key)}); }catch(e){}
+  const MAXM = 8, mineShow = mine.slice(0, MAXM);
+  const mineSec = el("section",{class:"hcard",style:"padding:14px 16px;box-shadow:none;border:2px solid var(--p-pink,#ffd9e2)"}, el("h4",{style:"margin:0 0 8px;font-size:15px"}, "내가 할 일 "+mine.length+"건"),
+    mine.length ? el("ul",{class:"cdetail"}, ...mineShow.map(m=>el("li",{}, m.go ? el("button",{class:"ri",type:"button",onclick:m.go}, el("span",{}, m.t, el("small",{style:"display:block"}, m.s))) : el("span",{}, m.t, el("small",{style:"display:block"}, m.s))))) : el("p",{class:"muted",style:"margin:0"},"지금 서영이 직접 할 일은 없어요"),
+    mine.length>MAXM ? el("p",{class:"muted",style:"margin:6px 0 0"},"외 "+(mine.length-MAXM)+"건은 원고 탭에서 볼 수 있어요") : null);
   const list = (arr, fmt, empty)=>arr.length ? el("ul",{class:"cdetail"}, ...arr.map(i=>el("li",{}, fmt(i)))) : el("p",{class:"muted",style:"margin:0"}, empty);
   const back = el("div",{class:"bm-back",id:"bigmodal"}), box = el("div",{class:"bm",role:"dialog","aria-modal":"true","aria-label":"오늘 보고",style:"height:auto;max-height:calc(100vh - 32px)"});
   const close = ()=>closeBigModal();
   box.append(
     el("div",{class:"bm-head"}, el("div",{}, el("b",{class:"bm-title"},"오늘 보고"), el("small",{}, md(t)+" · 오늘 "+doneT.length+"편 올림 · 남은 원고 "+leftT.length+"편")), el("button",{class:"sbtn",type:"button",onclick:close},"닫기 ✕")),
     el("div",{class:"bm-body"},
+      mineSec,
       sec("오늘 올린 글 "+doneT.length+"편", list(doneT, i=>i.title, "아직 올린 글이 없어요")),
       sec("오늘 남은 글 "+leftT.length+"편", list(leftT, i=>[el("button",{class:"ri",type:"button",onclick:()=>{ close(); openDetail(i.key); }}, stageChip(i), el("span",{}, i.title))], "남은 원고가 없어요")),
       sec("어제("+md(y)+") 올린 글 "+doneY.length+"편", [list(doneY, i=>i.title, "어제 올린 글이 없어요"), lateY.length ? el("p",{class:"muted",style:"margin:8px 0 0"},"어제 날짜인데 아직 안 올라간 글 "+lateY.length+"편: "+lateY.map(i=>i.title).join(" / ")) : null]),
-      sec("이번 달", el("p",{style:"margin:0"}, ym.slice(5)+"월에 올린 글 "+monthN+"편")),
-      bl.length ? sec("막힌 것 "+bl.length+"건", list(bl, b=>b.title+" · "+b.sub, "")) : null));
+      sec("이번 달", el("p",{style:"margin:0"}, ym.slice(5)+"월에 올린 글 "+monthN+"편"))));
   back.append(box); back.addEventListener("click",(e)=>{ if (e.target===back) close(); });
   document.body.append(back); document.body.style.overflow = "hidden";
 }
