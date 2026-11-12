@@ -1149,12 +1149,13 @@ function openArchivePlan(){
     warnN ? el("p",{class:"warnline"},"경고: "+warnN+"편은 가능한 날이 모두 꽉 차서 "+MAX_PER_DAY+"편을 넘겨요. 체크를 꺼 뒀으니 그래도 넣을 것만 체크하세요.") : null,
     ...plan.map((x,i)=>el("label",{class:"card-row",style:"gap:8px;cursor:pointer"}, boxes[i], el("span",{style:"flex:1"}, (x.p.__row?"[파일 없음] ":"")+x.p.title), el("b",{}, md(x.to)+"("+DAYNAMES[weekday(x.to)]+")"), el("span",{class:"hint2"}, x.over ? "⚠ 이미 "+x.over+"편, 그래도 넣기 · "+x.why : x.why))), apply, msg));
 }
+const OLD_CUT = "2026-10-01";   // 9월까지 날짜인 원고 없는 글은 이미 지난 것으로 보고 목록에서 뺌
 function renderArchive(){
   const box = document.getElementById("archive"); box.replaceChildren();
   const rows = POSTS.filter(inArchive).sort((a,b)=>b.written.localeCompare(a.written));
   // 노션에만 있고 날짜가 지났는데 아직 게시됨이 아닌 블로그 글(원고 파일 없음)도 미발행으로 보관함에 올림
   const tdy = kstToday();
-  const lateNoFile = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && r.day && r.day<tdy && !linkedPostFor(r.id)).sort((a,b)=>a.day.localeCompare(b.day));
+  const lateNoFile = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && r.day && r.day>=OLD_CUT && r.day<tdy && !linkedPostFor(r.id)).sort((a,b)=>a.day.localeCompare(b.day));
   for (const r of lateNoFile) box.append(el("div",{class:"card"},
     el("b",{class:"card-title"}, r.title),
     el("div",{class:"card-row"}, el("span",{class:"pill late"},"날짜 지남 "+md(r.day)), el("span",{class:"pill todo"},"원고 없음 · 발행 확인 안 됨"), r.type?el("span",{class:"tag"},r.type):null),
@@ -1894,7 +1895,7 @@ function dayEditor(r){
 function renderNoPost(){
   const box = document.getElementById("nopost"); if (!box) return;
   if (box.querySelector('.wform[data-open="1"]')) return;
-  const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
+  const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !(r.day && r.day<OLD_CUT) && !linkedPostFor(r.id)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
   document.getElementById("nopost-title").textContent = "원고 파일 없는 노션 항목 "+rows.length+"편";
   if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"원고가 없는 항목이 없어요.")); return; }
   box.replaceChildren(...rows.slice(0,60).map(r=>el("div",{class:"card"},
