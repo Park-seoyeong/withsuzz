@@ -307,7 +307,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .tdot.t-auto{background:var(--sunk)!important;color:var(--muted)}
 .next-note{font-size:11px;color:var(--muted);margin:0}
 /* 월간 달력 + 시즌 소재 */
-.cal-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.cal-grid.one{grid-template-columns:minmax(0,1fr)!important}.cal-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
 .cal-head{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .cal-head h3{margin:0;font:700 16px var(--round);letter-spacing:.06em}
 .cal-nav{margin-left:auto;display:flex;gap:6px;align-items:center}
@@ -760,8 +760,8 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
   <section class="subpage view" id="view-post" hidden><div class="postw" id="post-body"></div></section>
 
   <section class="subpage view" id="view-calendar" hidden>
-  <section class="hero phero"><div><div class="hero-k">BLOG CALENDAR</div><h2>블로그 캘린더</h2><p>노션 플래너를 한눈에. 날짜·상태·마감과 이번 달 시즌 소재를 같이 봐요.</p></div></section>
-    <div class="cal-grid" id="cal-section">
+  <section class="hero phero"><div><div class="hero-k">BLOG CALENDAR</div><h2>블로그 캘린더</h2><p>노션 플래너를 한눈에. 날짜·상태·마감을 봐요.</p></div></section>
+    <div class="cal-grid one" id="cal-section">
       <section class="hcard" aria-labelledby="h-cal">
         <div class="cal-head"><h3 id="h-cal">이번 달 블로그 캘린더</h3><span class="deco" id="cal-sub"></span>
           <div class="cal-nav"><button type="button" id="cal-prev" aria-label="이전 달">‹</button><button type="button" id="cal-today">오늘</button><button type="button" id="cal-next" aria-label="다음 달">›</button></div></div>
@@ -769,11 +769,14 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
         <div class="cal-legend" id="cal-legend"></div>
         <div class="undated" id="cal-undated"></div>
       </section>
-      <section class="hcard season" aria-labelledby="h-season">
+    </div>
+  </section>
+  <section class="subpage view" id="view-season" hidden>
+  <section class="hero phero"><div><div class="hero-k">SEASON CALENDAR</div><h2>시즌 캘린더</h2><p>월별로 미리 준비할 시즌 소재를 모아 봐요.</p></div></section>
+      <section class="hcard season" style="max-height:none" aria-labelledby="h-season">
         <div class="hcard-head"><h3 id="h-season">시즌 소재 추천</h3><span class="deco">✿</span></div>
         <div id="season-body" style="display:grid;gap:8px"></div>
       </section>
-    </div>
   </section>
   <section class="subpage view" id="view-stats" hidden>
   <section class="hero phero"><div><div class="hero-k">BLOG STATS</div><h2>블로그 통계</h2><p>방문자·이웃과 유입 키워드 흐름을 한눈에 봐요.</p></div></section>
@@ -1469,8 +1472,8 @@ function jsonBlock(text){
   return parts.length > 1 ? (tryParse(parts.map(p=>p.trim()).join("")) || tryParse(parts.join("\n"))) : null;
 }
 function unesc(s){ return s.replace(/\\([~*_\[\]()#>`|-])/g,"$1"); }
-const VIEWS = ["home","vault","calendar","stats","keywords","coach","tools","more","post","team"];
-const TAB_OF = {team:"team", home:"home", vault:"vault", calendar:"vault", coach:"vault", post:"vault", keywords:"keywords", more:"more", stats:"more", tools:"more"};
+const VIEWS = ["home","vault","calendar","season","stats","keywords","coach","tools","more","post","team"];
+const TAB_OF = {team:"team", home:"home", vault:"vault", calendar:"calendar", coach:"vault", post:"vault", keywords:"more", season:"more", more:"more", stats:"more", tools:"more"};
 function showView(v, opts){
   if (!VIEWS.includes(v)) v = "home";
   HOME.view = v;
@@ -1510,8 +1513,8 @@ function urgentDeadline(){
 }
 function shortTitle(s, n=14){ s = String(s); return s.length>n ? s.slice(0,n)+"…" : s; }
 
-const MENU = [["🏠","홈","home"],["✍️","원고","vault"],["🔑","키워드","keywords"],["🏢","팀","team"],["⋯","더보기","more"]];
-const TAB_FACE = {home:"원고", vault:"캘린더", keywords:"키워드", team:"통계"};
+const MENU = [["🏠","홈","home"],["🗓️","캘린더","calendar"],["✍️","원고","vault"],["🏢","팀","team"],["⋯","더보기","more"]];
+const TAB_FACE = {home:"원고", calendar:"캘린더", vault:"키워드", team:"통계"};
 function renderQuick(){
   document.getElementById("quick").replaceChildren(...MENU.map(([ic,label,v])=>
     el("a",{href:"#"+v, "aria-current":TAB_OF[HOME.view]===v?"page":null, onclick:(e)=>{ e.preventDefault(); showView(v); }}, el("span",{class:"ic"}, imgOf(TAB_FACE[v]) ? avatar(TAB_FACE[v],"ftab") : el("span",{class:"frame ftab dots"},"⋯")), label)));
@@ -3275,7 +3278,7 @@ function renderMoreBanner(){
 }
 function renderMoreLinks(){
   renderMoreBanner();
-  const L = [["🗓️","블로그 캘린더","calendar","날짜·상태·시즌 소재"],["🎓","원고 코치","coach","말투·피드백·규칙"],["📊","블로그 통계","stats","방문자·이웃"],["🧰","툴","tools","자주 쓰는 곳"]];
+  const L = [["🌸","시즌 캘린더","season","월별 시즌 소재 추천"],["🎓","원고 코치","coach","말투·피드백·규칙"],["🔑","유입 키워드","keywords","추천·유입 키워드"],["📊","블로그 통계","stats","방문자·이웃"],["🧰","툴","tools","자주 쓰는 곳"]];
   for (const id of ["more-links","vault-links"]){
     const b = document.getElementById(id); if (!b) continue;
     const mine = id==="vault-links" ? L.slice(0,2) : L;
