@@ -1304,8 +1304,9 @@ function renderTabs(){
   const tabs = document.getElementById("tabs"); tabs.replaceChildren();
   const cnt = {all:POSTS.length, late:0, todo:0, scheduled:0, published:0, hold:0};
   for (const p of POSTS){ const s = st(p.id); if (cnt[s.status]!=null) cnt[s.status]++; if (isLate(p.id)) cnt.late++; }
+  cnt.todo = unpublishedCount();
   // 전체는 맨 위 한 줄, 나머지는 그 아래
-  for (const [k,label] of [["all","전체"],["todo","미발행"],["late","날짜 지남"],["scheduled","예약됨"],["published","게시됨"],["hold","보류"]]){
+  for (const [k,label] of [["all","전체"],["todo","미발행(예약 포함)"],["late","날짜 지남"],["scheduled","예약됨"],["published","게시됨"],["hold","보류"]]){
     tabs.append(el("button",{class:"tab"+(k==="all"?" tab-all":""),type:"button","aria-pressed":String(filter===k),onclick:()=>{filter=k;renderList();renderTabs();}},label+" "+cnt[k]+"건"));
   }
 }
@@ -1342,7 +1343,8 @@ function renderMigrate(){
 function renderCatFilter(){
   const box = document.getElementById("catfilter"); if (!box) return;
   const q = query.trim().toLowerCase();
-  const base = POSTS.filter(p=>{ const s = st(p.id); if (filter==="late" && !isLate(p.id)) return false; if (["todo","scheduled","published","hold"].includes(filter) && s.status!==filter) return false; if (q && !(p.title.toLowerCase().includes(q)||p.file.toLowerCase().includes(q))) return false; return true; });
+  const base = POSTS.filter(p=>{ const s = st(p.id); if (filter==="late" && !isLate(p.id)) return false; if (filter==="todo" && s.status!=="todo" && s.status!=="scheduled") return false;
+    if (["scheduled","published","hold"].includes(filter) && s.status!==filter) return false; if (q && !(p.title.toLowerCase().includes(q)||p.file.toLowerCase().includes(q))) return false; return true; });
   const grp = (label, key, order, cur, set)=>{
     const cnt = new Map(order.map(k=>[k,0])); base.forEach(p=>{ const v = postCat(p)[key]; cnt.set(v,(cnt.get(v)||0)+1); });
     return el("div",{class:"catgrp"}, el("small",{},label), el("div",{class:"row"},
@@ -1356,7 +1358,8 @@ function visible(){
   return POSTS.filter(p=>{
     const s = st(p.id);
     if (filter==="late" && !isLate(p.id)) return false;
-    if (["todo","scheduled","published","hold"].includes(filter) && s.status!==filter) return false;
+    if (filter==="todo" && s.status!=="todo" && s.status!=="scheduled") return false;
+    if (["scheduled","published","hold"].includes(filter) && s.status!==filter) return false;
     if (q && !(p.title.toLowerCase().includes(q) || p.file.toLowerCase().includes(q))) return false;
     if (catArea || catKind){ const c = postCat(p); if (catArea && c.area!==catArea) return false; if (catKind && c.kind!==catKind) return false; }
     return true;
@@ -2808,6 +2811,17 @@ function openReportModal(){
     }
   }catch(e){}
   try{ for (const i of itemsOnDay(t)) if (!i.published && !i.post && !i.writing) mine.push({t:"원고 쓰기 맡기기: "+i.title, s:"오늘 날짜인데 원고 파일이 없어요", go:goTo(i.key)}); }catch(e){}
+  try{ // 어사이드가 임시저장한 업무지시 중 사이트 원고와 이름이 안 맞아 빠진 것도 보여 준다
+    const have = mine.map(m=>normT(m.t.replace(/^[^:]*:\s*/,"")));
+    for (const o of HOME.orders||[]){
+      if (!/^원고 임시저장\s*:/.test(o.text)) continue;
+      const a = asideState(o); if (!a || a.state!=="drafted") continue;
+      const ti = cleanOrder(o.text).title, nt = normT(ti);
+      if (!nt || have.some(h=>h && (h.includes(nt) || nt.includes(h)))) continue;
+      have.push(nt); mine.push({t:"임시저장 확인하고 발행하기: "+ti, s:a.text, go:null});
+    }
+  }catch(e){}
+  { const seen = new Set(); for (let q=mine.length-1; q>=0; q--){ const k = normT(mine[q].t.replace(/^[^:]*:\s*/,"")); if (k && seen.has(k)) mine.splice(q,1); else seen.add(k); } }
   const MAXM = 8, mineShow = mine.slice(0, MAXM);
   const mineSec = el("section",{class:"hcard",style:"padding:14px 16px;box-shadow:none;border:2px solid var(--p-pink,#ffd9e2)"}, el("h4",{style:"margin:0 0 8px;font-size:15px"}, "내가 할 일 "+mine.length+"건"),
     mine.length ? el("ul",{class:"cdetail"}, ...mineShow.map(m=>el("li",{}, m.go ? el("button",{class:"ri",type:"button",onclick:m.go}, el("span",{}, m.t, el("small",{style:"display:block"}, m.s))) : el("span",{}, m.t, el("small",{style:"display:block"}, m.s))))) : el("p",{class:"muted",style:"margin:0"},"지금 서영이 직접 할 일은 없어요"),
