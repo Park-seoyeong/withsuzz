@@ -2526,7 +2526,7 @@ function calStatItems(ym){
 }
 function calStatKind(it){
   const r = it.row || {}, reg = r.region||"", ty = r.type||"";
-  const area = FOOD_RX.test(it.title) ? "일상·리뷰" : (reg==="국내" ? "국내" : reg ? "해외" : "분류 없음");
+  const area = /일상|리뷰/.test(reg) ? "일상·리뷰" : (reg==="국내" ? "국내" : reg ? "해외" : "분류 없음");
   const kind = ty==="협찬" ? "체험단·협찬" : ty==="후기" ? "후기" : ty==="이슈" ? "이슈" : ty==="정보성" ? "정보" : "분류 없음";
   return {area, kind};
 }
