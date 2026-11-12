@@ -513,6 +513,7 @@ h4.sub{margin:10px 0 2px;font-size:14px;color:var(--ink)}
 .fb-row{display:flex;gap:10px;align-items:flex-start}.fb-text{flex:1;min-width:0;font-size:15px;line-height:1.8}
 .fb-text *{max-width:100%}
 .fb-btn{flex:none;border:1px solid var(--line);background:var(--sunk);color:var(--muted);border-radius:999px;padding:3px 10px;font-size:12px;cursor:pointer}
+@media (hover:hover){.fb-block:not(.has) .fb-btn{opacity:0;transition:opacity .15s}.fb-block:not(.has):hover .fb-btn,.fb-block:not(.has) .fb-btn:focus-visible{opacity:1}}
 .fb-panel{position:sticky;top:12px;display:grid;gap:10px}
 .fb-list{margin:0;padding-left:18px;font-size:13px}
 .fb-title{margin:6px 0 10px;font-size:17px}
@@ -1318,25 +1319,27 @@ function postCat(p){
   const a = effArea(row) || (isChinaPost(p) ? "중국" : "");
   return {area: areaGroup(a), kind: effKind(row) || "분류 없음", areaDetail: a};
 }
-const MIG = {running:false, done:0, total:0, msg:""};
+const MIG = {running:false, done:0, total:0, msg:"", ask:false, fail:0};
 function migrateTargets(){ return [...notion.values()].filter(r=>isBlog(r) && (!r.area || !r.kind) && (r.region||r.type)); }
 function renderMigrate(){
   const box = document.getElementById("migrate-box"); if (!box) return;
   const todo = migrateTargets();
   if (!todo.length && !MIG.running){ box.replaceChildren(MIG.msg ? el("small",{class:"hint2"},MIG.msg) : ""); return; }
-  const btn = el("button",{class:"pbtn",type:"button",style:"padding:5px 14px;font-size:13px",disabled:MIG.running?"":null}, MIG.running ? "옮기는 중 "+MIG.done+"/"+MIG.total : "노션 분류 새 칸으로 옮기기 ("+todo.length+"건)");
+  const btn = el("button",{class:"pbtn",type:"button",style:"padding:5px 14px;font-size:13px",disabled:MIG.running?"":null}, MIG.running ? "옮기는 중 "+MIG.done+"/"+MIG.total : (MIG.ask ? "정말 "+todo.length+"건을 노션에 저장할까요? 한 번 더 누르면 시작" : "노션 분류 새 칸으로 옮기기 ("+todo.length+"건)"));
   btn.addEventListener("click", async ()=>{
     if (!mcp){ MIG.msg = failText({code:"notion_off"}); renderMigrate(); return; }
+    if (!MIG.ask){ MIG.ask = true; renderMigrate(); return; }
+    MIG.ask = false; MIG.fail = 0;
     MIG.running = true; MIG.done = 0; MIG.msg = ""; const list = migrateTargets(); MIG.total = list.length; renderMigrate();
     try{
       for (const r of list){
         const m = legacyMap(r), props = {};
         if (!r.area && m.area) props["지역"] = m.area;
         if (!r.kind && m.kind) props["글 종류"] = m.kind;
-        if (Object.keys(props).length){ await updateNotion(r.id, props); if (props["지역"]) r.area = props["지역"]; if (props["글 종류"]) r.kind = props["글 종류"]; }
+        if (Object.keys(props).length){ try{ await updateNotion(r.id, props); if (props["지역"]) r.area = props["지역"]; if (props["글 종류"]) r.kind = props["글 종류"]; }catch(e){ if (e && e.code==="not_granted") throw e; MIG.fail++; } }
         MIG.done++; if (MIG.done%5===0) renderMigrate();
       }
-      MIG.msg = "옮기기 끝: "+MIG.done+"건. 노션 '지역'·'글 종류' 칸에 들어갔어요.";
+      MIG.msg = "옮기기 끝: "+(MIG.done-MIG.fail)+"건 저장"+(MIG.fail?", 실패 "+MIG.fail+"건(버튼을 다시 누르면 실패한 것만 다시 해요)":"")+".";
     }catch(e){ MIG.msg = "중간에 멈췄어요("+MIG.done+"/"+MIG.total+"): "+failText(e); }
     MIG.running = false; rerender();
   });
