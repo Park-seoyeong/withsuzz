@@ -718,7 +718,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
         <div class="memo">
           <button class="pbtn" type="button" id="order-modal-btn" style="padding:12px 20px;font-size:15px">업무지시 쓰기 ✎</button>
           <textarea id="order-text" hidden></textarea><button type="button" id="order-save" hidden></button><span class="hint2" id="order-note"></span>
-          <p class="next-note">어사이드: 09:00~23:30 30분마다 확인 · 클로드: 10:40·14:40·17:40 <a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="급할 때만: '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-left:6px">지금 바로 처리</a></p>
+          <p class="next-note">어사이드: 09:00~23:30 30분마다 확인 · 클로드: 10:00·11:40·14:40·17:40·02:40 · 17시 이후는 바로 처리 <a class="sbtn" id="order-open" target="_blank" rel="noopener" href="#" title="급할 때만: '업무지시 확인해'가 복사되고 클로드 대화가 열려요" style="margin-left:6px">지금 바로 처리</a></p>
         </div>
         <div id="order-filters" style="display:grid;gap:6px"></div>
         <div class="fill"><ul class="hl" id="order-list"></ul></div>
@@ -927,6 +927,15 @@ const rssItems = new Map(); // 블로그 RSS: url -> {title, url, date, category
 let db = null, mcp = null, dbReady = false, notionState = "loading";
 let filter = "todo", query = "", selected = null, weekOffset = 0;
 
+function kstHour(){ return new Date(Date.now()+9*3600e3).getUTCHours(); }
+function isEvening(){ const h = kstHour(); return h>=17 || h<3; }   // 17시 이후는 자동 처리를 기다리지 않고 바로 처리
+function autoWhen(){ return "다음 자동 처리(10:00·11:40·14:40·17:40·02:40)"; }
+function instantBtn(label){
+  const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드");
+  const a = el("a",{class:"pbtn",target:"_blank",rel:"noopener",href:(t&&t.href)||"#",style:"padding:6px 16px;font-size:13px;display:inline-block",title:"'업무지시 확인해'가 복사되고 클로드 대화가 열려요. 붙여 넣고 보내면 바로 처리해요"}, label||"바로 처리");
+  a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText("업무지시 확인해"); a.textContent = "복사됨 · 열린 대화에 붙여 넣고 보내세요"; setTimeout(()=>{ a.textContent = label||"바로 처리"; }, 4000); }catch(e){} });
+  return a;
+}
 function kstToday(){ return new Date(Date.now() + 9*3600e3).toISOString().slice(0,10); }
 function addDays(iso, n){ const d = new Date(iso+"T00:00:00Z"); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
 function weekday(iso){ return new Date(iso+"T00:00:00Z").getUTCDay(); }
@@ -2599,7 +2608,7 @@ function bigModal(cfg){
     try{
       await cfg.onSend(vals);
       lsDel(key);
-      const done = el("div",{class:"bm-done"}, el("h3",{},"클로드에게 보냈어요"), el("p",{}, cfg.doneText||"다음 자동 처리 때 클로드가 처리해요."), el("button",{class:"pbtn",type:"button",onclick:()=>{ closeBigModal(); if (cfg.after) cfg.after(); }}, cfg.afterLabel||"닫기"));
+      const done = el("div",{class:"bm-done"}, el("h3",{},"클로드에게 보냈어요"), el("p",{}, cfg.doneText||"다음 자동 처리 때 클로드가 처리해요."), (isEvening() && cfg.draftKey!=="order" ? el("p",{}, "17시 이후라 기다리지 않고 바로 시킬 수 있어요. ", instantBtn("바로 처리")) : null), el("button",{class:"pbtn",type:"button",onclick:()=>{ closeBigModal(); if (cfg.after) cfg.after(); }}, cfg.afterLabel||"닫기"));
       box.replaceChildren(el("div",{class:"bm-head"}, el("b",{}, cfg.title)), done);
     }catch(e){ sendBtn.disabled = false; status.textContent = failText(e); }
   };
@@ -2630,7 +2639,7 @@ function matchTop5(title){
 function openWrite(row){
   const m = matchTop5(row.title);
   const clean = (s)=>String(s||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
-  bigModal({title:"원고 쓰기", sub:row.title, draftKey:"write."+row.id, doneText:"다음 자동 처리(10:40·14:40·17:40) 때 쓰고, 끝나면 이 항목에 원고 열기가 떠요.", afterLabel:"이 원고 보기", after:()=>openDetail("r:"+row.id),
+  bigModal({title:"원고 쓰기", sub:row.title, draftKey:"write."+row.id, doneText:autoWhen()+" 때 쓰고, 끝나면 이 항목에 원고 열기가 떠요.", afterLabel:"이 원고 보기", after:()=>openDetail("r:"+row.id),
     fields:[
       {k:"topic",label:"주제",kind:"text",value:row.title,readonly:true,hint:"노션 제목(자동)"},
       {k:"main",label:"메인 키워드",kind:"text",value:m?(m.main||{}).kw||"":"",ph:"예: 노량진 대방어",hint:m?"오늘 키워드 리포트에서 가져왔어요(고쳐도 돼요)":"리포트에 맞는 항목이 없어요. 직접 적어도 돼요"},
@@ -3227,7 +3236,7 @@ function renderDetail(){
   const popK = prevCur && it.cur>prevCur ? prevCur : 0;
   const SC = {1:["여우","work"], 2:["토끼","work"], 3:["햄스터", it.aside && it.aside.state==="working" ? "work" : "idle"], 4:["고양이","idle"], 5:["토끼","wave"]};
   const actions = {
-    2: ()=> it.writing ? [el("p",{class:"muted"},"다음 자동 처리(10:40·14:40·17:40) 때 써요. 끝나면 이 화면에 원고가 열려요."), (it.order.results.find(x=>x.url) ? el("a",{class:"tbtn ghost",href:it.order.results.find(x=>x.url).url,target:"_blank",rel:"noopener"},"진행 보기") : null)]
+    2: ()=> it.writing ? [el("p",{class:"muted"},autoWhen()+" 때 써요. 끝나면 이 화면에 원고가 열려요."),(isEvening() ? instantBtn() : null), (it.order.results.find(x=>x.url) ? el("a",{class:"tbtn ghost",href:it.order.results.find(x=>x.url).url,target:"_blank",rel:"noopener"},"진행 보기") : null)]
       : [el("button",{class:"tbtn",type:"button",onclick:()=>openWrite(r)},"원고 쓰기")],
     3: ()=>{
       const a = it.aside, own = el("button",{class:"tbtn ghost",type:"button",onclick:async(e)=>{ e.currentTarget.disabled = true; await setStep(p,"photo",true); }},"내 사진 직접 고를게");
@@ -3427,8 +3436,8 @@ document.getElementById("home-search").addEventListener("focus", renderSearch);
 document.getElementById("bell-btn").addEventListener("click", ()=>{ const p = document.getElementById("bell-pop"); p.hidden = !p.hidden; });
 { const sb = document.getElementById("arch-suggest"); if (sb) sb.addEventListener("click", openArchivePlan); }
 document.getElementById("menu-btn").addEventListener("click", ()=>showView("vault"));
-(function(){ const a = document.getElementById("order-open"); if (!a) return; const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); a.href = (t && t.href) || "#";
-  a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText("업무지시 확인해"); a.textContent = "복사됨 · 붙여 넣고 보내세요"; setTimeout(()=>{ a.textContent = "지금 바로 처리"; }, 4000); }catch(e){} }); })();
+(function(){ const a = document.getElementById("order-open"); if (!a) return; if (isEvening()){ a.className = "pbtn"; a.style.padding = "4px 14px"; a.style.fontSize = "13px"; a.textContent = "바로 처리"; } const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); a.href = (t && t.href) || "#";
+  a.addEventListener("click",()=>{ try{ navigator.clipboard.writeText("업무지시 확인해"); a.textContent = "복사됨 · 붙여 넣고 보내세요"; setTimeout(()=>{ a.textContent = isEvening() ? "바로 처리" : "지금 바로 처리"; }, 4000); }catch(e){} }); })();
 document.getElementById("cal-prev").addEventListener("click", ()=>{ HOME.calMonth = addMonths(HOME.calMonth,-1); renderCalendar(); renderSeason(); });
 document.getElementById("cal-next").addEventListener("click", ()=>{ HOME.calMonth = addMonths(HOME.calMonth,1); renderCalendar(); renderSeason(); });
 document.getElementById("cal-today").addEventListener("click", ()=>{ HOME.calMonth = kstToday().slice(0,7); renderCalendar(); renderSeason(); });
