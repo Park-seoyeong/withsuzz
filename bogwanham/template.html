@@ -659,7 +659,10 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 #view-team .tstage{display:grid;grid-template-columns:minmax(340px,50%) minmax(0,1fr);gap:14px;align-items:start}
 #view-team .tstage .hcard-head{grid-column:1/-1}
 #view-team .tstage .office-wrap{width:100%;margin:0}
+.tright{display:grid;gap:12px;align-content:start;min-width:0}
 #view-team .tstage .cast{grid-template-columns:1fr 1fr;align-content:start}
+.tside{display:grid;gap:8px;border-top:1px solid var(--line);padding-top:12px}
+.tside h4{margin:0;font-size:14px}.tside ul{margin:0;padding-left:18px;display:grid;gap:4px;font-size:14px}
 @media (max-width:900px){#view-team .tstage{grid-template-columns:1fr}}
 #view-team{grid-template-columns:minmax(0,1fr)!important}
 #view-team .hcard{min-width:0;width:100%;grid-area:auto!important}
@@ -736,7 +739,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
     <section class="hcard tstage" aria-labelledby="h-office">
       <div class="hcard-head"><h3 id="h-office">동방 사무실</h3><span class="deco">☁ ✦</span></div>
       <div class="office-wrap" id="office"></div>
-      <div class="cast" id="cast" aria-label="캐릭터 4명 상태"></div>
+      <div class="tright"><div class="cast" id="cast" aria-label="캐릭터 4명 상태"></div><div class="tside" id="tside"></div></div>
     </section>
     <section class="hcard" aria-labelledby="h-meet">
       <div class="hcard-head"><h3 id="h-meet">회의록</h3><span class="deco" id="meet-time">아침 07:40 · 저녁 23:00</span></div>
@@ -3679,7 +3682,17 @@ function startReveal(){
   M.timer = setInterval(()=>{ M.shown++; renderMeet(true); if (M.shown>=x.lines.length+1){ clearInterval(M.timer); M.revealing = null; markMeetSeen(x.id); renderMeetAlert(); renderBell(); } }, 1700);
 }
 function skipReveal(){ const M = HOME.meet, x = M.list[M.idx]; clearInterval(M.timer); M.revealing = null; if (x) markMeetSeen(x.id); renderMeet(); renderMeetAlert(); renderBell(); }
+function renderTeamSide(){
+  const box = document.getElementById("tside"); if (!box) return;
+  const M = HOME.meet, x = M.state==="ok" ? M.list[M.list.length-1] : null;
+  if (!x){ box.replaceChildren(el("h4",{},"최근 회의"), el("p",{class:"muted",style:"margin:0"}, M.state==="off" ? "회의록 페이지를 읽지 못했어요. 노션 연결을 확인해 주세요." : M.state==="loading" ? "불러오는 중…" : "아직 회의가 없어요. 아침 07:40 · 저녁 23:00에 해요.")); return; }
+  const kids = [el("h4",{}, "최근 회의 · "+meetTitle(x))];
+  if ((x.summary||[]).length) kids.push(el("ul",{}, ...x.summary.map(t=>el("li",{},t))));
+  if ((x.todo||[]).length) kids.push(el("h4",{},"회의에서 정한 할 일"), el("ul",{}, ...x.todo.map(t=>el("li",{},t))));
+  box.replaceChildren(...kids);
+}
 function renderMeet(keepScroll){
+  try{ renderTeamSide(); }catch(e){}
   const box = document.getElementById("meet"); if (!box) return;
   const M = HOME.meet, x = M.list[M.idx];
   const head = el("div",{class:"meet-head"}, el("h4",{},"회의록 채팅창"), x ? el("span",{class:"hint2"}, meetTitle(x)) : null);
