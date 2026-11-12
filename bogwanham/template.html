@@ -1996,8 +1996,9 @@ function reportView(full){
 }
 // 키워드 화면: '오늘 추천'(Aside 7시 리포트) / '유입 키워드'(노션 유입 키워드 일간·월간 100개)
 HOME.kvTab = "rec"; HOME.kvKind = "daily"; HOME.kvPage = 0;
+function kwSorted(kind){ const arr = HOME.kw && HOME.kw[kind]; if (!Array.isArray(arr)) return []; const key = kind==="daily"?"date":"month"; return [...arr].sort((a,b)=>String(b[key]).localeCompare(String(a[key]))); }
 function kwFull(kind, per, page){
-  const latest = latestKwItems(kind);
+  const srt = kwSorted(kind), latest = srt[Math.min(HOME.kvSel||0, Math.max(0,srt.length-1))] || null;
   if (!latest) return {note: HOME.kwState==="loading" ? "불러오는 중…" : "이 기간 데이터가 아직 없어요.", rows:[], pages:1, head:null};
   const items = (latest.items||[]).slice().sort((a,b)=>(a.rank||0)-(b.rank||0));
   const pages = Math.max(1, Math.ceil(items.length/per));
@@ -2011,17 +2012,22 @@ function renderKeywordsView(){
   const b = document.getElementById("soon-kw"); if (!b) return;
   const tabs = el("div",{class:"htabs"}, ...[["rec","오늘 추천"],["in","유입 키워드"]].map(([k,l])=>el("button",{type:"button","aria-pressed":String(HOME.kvTab===k),onclick:()=>{HOME.kvTab=k; HOME.kvPage=0; renderKeywordsView();}},l)));
   if (HOME.kvTab==="rec"){ b.replaceChildren(tabs, reportView(true)); return; }
-  const kinds = el("div",{class:"htabs"}, ...[["daily","일간"],["monthly","월간"]].map(([k,l])=>el("button",{type:"button","aria-pressed":String(HOME.kvKind===k),onclick:()=>{HOME.kvKind=k; HOME.kvPage=0; renderKeywordsView();}},l)));
+  const kinds = el("div",{class:"htabs"}, ...[["daily","일간"],["monthly","월간"]].map(([k,l])=>el("button",{type:"button","aria-pressed":String(HOME.kvKind===k),onclick:()=>{HOME.kvKind=k; HOME.kvPage=0; HOME.kvSel=0; renderKeywordsView();}},l)));
   if (HOME.kwState!=="ok"){ b.replaceChildren(tabs, el("p",{class:"empty2"}, HOME.kwState==="loading"?"불러오는 중…":"유입 키워드 페이지를 읽지 못했어요.")); return; }
   const per = 25, d = kwFull(HOME.kvKind, per, HOME.kvPage), L = d.latest;
   if (!L){ b.replaceChildren(tabs, kinds, el("p",{class:"empty2"}, d.note)); return; }
   HOME.kvPage = Math.min(HOME.kvPage, d.pages-1);
   const lbl = HOME.kvKind==="daily" ? md(L.date) : Number(String(L.month).slice(5,7))+"월";
+  const srt = kwSorted(HOME.kvKind), selEl = srt.length>1 ? el("select",{"aria-label":HOME.kvKind==="daily"?"날짜 고르기":"월 고르기",style:"min-height:36px;margin:6px 0"}, ...srt.map((x,i)=>el("option",{value:String(i),selected:i===(HOME.kvSel||0)?"":null}, HOME.kvKind==="daily" ? md(x.date) : String(x.month).slice(0,7)))) : null;
+  if (selEl) selEl.addEventListener("change",()=>{ HOME.kvSel = Number(selEl.value); HOME.kvPage = 0; renderKeywordsView(); });
+  const prevL = srt[(HOME.kvSel||0)+1];
+  const diff = (prevL && L.channelViews!=null && prevL.channelViews!=null) ? L.channelViews-prevL.channelViews : null;
   const pg = el("div",{class:"pager",style:"margin:0"}, el("span",{}, (HOME.kvPage*per+1)+"–"+Math.min(d.total,(HOME.kvPage+1)*per)+"위 / "+d.total),
     el("button",{type:"button","aria-label":"이전",disabled:HOME.kvPage<=0,onclick:()=>{HOME.kvPage--;renderKeywordsView();}},"‹"),
     el("button",{type:"button","aria-label":"다음",disabled:HOME.kvPage>=d.pages-1,onclick:()=>{HOME.kvPage++;renderKeywordsView();}},"›"));
   b.replaceChildren(tabs, kinds,
-    el("p",{class:"kw-sum"}, lbl+" 조회수 ", el("b",{},num(L.channelViews)), " · 검색 유입 ", el("b",{},L.searchRate!=null?L.searchRate+"%":"–")),
+    selEl,
+    el("p",{class:"kw-sum"}, lbl+" 조회수 ", el("b",{},num(L.channelViews)), diff!=null ? el("small",{class:"hint2"}, " ("+(diff>=0?"▲":"▼")+num(Math.abs(diff))+" 이전 기간 대비)") : null, " · 검색 유입 ", el("b",{},L.searchRate!=null?L.searchRate+"%":"–")),
     pg, kwTableEl(d.rows.length?d.rows:[]), el("p",{class:"hint2"},"비중은 채널 조회수 대비, ≈는 추정이에요(네이버가 실제 건수는 안 줘요)."));
 }
 function renderReportFull(){ renderKeywordsView(); }
