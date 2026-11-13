@@ -3792,12 +3792,11 @@ function renderMeet(keepScroll){
     const c = castOf(l.who);
     return el("div",{class:"msg m-"+l.who}, avatar(c?c.img:"원고"), el("div",{}, el("span",{class:"nm"},l.who), el("br"), el("span",{class:"bub"},l.text)));
   }));
-  const kids = [head, chat];
-  if (!animating || shown>=total){
-    const rep = [el("b",{},"써즈 보고"), el("ul",{}, ...(x.summary||[]).map(t=>el("li",{},t)))];
-    if (x.todo && x.todo.length) rep.push(el("b",{},"할 일"), el("ul",{}, ...x.todo.map(t=>el("li",{},t))));
-    kids.push(el("div",{class:"report"}, ...rep));
-  }
+  const kids = [head];
+  { const rep = [el("b",{},"결론"), el("ul",{}, ...(x.summary||[]).map(t=>el("li",{},t)))];
+    if (x.todo && x.todo.length) rep.push(el("b",{},"다음 액션 (제안)"), el("ul",{}, ...x.todo.map(t=>el("li",{},t))));
+    kids.push(el("div",{class:"report"}, ...rep)); }
+  kids.push(el("h4",{class:"sub"},"회의 대화"), chat);
   const older = M.list.filter((y,i)=>i!==M.idx).reverse().slice(0,6);
   if (older.length && !animating) kids.push(el("div",{class:"olderm"}, el("h4",{class:"sub"},"지난 회의 (최신 먼저)"), ...older.map(y=>el("details",{class:"rules"}, el("summary",{}, meetTitle(y)),
     el("div",{class:"chat"}, ...y.lines.map(l=>{ const c = castOf(l.who); return el("div",{class:"msg m-"+l.who}, avatar(c?c.img:"원고"), el("div",{}, el("span",{class:"nm"},l.who), el("br"), el("span",{class:"bub"},l.text))); }))))));
