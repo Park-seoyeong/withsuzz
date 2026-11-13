@@ -434,6 +434,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .report{border-radius:18px;background:var(--surface);border:1px dashed var(--p-blue);padding:8px 12px;font-size:13px;display:grid;gap:4px}
 .report b{font:700 12px var(--round);letter-spacing:.1em;color:var(--accent)}
 .report ul{margin:0;padding-left:16px;display:grid;gap:2px}
+.todosend li .sbtn{margin-left:6px;padding:2px 10px;font-size:12px}
 #meet-alert:empty{display:none}
 .alert{display:grid;gap:6px;border-radius:26px;background:var(--p-pink);padding:12px 18px;color:#4A5568;cursor:pointer;box-shadow:var(--shadow-s)}
 .alert b{font:700 14px var(--round);letter-spacing:.06em}
@@ -3774,6 +3775,27 @@ function renderTeamSide(){
   if ((x.todo||[]).length) kids.push(el("h4",{},"회의에서 정한 할 일"), el("ul",{}, ...x.todo.map(t=>el("li",{},t))));
   box.replaceChildren(...kids);
 }
+// 회의 todo → 업무지시로 바로 보내기 (이미 보낸 건 기억, 기존 항목 있음은 건너뜀)
+function sentTodo(){ try{ return JSON.parse(localStorage.getItem("dongbang.sentTodo")||"[]"); }catch(e){ return HOME.sentTodoMem||[]; } }
+function markSentTodo(k){ const a = sentTodo(); if (!a.includes(k)) a.push(k); const v = a.slice(-200); HOME.sentTodoMem = v; try{ localStorage.setItem("dongbang.sentTodo", JSON.stringify(v)); }catch(e){} }
+function todoParts(t){ const m = String(t).match(/^\[담당\s*:\s*(클로드|지피티|어사이드|자동)\]\s*(.*)$/); return m ? {owner:m[1], body:m[2].replace(/\s*[—-]\s*기존 항목 있음\s*$/,"")} : {owner:"자동", body:String(t)}; }
+function todoSendList(x){
+  const items = (x.todo||[]).map((t,i)=>{ const k = x.id+"#"+i, p = todoParts(t), exists = /기존 항목 있음/.test(t) || HOME.orders.some(o=>!o.done && o.text.replace(/ · \d.*$/,"").includes(p.body.slice(0,24)));
+    return {t,k,p,exists}; });
+  const ul = el("ul",{class:"todosend"});
+  const paint = ()=>{ ul.replaceChildren(...items.map(it=>{
+    const sent = sentTodo().includes(it.k), btn = el("button",{type:"button",class:"sbtn"}, sent ? "보냄" : it.exists ? "이미 있음" : "업무지시로 보내기");
+    btn.disabled = sent || it.exists;
+    btn.onclick = async ()=>{ if (!mcp){ btn.textContent = "노션 연결 안 됨"; return; } btn.disabled = true; btn.textContent = "보내는 중…";
+      try{ await pushOrder(it.p.owner, it.p.body); markSentTodo(it.k); renderOrders(); renderTeam(); renderBell(); renderOffice(); }catch(e){ btn.disabled = false; btn.textContent = "다시 시도"; return; } paint(); };
+    return el("li",{}, el("span",{}, it.t), " ", btn); })); };
+  paint();
+  const all = items.filter(it=>!it.exists && !sentTodo().includes(it.k));
+  if (all.length>1){ const ab = el("button",{type:"button",class:"sbtn",onclick:async()=>{ if(!mcp) return; ab.disabled = true; ab.textContent = "보내는 중…";
+    for (const it of all){ if (sentTodo().includes(it.k)) continue; try{ await pushOrder(it.p.owner, it.p.body); markSentTodo(it.k); }catch(e){ break; } }
+    renderOrders(); renderTeam(); renderBell(); renderOffice(); paint(); ab.remove(); }}, "전부 업무지시로 보내기"); return el("div",{}, ul, ab); }
+  return ul;
+}
 function renderMeet(keepScroll){
   try{ renderTeamSide(); }catch(e){}
   const box = document.getElementById("meet"); if (!box) return;
@@ -3794,7 +3816,7 @@ function renderMeet(keepScroll){
   }));
   const kids = [head];
   { const rep = [el("b",{},"결론"), el("ul",{}, ...(x.summary||[]).map(t=>el("li",{},t)))];
-    if (x.todo && x.todo.length) rep.push(el("b",{},"다음 액션 (제안)"), el("ul",{}, ...x.todo.map(t=>el("li",{},t))));
+    if (x.todo && x.todo.length) rep.push(el("b",{},"다음 액션 (제안)"), todoSendList(x));
     kids.push(el("div",{class:"report"}, ...rep)); }
   kids.push(el("h4",{class:"sub"},"회의 대화"), chat);
   const older = M.list.filter((y,i)=>i!==M.idx).reverse().slice(0,6);
