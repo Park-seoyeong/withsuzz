@@ -425,7 +425,7 @@ table.kw .est{display:block;font-size:10.5px;color:var(--muted)}
 .meet-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
 .meet-head h4{margin:0;font:700 14px var(--round);letter-spacing:.06em}
 .meet-head .pager{margin-left:auto}
-.chat{display:grid;gap:8px;max-height:380px;overflow:auto;background:var(--sunk);border-radius:22px;padding:12px}
+.chat{display:grid;gap:8px;background:var(--sunk);border-radius:22px;padding:12px}
 .msg{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start;animation:pop .35s ease-out}
 @keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .msg .nm{font-size:11px;color:var(--muted)}
@@ -3761,9 +3761,8 @@ function renderMeetAlert(){
 }
 function openMeeting(x){ const M = HOME.meet, i = M.list.findIndex(y=>y.id===x.id); if (i>=0) M.idx = i; renderMeet(); goto("meet","team"); startReveal(); }
 function startReveal(){
-  const M = HOME.meet, x = M.list[M.idx]; if (!x || meetSeen().includes(x.id) || M.revealing===x.id) return;
-  M.revealing = x.id; M.shown = 0; clearInterval(M.timer); renderMeet();
-  M.timer = setInterval(()=>{ M.shown++; renderMeet(true); if (M.shown>=x.lines.length+1){ clearInterval(M.timer); M.revealing = null; markMeetSeen(x.id); renderMeetAlert(); renderBell(); } }, 1700);
+  const M = HOME.meet, x = M.list[M.idx]; if (!x) return;
+  clearInterval(M.timer); M.revealing = null; markMeetSeen(x.id); renderMeet(); renderMeetAlert(); renderBell();
 }
 function skipReveal(){ const M = HOME.meet, x = M.list[M.idx]; clearInterval(M.timer); M.revealing = null; if (x) markMeetSeen(x.id); renderMeet(); renderMeetAlert(); renderBell(); }
 function renderTeamSide(){
