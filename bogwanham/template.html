@@ -1252,11 +1252,12 @@ function renderArchive(){
   const rows = POSTS.filter(inArchive).sort((a,b)=>b.written.localeCompare(a.written));
   // 노션에만 있고 날짜가 지났는데 아직 게시됨이 아닌 블로그 글(원고 파일 없음)도 미발행으로 보관함에 올림
   const tdy = kstToday();
-  const lateNoFile = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && r.day && r.day>=OLD_CUT && r.day<tdy && !linkedPostFor(r.id)).sort((a,b)=>a.day.localeCompare(b.day));
+  const lateNoFile = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && r.day && r.day>=OLD_CUT && r.day<tdy && !linkedPostFor(r.id) && !SKIP.has(r.id)).sort((a,b)=>a.day.localeCompare(b.day));
   for (const r of lateNoFile) box.append(el("div",{class:"card"},
     el("b",{class:"card-title"}, r.title),
     el("div",{class:"card-row"}, el("span",{class:"pill late"},"날짜 지남 "+md(r.day)), el("span",{class:"pill todo"},"원고 없음 · 발행 확인 안 됨"), r.type?el("span",{class:"tag"},r.type):null),
-    dayEditor(r), writeControl(r)));
+    dayEditor(r), writeControl(r),
+    el("div",{class:"card-row"}, el("button",{type:"button",class:"small",title:"보관함에서 삭제(노션 글은 그대로, '안 쓸 소재로 뺀 것'에서 되돌릴 수 있어요)",onclick:e=>{ const bt=e.currentTarget; if (bt.dataset.ask){ skipRow(r); } else { bt.dataset.ask="1"; bt.textContent="정말 삭제? 한 번 더"; setTimeout(()=>{ if (bt.isConnected){ delete bt.dataset.ask; bt.textContent="삭제"; } },3500); } }},"삭제"))));
   if (!rows.length && !lateNoFile.length){ box.append(el("p",{class:"hint"},"보관함이 비어 있어요.")); return; }
   for (const p of rows){
     const s = st(p.id);
