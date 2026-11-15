@@ -160,6 +160,7 @@ a.chip{text-decoration:none}
 .card-title{font-weight:600;font-size:14px;line-height:1.4;background:none;border:0;padding:0;text-align:left;color:var(--fg)}
 .card-title:hover{text-decoration:underline}
 .card-row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.card-row:has(input[type=date]),.card-row:has(.small){flex-wrap:nowrap}.card-row input[type=date]{flex:1 1 auto;min-width:0}.card-row .small{flex:none;white-space:nowrap}
 .card input[type=date]{border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:4px 6px;font-size:13px;min-width:0}
 .small{background:var(--accent);color:var(--accent-fg);border:0;border-radius:6px;padding:5px 10px;font-size:13px;font-weight:600}
 .pill.season{background:var(--sched-soft);color:var(--sched)}
@@ -1007,7 +1008,7 @@ function applyDel(){
   ul.replaceChildren(...gone.map(p=>el("li",{}, p.title+" ", el("button",{type:"button",class:"sbtn",onclick:()=>undeletePost(p.id)},"되돌리기"))));
 }
 function deletePost(id){ const p = ALLPOSTS.find(x=>x.id===id); DEL.add(id); try{ if (db) db.doc("del/"+id).set({title:p?p.title:"", at:new Date().toISOString()}); }catch(e){} applyDel(); closeMsWin(); rerender(); renderViewer(true); }
-function delBtn(id, cls){ return el("button",{type:"button",class:cls||"linkbtn",title:"보관함에서 삭제(원고 파일은 그대로, 맨 아래 '삭제한 원고'에서 되돌릴 수 있어요)",onclick:e=>{ e.stopPropagation(); const b=e.currentTarget; if (b.dataset.ask){ deletePost(id); } else { b.dataset.ask="1"; b.textContent="정말 삭제? 한 번 더"; setTimeout(()=>{ if (b.isConnected){ delete b.dataset.ask; b.textContent="삭제"; } },3500); } }},"삭제"); }
+function delBtn(id, cls){ return el("button",{type:"button",class:cls||"linkbtn",title:"보관함에서 삭제(원고 파일은 그대로, 맨 아래 '삭제한 원고'에서 되돌릴 수 있어요)",onclick:e=>{ e.stopPropagation(); const b=e.currentTarget; if (b.dataset.ask){ deletePost(id); } else { b.dataset.ask="1"; b.textContent="한 번 더"; setTimeout(()=>{ if (b.isConnected){ delete b.dataset.ask; b.textContent="삭제"; } },3500); } }},"삭제"); }
 function undeletePost(id){ DEL.delete(id); try{ if (db) db.doc("del/"+id).delete(); }catch(e){} applyDel(); rerender(); renderViewer(true); }
 const local = {};          // 보관함 db: id -> {status, day, memo, notion}
 const notion = new Map();  // 노션 page id -> {id, title, day, status, platform}
@@ -1257,7 +1258,7 @@ function renderArchive(){
     el("b",{class:"card-title"}, r.title),
     el("div",{class:"card-row"}, el("span",{class:"pill late"},"날짜 지남 "+md(r.day)), el("span",{class:"pill todo"},"원고 없음 · 발행 확인 안 됨"), r.type?el("span",{class:"tag"},r.type):null),
     dayEditor(r), writeControl(r),
-    el("div",{class:"card-row"}, el("button",{type:"button",class:"small",title:"보관함에서 삭제(노션 글은 그대로, '안 쓸 소재로 뺀 것'에서 되돌릴 수 있어요)",onclick:e=>{ const bt=e.currentTarget; if (bt.dataset.ask){ skipRow(r); } else { bt.dataset.ask="1"; bt.textContent="정말 삭제? 한 번 더"; setTimeout(()=>{ if (bt.isConnected){ delete bt.dataset.ask; bt.textContent="삭제"; } },3500); } }},"삭제"))));
+    el("div",{class:"card-row"}, el("button",{type:"button",class:"small",title:"보관함에서 삭제(노션 글은 그대로, '안 쓸 소재로 뺀 것'에서 되돌릴 수 있어요)",onclick:e=>{ const bt=e.currentTarget; if (bt.dataset.ask){ skipRow(r); } else { bt.dataset.ask="1"; bt.textContent="한 번 더"; setTimeout(()=>{ if (bt.isConnected){ delete bt.dataset.ask; bt.textContent="삭제"; } },3500); } }},"삭제"))));
   if (!rows.length && !lateNoFile.length){ box.append(el("p",{class:"hint"},"보관함이 비어 있어요.")); return; }
   for (const p of rows){
     const s = st(p.id);
