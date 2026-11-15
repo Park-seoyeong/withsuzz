@@ -551,6 +551,15 @@ body{font-size:16px}
 .report .rrow .v em{font-style:normal;font-weight:800;color:#5B7DC4}.report .rrow.wide{grid-column:1/-1}
 .report .ri{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px;border:0;background:none;width:100%;text-align:left;cursor:pointer;font-family:inherit;color:var(--ink)}
 @media (max-width:720px){.report .rgrid{grid-template-columns:1fr}}
+.srep{display:grid;gap:12px;font-size:14px;line-height:1.6;color:var(--ink)}
+.srep-lead{margin:0;font-size:15px;font-weight:600}.srep-lead b{color:var(--accent)}
+.srep-s{display:grid;gap:6px;min-width:0}.srep-s h5,.srep-h{margin:4px 0 0;font-size:14px;font-weight:800;color:var(--ink)}
+.srep-s ul,.srep-s ol{margin:0;padding-left:20px;display:grid;gap:3px}
+.srep-note{margin:0;font-size:13px;color:var(--muted)}
+.srep-tw{overflow-x:auto;-webkit-overflow-scrolling:touch;max-width:100%}
+.srep-t{border-collapse:collapse;font-size:13px;min-width:100%}.srep-t th,.srep-t td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;white-space:nowrap}.srep-t th{font-weight:700;color:var(--muted);background:var(--bg)}
+.srep-do li small{display:block;color:var(--muted);font-size:12px}.srep-todo{border-top:1px dashed var(--line);padding-top:10px}
+.srep .ri{padding:4px 0}
 @media (max-width:1099px){.pc3>.tcol{display:contents}#t-left{order:1}#t-report{order:2}#t-now{order:3}#t-block{order:4}#t-visit{order:5}#t-kw{order:6}#t-ask{order:7}#t-week{order:8}#t-inkw{order:9}#t-log{order:10}}
 .tcard[hidden]{display:none}
 .pc3{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
@@ -1693,6 +1702,109 @@ function urgentDeadline(){
   return POSTS.filter(p=>p.deadline && p.deadline>=t && st(p.id).status!=="published" && st(p.id).status!=="hold").sort((a,b)=>a.deadline.localeCompare(b.deadline))[0] || null;
 }
 function shortTitle(s, n=14){ s = String(s); return s.length>n ? s.slice(0,n)+"…" : s; }
+// ===== 써즈 보고 형식(11/16 써즈 요청) =====
+// 결론 1~2줄 → 굵은 소제목 덩어리(숫자는 표, 'A에서 B로', 해석 한 줄, 추측 표시) → 써즈가 할 일 번호 목록
+function rText(s){ if (s instanceof Node) return [s]; const parts = String(s??"").split(/\*\*(.+?)\*\*/g); return parts.map((p,i)=>i%2?el("b",{},p):p); }
+function ro(w){ const s = String(w), c = s.charCodeAt(s.length-1);
+  if (c>=0xAC00 && c<=0xD7A3){ const j = (c-0xAC00)%28; return (j===0||j===8) ? "로" : "으로"; }
+  if (/[0-9]$/.test(s)) return /[036]$/.test(s) ? "으로" : "로";
+  return "로"; }
+function hasJong(w){ const s = String(w).replace(/[)\]"'’”\s]+$/,""), c = s.charCodeAt(s.length-1);
+  if (c>=0xAC00 && c<=0xD7A3) return (c-0xAC00)%28!==0;
+  if (/[0-9]$/.test(s)) return /[013678]$/.test(s);
+  if (/[a-zA-Z]$/.test(s)) return /[lmnr]$/i.test(s);
+  return false; }
+function josa(w, withJ, noJ){ return String(w)+(hasJong(w)?withJ:noJ); }
+function mdk(iso){ return Number(iso.slice(5,7))+"월 "+Number(iso.slice(8,10))+"일"; }
+function fromTo(a, b){ return a==null ? String(b) : a+"에서 "+b+ro(b); }
+function pct(v){ return v==null||v===""||isNaN(v) ? "–" : (Math.round(Number(v)*100)/100)+"%"; }
+function srepTable(tb){
+  if (!tb || !(tb.rows||[]).length) return null;
+  return el("div",{class:"srep-tw"}, el("table",{class:"srep-t"},
+    tb.head ? el("thead",{}, el("tr",{}, ...tb.head.map(h=>el("th",{},h)))) : null,
+    el("tbody",{}, ...tb.rows.map(r=>el("tr",{}, ...r.map(c=>el("td",{}, rText(c))))))));
+}
+function srep(rep){
+  const kids = [];
+  for (const l of (rep.lead||[]).filter(Boolean).slice(0,2)) kids.push(el("p",{class:"srep-lead"}, rText(l)));
+  for (const s of rep.sections||[]){
+    if (!s) continue;
+    const body = [el("h5",{}, s.title)];
+    const intro = (s.intro||[]).filter(Boolean), its = (s.items||[]).filter(Boolean);
+    if (intro.length) body.push(el("ul",{}, ...intro.map(t=>el("li",{}, rText(t)))));
+    if (s.table) body.push(srepTable(s.table));
+    if (its.length) body.push(el("ul",{}, ...its.map(t=>el("li",{}, rText(t)))));
+    for (const n of (s.notes||[]).filter(Boolean)) body.push(el("p",{class:"srep-note"}, rText(n)));
+    if (s.node) body.push(s.node);
+    if (body.length>1) kids.push(el("section",{class:"srep-s"}, ...body));
+  }
+  if (rep.todoNode || (rep.todo||[]).length)
+    kids.push(el("section",{class:"srep-s srep-todo"}, el("h5",{}, rep.todoTitle||"써즈가 할 일"), rep.todoNode || el("ol",{}, ...rep.todo.map(t=>el("li",{}, rText(t))))));
+  return el("div",{class:"srep"}, ...kids);
+}
+// 방문자: 통계 페이지 일별 값 + 오늘은 visitInfo()의 더 늦은 값
+function visitSeries(){
+  const t = kstToday(), vs = ((HOME.stats&&HOME.stats.visitors)||[]).filter(v=>v && v.date && v.cnt!=null && !isNaN(v.cnt)).map(v=>({date:v.date, cnt:Number(v.cnt)})).sort((a,b)=>a.date.localeCompare(b.date));
+  const vi = visitInfo();
+  if (vi.n!=null && !isNaN(vi.n)){ const i = vs.findIndex(v=>v.date===t); if (i>=0) vs[i].cnt = Number(vi.n); else vs.push({date:t, cnt:Number(vi.n)}); }
+  return vs;
+}
+function visitSection(days){
+  const vs = visitSeries(), t = kstToday(); if (!vs.length) return null;
+  const last = vs.slice(-(days||4)), off = vs.length-last.length;
+  const rows = last.map((v,i)=>{ const p = vs[off+i-1], d = p ? v.cnt-p.cnt : null;
+    return [md(v.date)+(v.date===t?" (오늘)":""), num(v.cnt)+"명", v.date===t ? "집계 중" : d==null ? "–" : (d>=0?"+":"−")+num(Math.abs(d))+"명"]; });
+  const done = vs.filter(v=>v.date<t), notes = [];
+  if (done.length>=2){ const a = done[done.length-2], b = done[done.length-1], r = a.cnt ? Math.round((b.cnt-a.cnt)*100/a.cnt) : 0;
+    notes.push(mdk(b.date)+" 방문자는 전날 "+num(a.cnt)+"명에서 "+num(b.cnt)+"명"+ro(num(b.cnt)+"명")+" "+(Math.abs(r)<5 ? "거의 그대로였어요." : Math.abs(r)+"% "+(r>0?"늘었어요.":"줄었어요."))); }
+  const w = done.slice(-7); if (w.length>=3) notes.push("최근 "+w.length+"일 평균은 하루 "+num(Math.round(w.reduce((s,v)=>s+v.cnt,0)/w.length))+"명이에요.");
+  if (last.some(v=>v.date===t)) notes.push("오늘 숫자는 하루가 안 끝나서 더 늘어나요.");
+  return {title:"방문자 최근 "+last.length+"일", table:{head:["날짜","방문자","전날 대비"], rows}, notes};
+}
+// 유입 키워드: 두 날짜(또는 두 달) 비교 → 표 + 달라진 점 + 해석
+function kwPeriodLabel(o){ return o.date ? mdk(o.date) : Number(String(o.month).slice(5,7))+"월"; }
+function kwCompare(cur, prev){
+  if (!cur) return null;
+  const items = (o)=>((o&&o.items)||[]).slice().sort((a,b)=>(a.rank||0)-(b.rank||0));
+  const C = items(cur), P = items(prev), pm = new Map(P.map(x=>[x.keyword,x])), cm = new Map(C.map(x=>[x.keyword,x]));
+  const lc = kwPeriodLabel(cur), lp = prev ? kwPeriodLabel(prev) : null;
+  const lead = [], changes = [], notes = [];
+  if (prev && cur.channelViews!=null && prev.channelViews!=null){
+    const d = cur.channelViews-prev.channelViews;
+    lead.push(lc+" 조회수는 "+lp+" "+num(prev.channelViews)+"회에서 **"+num(cur.channelViews)+"회**"+ro(num(cur.channelViews)+"회")+" "+(d>=0?"늘었어요.":"줄었어요."));
+  } else if (cur.channelViews!=null) lead.push(lc+" 조회수는 **"+num(cur.channelViews)+"회**예요.");
+  if (prev && cur.searchRate!=null && prev.searchRate!=null) lead.push("검색으로 들어온 비율은 "+fromTo(pct(prev.searchRate), pct(cur.searchRate))+" 바뀌었어요.");
+  if (prev){
+    const up = C.slice(0,20).map(x=>{ const p = pm.get(x.keyword); return {x, p, d:(Number(x.share)||0)-(p?Number(p.share)||0:0)}; }).filter(o=>o.p && o.d>=0.3).sort((a,b)=>b.d-a.d).slice(0,3);
+    for (const o of up) changes.push(josa(o.x.keyword,"이","가")+" 비중 "+fromTo(pct(o.p.share), pct(o.x.share))+" 올라서 "+o.x.rank+"위가 됐어요.");
+    const nw = C.slice(0,10).filter(x=>!pm.has(x.keyword)).slice(0,3);
+    if (nw.length) changes.push(josa(nw.map(x=>x.keyword).join(", "),"이","가")+" 새로 10위 안에 들어왔어요.");
+    const dn = P.slice(0,10).map(p=>{ const x = cm.get(p.keyword); return {p, x, d:(Number(p.share)||0)-(x?Number(x.share)||0:0)}; }).filter(o=>!o.x || o.d>=0.3).sort((a,b)=>b.d-a.d).slice(0,3);
+    for (const o of dn) changes.push(o.x ? josa(o.p.keyword,"은","는")+" 비중 "+fromTo(pct(o.p.share), pct(o.x.share))+" 내려갔어요." : josa(o.p.keyword,"은","는")+" "+lp+"엔 "+o.p.rank+"위였는데 이번 목록엔 없어요.");
+    if (up.length) notes.push("올라간 키워드는 시즌 검색이 붙기 시작한 걸 수 있어요(추측). 관련 글을 손보거나 이어 쓸 후보예요.");
+    if (!changes.length) changes.push("상위 키워드 비중은 "+josa(lp,"과","와")+" 크게 다르지 않아요.");
+  }
+  const top = C.slice(0,5).map(x=>{ const p = pm.get(x.keyword); return [x.rank+"위", x.keyword, prev ? (p ? pct(p.share)+" → "+pct(x.share) : "새로 → "+pct(x.share)) : pct(x.share)]; });
+  return {lead, table:{head:["순위","키워드", prev ? "비중 변화" : "비중"], rows:top}, changes, notes, lc, lp};
+}
+function kwSection(cur, prev, title){
+  const k = kwCompare(cur, prev); if (!k) return [];
+  return [{title: title||("유입 키워드 "+k.lc), intro:k.lead, table:k.table}, prev ? {title:josa(k.lp,"과","와")+" 비교해 달라진 점", items:k.changes, notes:k.notes} : null];
+}
+// 회의 보고: report{lead,sections,todo}가 있으면 그대로, 옛 회의는 summary로 대신 만든다
+function meetRep(x, withTeam){
+  const r = x.report, secs = [];
+  let lead = [], todo = [];
+  if (r && ((r.lead||[]).length || (r.sections||[]).length)){
+    lead = r.lead||[]; todo = r.todo||[];
+    for (const s of r.sections||[]) if (s && s.title) secs.push({title:s.title, table:s.table&&s.table.rows ? s.table : null, items:s.items||[], notes:s.notes||[]});
+  } else {
+    const s = (x.summary||[]).filter(Boolean); lead = s.slice(0,1);
+    if (s.length>1) secs.push({title:"정한 것", items:s.slice(1)});
+  }
+  if (withTeam && (x.todo||[]).length) secs.push({title:"팀에 맡길 일 (제안)", node:todoSendList(x)});
+  return {lead, sections:secs, todo};
+}
 
 const MENU = [["🏠","홈","home"],["🗓️","캘린더","calendar"],["✍️","원고","vault"],["🔑","키워드","keywords"],["🏢","팀","team"],["⋯","더보기","more"]];
 const TAB_FACE = {home:"원고", calendar:"캘린더", vault:"원고", keywords:"키워드", team:"통계"};
@@ -1984,7 +2096,9 @@ function reportView(full){
     box.append(el("p",{class:"hint2"}, (r && r.date ? "마지막 리포트 "+r.date+" · " : "아직 받은 리포트가 없어요 · ")+"다음 리포트는 내일 07:00 이후에 들어와요."));
     return box;
   }
-  box.append(el("p",{class:"kw-sum"}, r.date+" 리포트 ", el("b",{}, r.top5.length+"개 추천"), r.backlog && r.backlog.total!=null ? " · 쌓인 원고 "+r.backlog.total+"편" : ""));
+  { const f = r.top5[0]||{}, fm = f.main||{};
+    box.append(srep({lead:["오늘 추천 키워드는 **"+r.top5.length+"개**예요."+(r.backlog && r.backlog.total!=null ? " 쌓인 원고는 "+r.backlog.total+"편이에요." : ""),
+      (f.topic||fm.kw) ? "1순위는 "+(f.topic||fm.kw)+(fm.volume!=null ? "이고, 한 달 검색 "+num(fm.volume)+"회예요." : "예요.") : null]})); }
   if (r.message) box.append(el("p",{class:"hint2"}, r.message));
   const list = el("div",{class:"hl"});
   for (const t of r.top5){
@@ -2050,8 +2164,10 @@ function renderKeywordsView(){
     el("button",{type:"button","aria-label":"다음",disabled:HOME.kvPage>=d.pages-1,onclick:()=>{HOME.kvPage++;renderKeywordsView();}},"›"));
   b.replaceChildren(tabs, kinds,
     selEl,
-    el("p",{class:"kw-sum"}, lbl+" 조회수 ", el("b",{},num(L.channelViews)), diff!=null ? el("small",{class:"hint2"}, " ("+(diff>=0?"▲":"▼")+num(Math.abs(diff))+" 이전 기간 대비)") : null, " · 검색 유입 ", el("b",{},L.searchRate!=null?L.searchRate+"%":"–")),
-    pg, kwTableEl(d.rows.length?d.rows:[]), el("p",{class:"hint2"},"비중은 채널 조회수 대비, ≈는 추정이에요(네이버가 실제 건수는 안 줘요)."));
+    (()=>{ const k = kwCompare(L, prevL||null); if (!k) return null;
+      return srep({lead:k.lead, sections:[prevL ? {title:josa(k.lp,"과","와")+" 비교해 달라진 점", items:k.changes, notes:k.notes} : null]}); })(),
+    el("h5",{class:"srep-h"}, lbl+" 유입 키워드 전체"),
+    pg, kwTableEl(d.rows.length?d.rows:[]), el("p",{class:"hint2"},"비중은 그날 전체 조회수 중 그 키워드로 들어온 비율이에요. ≈ 숫자는 비중으로 거꾸로 계산한 추정이에요(네이버는 실제 건수를 안 알려 줘요)."));
 }
 function renderReportFull(){ renderKeywordsView(); }
 // 통계 화면: 방문자·이웃 + 유입 키워드 일간·월간 상위
@@ -2059,7 +2175,9 @@ function renderStatsView(){
   const b = document.getElementById("soon-stats"); if (!b) return;
   const vi = visitInfo(), s = HOME.stats;
   const vis = ((s && s.visitors)||[]).filter(v=>v && v.date).sort((a,b)=>a.date.localeCompare(b.date));
-  const kids = [el("div",{class:"statgrid"},
+  const vsec = visitSection(7), nb = pubVal("neighbors"), tv = pubVal("totalVisitors");
+  const kids = [srep({lead:[visitLead()], sections:[vsec, (nb!=null||tv!=null) ? {title:"공개 통계", items:["이웃 "+num(nb)+"명, 누적 방문 "+num(tv)+"명이에요."]} : null]}),
+    el("div",{class:"statgrid"},
     el("div",{class:"stat"},el("span",{},"오늘 방문자"),el("b",{},num(vi.n)), freshTag(vi.at)),
     el("div",{class:"stat"},el("span",{},"이웃"),el("b",{},num(pubVal("neighbors")))),
     el("div",{class:"stat",style:"grid-column:1/-1"},el("span",{},"누적 방문자"),el("b",{},num(pubVal("totalVisitors")))))];
@@ -2070,7 +2188,7 @@ function renderStatsView(){
     const L = latestKwItems(kind);
     kids.push(el("h4",{class:"sub"}, name+(L?" · "+(kind==="daily"?md(L.date):Number(String(L.month).slice(5,7))+"월"):"")));
     if (!L){ kids.push(el("p",{class:"empty2"}, HOME.kwState==="loading"?"불러오는 중…":"데이터가 아직 없어요.")); continue; }
-    kids.push(el("p",{class:"kw-sum"}, "조회수 ", el("b",{},num(L.channelViews)), " · 검색 유입률 ", el("b",{},L.searchRate!=null?L.searchRate+"%":"–")));
+    { const k = kwCompare(L, kwSorted(kind)[1]||null); if (k) kids.push(srep({lead:k.lead, sections:[kwSorted(kind)[1] ? {title:"달라진 점", items:k.changes, notes:k.notes} : null]})); }
     kids.push(kwTableEl((L.items||[]).slice().sort((a,b)=>(a.rank||0)-(b.rank||0)).slice(0,10)));
   }
   kids.push(el("button",{class:"pbtn",type:"button",onclick:()=>{HOME.kvTab="in"; showView("keywords"); renderKeywordsView();}},"유입 키워드 전체 100개 보기"));
@@ -2847,50 +2965,73 @@ function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} delete COACH_MEM
 const COACH_MEM = {};
 function closeBigModal(){ const b = document.getElementById("bigmodal"); if (b) b.remove(); document.body.style.overflow = ""; }
 // ===== 오늘 보고창 =====
-function openReportModal(){
-  closeBigModal();
-  const t = kstToday(), y = addDays(t,-1), all = itemsOnDay(t), doneT = all.filter(i=>i.published), leftT = all.filter(i=>!i.published), doneY = itemsOnDay(y).filter(i=>i.published), lateY = itemsOnDay(y).filter(i=>!i.published);
-  const ym = t.slice(0,7); let monthN = 0; try{ monthN = calStatItems(ym).filter(i=>i.status==="published"||i.status==="done"||(i.row&&i.row.status==="게시됨")).length; }catch(e){}
-  const bl = (()=>{ try{ return blockers(); }catch(e){ return []; } })();
-  const sec = (title, kids)=>el("section",{class:"hcard",style:"padding:14px 16px;box-shadow:none;border:1px solid var(--line)"}, el("h4",{style:"margin:0 0 8px;font-size:15px"}, title), kids);
-  // 서영이 직접 해야 할 일: 막힌 것 · 임시저장 확인/발행 · 사진 · 원고 맡기기
-  const mine = [], goTo = (key)=>()=>{ close(); openDetail(key); };
-  bl.forEach(b=>mine.push({t:b.title, s:b.sub, go:b.key?goTo(b.key):null}));
+// 써즈가 직접 할 일: 막힌 것 · 임시저장 확인/발행 · 사진 · 원고 맡기기 ({t, s, key})
+function myTodos(){
+  const t = kstToday(), mine = [];
+  try{ blockers().forEach(b=>mine.push({t:b.title, s:b.sub, key:b.key||null})); }catch(e){}
   try{
     const unpub = POSTS.map(p=>mkItem(p, st(p.id).row)).filter(i=>!i.published).sort((x,y)=>String(x.day||"9").localeCompare(String(y.day||"9")));
     for (const i of unpub){
       const n = (String((i.post&&i.post.html)||"").match(/\[(?:확인 필요|경험 확인|써즈 후기)[^\]]*\]/g)||[]).length;
-      if (i.drafted) mine.push({t:"임시저장 확인하고 발행하기: "+i.title, s:(n?"원고에 [확인 필요] "+n+"곳 · ":"")+"어사이드가 네이버에 임시저장해 뒀어요"+(i.day?" · "+md(i.day):""), go:goTo(i.key)});
-      else if (i.cur===3 && !i.aside && i.day && i.day<=addDays(t,1)) mine.push({t:"사진 맡기거나 정하기: "+i.title, s:"원고는 끝났어요"+(i.day?" · "+md(i.day):""), go:goTo(i.key)});
+      if (i.drafted) mine.push({t:"임시저장 확인하고 발행하기: "+i.title, s:(n?"원고에 [확인 필요] "+n+"곳이 있어요. ":"")+"네이버에 임시저장돼 있어요."+(i.day?" "+mdk(i.day)+" 예정이에요.":""), key:i.key});
+      else if (i.cur===3 && !i.aside && i.day && i.day<=addDays(t,1)) mine.push({t:"사진 맡기거나 정하기: "+i.title, s:"원고는 끝났어요."+(i.day?" "+mdk(i.day)+" 예정이에요.":""), key:i.key});
     }
   }catch(e){}
-  try{ for (const i of itemsOnDay(t)) if (!i.published && !i.post && !i.writing) mine.push({t:"원고 쓰기 맡기기: "+i.title, s:"오늘 날짜인데 원고 파일이 없어요", go:goTo(i.key)}); }catch(e){}
-  try{ // 어사이드가 임시저장한 업무지시 중 사이트 원고와 이름이 안 맞아 빠진 것도 보여 준다
+  try{ for (const i of itemsOnDay(t)) if (!i.published && !i.post && !i.writing) mine.push({t:"원고 쓰기 맡기기: "+i.title, s:"오늘 올릴 글인데 원고가 없어요.", key:i.key}); }catch(e){}
+  try{ // 업무지시에 임시저장으로 남아 있는데 원고 이름이 안 맞아 빠진 것
     const have = mine.map(m=>normT(m.t.replace(/^[^:]*:\s*/,"")));
     for (const o of HOME.orders||[]){
       if (!/^원고 임시저장\s*:/.test(o.text)) continue;
       const a = asideState(o); if (!a || a.state!=="drafted") continue;
       const ti = cleanOrder(o.text).title, nt = normT(ti);
       if (!nt || have.some(h=>h && (h.includes(nt) || nt.includes(h)))) continue;
-      have.push(nt); mine.push({t:"임시저장 확인하고 발행하기: "+ti, s:a.text, go:null});
+      have.push(nt); mine.push({t:"임시저장 확인하고 발행하기: "+ti, s:a.text, key:null});
     }
   }catch(e){}
-  { const seen = new Set(); for (let q=mine.length-1; q>=0; q--){ const k = normT(mine[q].t.replace(/^[^:]*:\s*/,"")); if (k && seen.has(k)) mine.splice(q,1); else seen.add(k); } }
-  const MAXM = 8, mineShow = mine.slice(0, MAXM);
-  const mineSec = el("section",{class:"hcard",style:"padding:14px 16px;box-shadow:none;border:2px solid var(--p-pink,#ffd9e2)"}, el("h4",{style:"margin:0 0 8px;font-size:15px"}, "내가 할 일 "+mine.length+"건"),
-    mine.length ? el("ul",{class:"cdetail"}, ...mineShow.map(m=>el("li",{}, m.go ? el("button",{class:"ri",type:"button",onclick:m.go}, el("span",{}, m.t, el("small",{style:"display:block"}, m.s))) : el("span",{}, m.t, el("small",{style:"display:block"}, m.s))))) : el("p",{class:"muted",style:"margin:0"},"지금 서영이 직접 할 일은 없어요"),
-    mine.length>MAXM ? el("p",{class:"muted",style:"margin:6px 0 0"},"외 "+(mine.length-MAXM)+"건은 원고 탭에서 볼 수 있어요") : null);
-  const list = (arr, fmt, empty)=>arr.length ? el("ul",{class:"cdetail"}, ...arr.map(i=>el("li",{}, fmt(i)))) : el("p",{class:"muted",style:"margin:0"}, empty);
+  const seen = new Set(); for (let q=mine.length-1; q>=0; q--){ const k = normT(mine[q].t.replace(/^[^:]*:\s*/,"")); if (k && seen.has(k)) mine.splice(q,1); else seen.add(k); }
+  return mine;
+}
+function pubCompare(){
+  const t = kstToday(), y = addDays(t,-1), all = itemsOnDay(t), yAll = itemsOnDay(y);
+  return {t, y, doneT:all.filter(i=>i.published), leftT:all.filter(i=>!i.published), doneY:yAll.filter(i=>i.published), lateY:yAll.filter(i=>!i.published)};
+}
+function visitLead(){
+  const vs = visitSeries(), t = kstToday(), tv = vs.find(v=>v.date===t), yv = vs.find(v=>v.date===addDays(t,-1)), y2 = vs.find(v=>v.date===addDays(t,-2));
+  if (yv && y2) return "방문자는 그제 "+num(y2.cnt)+"명에서 어제 "+num(yv.cnt)+"명"+ro(num(yv.cnt)+"명")+" "+(yv.cnt>=y2.cnt?"늘었고":"줄었고")+(tv?", 오늘은 지금까지 "+num(tv.cnt)+"명이에요.":", 오늘 숫자는 아직 없어요.");
+  if (tv) return "오늘 방문자는 지금까지 "+num(tv.cnt)+"명이에요.";
+  return "방문자 숫자는 아직 못 받았어요.";
+}
+function openReportModal(){
+  closeBigModal();
+  const P = pubCompare(), {t, y, doneT, leftT, doneY, lateY} = P;
+  const ym = t.slice(0,7); let monthN = 0; try{ monthN = calStatItems(ym).filter(i=>i.status==="published"||i.status==="done"||(i.row&&i.row.status==="게시됨")).length; }catch(e){}
+  const close = ()=>closeBigModal(), goTo = (key)=>()=>{ close(); openDetail(key); };
+  const mine = myTodos(), MAXM = 8;
+  const todoNode = mine.length ? el("div",{}, el("ol",{class:"srep-do"}, ...mine.slice(0,MAXM).map(m=>el("li",{}, m.key ? el("button",{class:"ri",type:"button",onclick:goTo(m.key)}, el("span",{}, m.t, el("small",{}, m.s))) : el("span",{}, m.t, el("small",{}, m.s))))),
+    mine.length>MAXM ? el("p",{class:"srep-note"},"나머지 "+(mine.length-MAXM)+"건은 원고 탭에서 볼 수 있어요.") : null) : null;
+  // 유입 키워드: 가장 최근 두 날짜 비교
+  const kd = kwSorted("daily"), kwSecs = kd.length ? kwSection(kd[0], kd[1]||null, "유입 키워드 "+kwPeriodLabel(kd[0])) : [];
+  const pubN = pubVal("neighbors"), tot = pubVal("totalVisitors"), vi = visitInfo();
+  const pubItems = [];
+  if (doneT.length) pubItems.push("오늘 올린 글: "+doneT.map(i=>i.title).join(" / "));
+  if (lateY.length) pubItems.push("어제 예정인데 아직 안 올라간 글이 "+lateY.length+"편 있어요: "+lateY.map(i=>i.title).join(" / "));
+  const leftNode = leftT.length ? el("div",{}, el("p",{class:"srep-note"},"오늘 남은 글"), ...leftT.map(i=>el("button",{class:"ri",type:"button",onclick:goTo(i.key)}, stageChip(i), el("span",{}, i.title)))) : null;
+  const rep = {
+    lead: [notionState==="ok" ? "오늘 "+doneT.length+"편 올렸고, 오늘 날짜 원고 중 **"+leftT.length+"편**이 남았어요." : "노션에서 일정을 불러오는 중이에요.", visitLead()],
+    sections: [
+      {title:"발행", table:{head:["구분","어제 "+md(y),"오늘 "+md(t)], rows:[["올린 글", doneY.length+"편", doneT.length+"편"],["남은 글", lateY.length+"편", leftT.length+"편"]]},
+        items:pubItems, notes:[Number(ym.slice(5))+"월에 올린 글은 지금까지 "+monthN+"편이에요."], node:leftNode},
+      visitSection(4),
+      ...kwSecs,
+      (pubN!=null || tot!=null) ? {title:"공개 통계", items:["이웃 "+num(pubN)+"명, 누적 방문 "+num(tot)+"명, 오늘 방문 "+num(vi.n)+"명이에요."]} : null,
+    ],
+    todoTitle: "써즈가 할 일 "+mine.length+"건",
+    todoNode: todoNode || el("p",{class:"srep-note"},"지금 써즈가 직접 할 일은 없어요."),
+  };
   const back = el("div",{class:"bm-back",id:"bigmodal"}), box = el("div",{class:"bm",role:"dialog","aria-modal":"true","aria-label":"오늘 보고",style:"height:auto;max-height:calc(100vh - 32px)"});
-  const close = ()=>closeBigModal();
   box.append(
-    el("div",{class:"bm-head"}, el("div",{}, el("b",{class:"bm-title"},"오늘 보고"), el("small",{}, md(t)+" · 오늘 "+doneT.length+"편 올림 · 남은 원고 "+leftT.length+"편")), el("button",{class:"sbtn",type:"button",onclick:close},"닫기 ✕")),
-    el("div",{class:"bm-body"},
-      mineSec,
-      sec("오늘 올린 글 "+doneT.length+"편", list(doneT, i=>i.title, "아직 올린 글이 없어요")),
-      sec("오늘 남은 글 "+leftT.length+"편", list(leftT, i=>[el("button",{class:"ri",type:"button",onclick:()=>{ close(); openDetail(i.key); }}, stageChip(i), el("span",{}, i.title))], "남은 원고가 없어요")),
-      sec("어제("+md(y)+") 올린 글 "+doneY.length+"편", [list(doneY, i=>i.title, "어제 올린 글이 없어요"), lateY.length ? el("p",{class:"muted",style:"margin:8px 0 0"},"어제 날짜인데 아직 안 올라간 글 "+lateY.length+"편: "+lateY.map(i=>i.title).join(" / ")) : null]),
-      sec("이번 달", el("p",{style:"margin:0"}, ym.slice(5)+"월에 올린 글 "+monthN+"편"))));
+    el("div",{class:"bm-head"}, el("div",{}, el("b",{class:"bm-title"},"오늘 보고"), el("small",{}, mdk(t))), el("button",{class:"sbtn",type:"button",onclick:close},"닫기 ✕")),
+    el("div",{class:"bm-body"}, srep(rep)));
   back.append(box); back.addEventListener("click",(e)=>{ if (e.target===back) close(); });
   document.body.append(back); document.body.style.overflow = "hidden";
 }
@@ -3367,21 +3508,27 @@ function dday(it){ return it.deadline ? "★ ~"+md(it.deadline)+" 마감" : (it.
 // 홈 ⓪ 오늘 현황·보고 (자기 전에 한 번에 보는 카드)
 function renderHomeReport(){
   const box = document.getElementById("t-report"); if (!box) return;
-  const t = kstToday(), tm = addDays(t,1), today = itemsOnDay(t), pub = today.filter(i=>i.published), tmr = itemsOnDay(tm).filter(i=>!i.published);
-  const vis = visitInfo(), vs = (HOME.stats && HOME.stats.visitors) || [], yd = vs.find(x=>x.date===addDays(t,-1));
-  let visTxt = "데이터 없음";
-  if (vis.n!=null && !isNaN(vis.n)){ visTxt = "오늘 "+num(vis.n)+"명"; if (yd && yd.cnt!=null){ const d = vis.n-yd.cnt; visTxt += " · 어제 "+num(yd.cnt)+"명 ("+(d>=0?"+":"")+num(d)+")"; } }
+  const P = pubCompare(), {t, y, doneT, leftT, doneY} = P, tm = addDays(t,1), tmr = itemsOnDay(tm).filter(i=>!i.published);
+  const vs = visitSeries(), tv = vs.find(v=>v.date===t), yv = vs.find(v=>v.date===y);
   const late = POSTS.filter(p=>isLate(p.id)).length;
   let week = 0; for (let i=1;i<=7;i++) week += itemsOnDay(addDays(t,i)).filter(x=>!x.published).length;
   const waiting = HOME.ordersState==="ok" ? HOME.orders.filter(o=>!o.done).length : null, stuck = (()=>{ try{ return blockers().length; }catch(e){ return 0; } })();
-  const rows = [
-    el("div",{class:"rrow"}, el("b",{},"오늘 발행"), el("div",{class:"v"}, notionState==="ok" ? el("span",{}, el("em",{}, pub.length+"편"), pub.length ? " · "+pub.map(i=>i.title).join(" / ").slice(0,70) : " (아직 없어요)") : "노션 불러오는 중…")),
-    el("div",{class:"rrow"}, el("b",{},"방문자"), el("div",{class:"v"}, visTxt)),
-    el("div",{class:"rrow wide"}, el("b",{},"내일 할 일 ("+md(tm)+")"), tmr.length ? el("div",{}, ...tmr.slice(0,4).map(i=>el("button",{class:"ri",type:"button",onclick:()=>openDetail(i.key)}, stageChip(i), el("span",{}, i.title)))) : el("div",{class:"v"}, notionState==="ok" ? "내일 잡힌 원고가 없어요" : "노션 불러오는 중…")),
-    el("div",{class:"rrow"}, el("b",{},"미발행 현황"), el("div",{class:"v"}, "날짜 지난 것 ", el("em",{}, late+"편"), " · 앞으로 7일 안 ", el("em",{}, week+"편"))),
-    el("div",{class:"rrow"}, el("b",{},"AI 팀"), el("div",{class:"v"}, waiting==null ? "데이터 없음" : "대기 중 업무지시 "+waiting+"건", stuck ? " · 막힌 것 "+stuck+"건" : " · 막힌 것 없음")),
-  ];
-  box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("통계","mini"), "오늘 현황·보고"), el("small",{}, md(t))), el("div",{class:"rgrid"}, ...rows), homeMeetLine());
+  const mineN = (()=>{ try{ return myTodos().length; }catch(e){ return 0; } })();
+  const ok = notionState==="ok";
+  const rep = {
+    lead: [ok ? "오늘 "+doneT.length+"편 올렸고 남은 원고는 **"+leftT.length+"편**이에요." : "노션에서 일정을 불러오는 중이에요.", visitLead()],
+    sections: [
+      {title:"어제와 오늘", table:{head:["항목","어제 "+md(y),"오늘 "+md(t)], rows:[["올린 글", ok?doneY.length+"편":"–", ok?doneT.length+"편":"–"],["방문자", yv?num(yv.cnt)+"명":"–", tv?num(tv.cnt)+"명 (집계 중)":"–"]]},
+        notes:[tv ? "오늘 방문자는 하루가 끝나야 확정돼요." : null]},
+      {title:"남은 원고", items:[ok ? "날짜가 지났는데 안 올린 원고는 "+late+"편이에요." : null, ok ? "앞으로 7일 안에 올릴 원고는 "+week+"편이에요." : null,
+        waiting==null ? null : "팀 업무지시는 "+waiting+"건 기다리는 중이고, "+(stuck ? "막힌 게 "+stuck+"건 있어요." : "막힌 건 없어요.")],
+        notes:[late>0 ? "날짜 지난 원고부터 날짜를 다시 잡는 게 좋아요." : null]},
+      {title:"내일 "+md(tm)+" 올릴 글", node: tmr.length ? el("div",{}, ...tmr.slice(0,4).map(i=>el("button",{class:"ri",type:"button",onclick:()=>openDetail(i.key)}, stageChip(i), el("span",{}, i.title)))) : el("p",{class:"srep-note"}, ok ? "내일 잡힌 원고는 없어요." : "불러오는 중이에요.")},
+    ],
+    todoTitle: "써즈가 할 일",
+    todoNode: el("p",{class:"srep-note"}, mineN ? "지금 "+mineN+"건 있어요. " : "지금은 없어요. ", el("button",{class:"sbtn",type:"button",onclick:openReportModal},"오늘 보고 전체 보기")),
+  };
+  box.replaceChildren(el("div",{class:"tlabel2"}, el("span",{class:"lt"}, avatar("통계","mini"), "오늘 보고"), el("small",{}, md(t))), srep(rep), homeMeetLine());
 }
 // 홈 ⓪ 하루 순서: 아침 키워드 → 오늘 원고 → 이미지 → 최종 확인·업로드 (써즈가 실제로 일하는 순서)
 function renderHomeFlow(){
@@ -3542,10 +3689,10 @@ function renderHomeKw(){
 // 홈 ⑤ 시킬 일 한 줄 + 방문자
 function homeMeetLine(){
   const M = HOME.meet, x = M.state==="ok" ? M.list[M.list.length-1] : null;
-  const head = el("div",{class:"tlabel2"},"동방 회의 한 줄", x ? el("small",{}, meetTitle(x)) : null);
+  const head = el("div",{class:"tlabel2"},"최근 회의 결론", x ? el("small",{}, meetTitle(x)) : null);
   if (!x){ return el("div",{class:"meetline"}, head, el("p",{class:"muted"}, M.state==="loading" ? "불러오는 중…" : "아침 07:40 · 저녁 23:00에 회의해요. 아직 회의록이 없어요."), el("a",{class:"tiny",href:"#team",onclick:(e)=>{ e.preventDefault(); showView("team"); }},"팀 탭 보기 ›")); }
-  const l = x.lines.find(z=>z && z.text && z.text.length<=70) || x.lines[0] || {who:"토끼", text:(x.summary||[])[0]||""}, c = castOf(l.who);
-  return el("div",{class:"meetline"}, head, el("div",{class:"say"}, avatar(c?c.img:"원고","say"), el("div",{class:"cbub sm"}, el("b",{class:"nm2"}, l.who+" "), l.text)),
+  const r = meetRep(x,false), lead = (r.lead||[])[0], l = lead ? {who:"토끼", text:lead} : (x.lines.find(z=>z && z.text && z.text.length<=70) || x.lines[0] || {who:"토끼", text:""}), c = castOf(l.who);
+  return el("div",{class:"meetline"}, head, el("div",{class:"say"}, avatar(c?c.img:"원고","say"), el("div",{class:"cbub sm"}, rText(l.text), r.todo.length ? el("small",{style:"display:block;margin-top:4px"}, "써즈가 할 일 "+r.todo.length+"건") : null)),
     el("a",{class:"tiny",href:"#team",onclick:(e)=>{ e.preventDefault(); showView("team"); }},"회의록 보기 ›"));
 }
 function renderHomeAsk(){
@@ -3775,7 +3922,7 @@ function renderMeetAlert(){
   if (!u){ box.replaceChildren(); return; }
   box.replaceChildren(el("div",{class:"alert",role:"button",tabindex:"0",onclick:()=>openMeeting(u),onkeydown:(e)=>{ if (e.key==="Enter") openMeeting(u); }},
     el("b",{}, (u.slot==="pm"?"저녁":"아침")+" 회의 보고 도착 · "+(u.date?md(u.date):"")),
-    el("ul",{}, ...(u.summary||[]).slice(0,5).map(t=>el("li",{},t))),
+    (()=>{ const r = meetRep(u,false); return [...(r.lead||[]).slice(0,2).map(l=>el("p",{style:"margin:4px 0"}, rText(l))), r.todo.length ? el("p",{style:"margin:4px 0"}, el("b",{},"써즈가 할 일 "+r.todo.length+"건")) : null]; })(),
     el("span",{class:"hint2"},"눌러서 회의록 채팅창으로 가기")));
 }
 function openMeeting(x){ const M = HOME.meet, i = M.list.findIndex(y=>y.id===x.id); if (i>=0) M.idx = i; renderMeet(); goto("meet","team"); startReveal(); }
@@ -3788,10 +3935,7 @@ function renderTeamSide(){
   const box = document.getElementById("tside"); if (!box) return;
   const M = HOME.meet, x = M.state==="ok" ? M.list[M.list.length-1] : null;
   if (!x){ box.replaceChildren(el("h4",{},"최근 회의"), el("p",{class:"muted",style:"margin:0"}, M.state==="off" ? "회의록 페이지를 읽지 못했어요. 노션 연결을 확인해 주세요." : M.state==="loading" ? "불러오는 중…" : "아직 회의가 없어요. 아침 07:40 · 저녁 23:00에 해요.")); return; }
-  const kids = [el("h4",{}, "최근 회의 · "+meetTitle(x))];
-  if ((x.summary||[]).length) kids.push(el("ul",{}, ...x.summary.map(t=>el("li",{},t))));
-  if ((x.todo||[]).length) kids.push(el("h4",{},"회의에서 정한 할 일"), el("ul",{}, ...x.todo.map(t=>el("li",{},t))));
-  box.replaceChildren(...kids);
+  box.replaceChildren(el("h4",{}, "최근 회의 · "+meetTitle(x)), srep(meetRep(x,false)));
 }
 // 회의 todo → 업무지시로 바로 보내기 (이미 보낸 건 기억, 기존 항목 있음은 건너뜀)
 function sentTodo(){ try{ return JSON.parse(localStorage.getItem("dongbang.sentTodo")||"[]"); }catch(e){ return HOME.sentTodoMem||[]; } }
@@ -3833,9 +3977,7 @@ function renderMeet(keepScroll){
     return el("div",{class:"msg m-"+l.who}, avatar(c?c.img:"원고"), el("div",{}, el("span",{class:"nm"},l.who), el("br"), el("span",{class:"bub"},l.text)));
   }));
   const kids = [head];
-  { const rep = [el("b",{},"결론"), el("ul",{}, ...(x.summary||[]).map(t=>el("li",{},t)))];
-    if (x.todo && x.todo.length) rep.push(el("b",{},"다음 액션 (제안)"), todoSendList(x));
-    kids.push(el("div",{class:"report"}, ...rep)); }
+  kids.push(el("div",{class:"report"}, srep(meetRep(x,true))));
   kids.push(el("h4",{class:"sub"},"회의 대화"), chat);
   const older = M.list.filter((y,i)=>i!==M.idx).reverse().slice(0,6);
   if (older.length && !animating) kids.push(el("div",{class:"olderm"}, el("h4",{class:"sub"},"지난 회의 (최신 먼저)"), ...older.map(y=>el("details",{class:"rules"}, el("summary",{}, meetTitle(y)),
