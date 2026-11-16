@@ -1008,7 +1008,7 @@ function applyDel(){
   ul.replaceChildren(...gone.map(p=>el("li",{}, p.title+" ", el("button",{type:"button",class:"sbtn",onclick:()=>undeletePost(p.id)},"되돌리기"))));
 }
 function deletePost(id){ const p = ALLPOSTS.find(x=>x.id===id); DEL.add(id); try{ if (db) db.doc("del/"+id).set({title:p?p.title:"", at:new Date().toISOString()}); }catch(e){} applyDel(); closeMsWin(); rerender(); renderViewer(true); }
-function delBtn(id, cls){ return el("button",{type:"button",class:cls||"linkbtn",title:"보관함에서 삭제(원고 파일은 그대로, 맨 아래 '삭제한 원고'에서 되돌릴 수 있어요)",onclick:e=>{ e.stopPropagation(); const b=e.currentTarget; if (b.dataset.ask){ deletePost(id); } else { b.dataset.ask="1"; b.textContent="한 번 더"; setTimeout(()=>{ if (b.isConnected){ delete b.dataset.ask; b.textContent="삭제"; } },3500); } }},"삭제"); }
+function delBtn(id, cls){ return el("button",{type:"button",class:cls||"linkbtn",title:"보관함에서 삭제(원고 파일은 그대로, 맨 아래 '삭제한 원고'에서 되돌릴 수 있어요)",onclick:e=>{ e.stopPropagation(); deletePost(id); }},"삭제"); }
 function undeletePost(id){ DEL.delete(id); try{ if (db) db.doc("del/"+id).delete(); }catch(e){} applyDel(); rerender(); renderViewer(true); }
 const local = {};          // 보관함 db: id -> {status, day, memo, notion}
 const notion = new Map();  // 노션 page id -> {id, title, day, status, platform}
@@ -1258,7 +1258,7 @@ function renderArchive(){
     el("b",{class:"card-title"}, r.title),
     el("div",{class:"card-row"}, el("span",{class:"pill late"},"날짜 지남 "+md(r.day)), el("span",{class:"pill todo"},"원고 없음 · 발행 확인 안 됨"), r.type?el("span",{class:"tag"},r.type):null),
     dayEditor(r), writeControl(r),
-    el("div",{class:"card-row"}, el("button",{type:"button",class:"small",title:"보관함에서 삭제(노션 글은 그대로, '안 쓸 소재로 뺀 것'에서 되돌릴 수 있어요)",onclick:e=>{ const bt=e.currentTarget; if (bt.dataset.ask){ skipRow(r); } else { bt.dataset.ask="1"; bt.textContent="한 번 더"; setTimeout(()=>{ if (bt.isConnected){ delete bt.dataset.ask; bt.textContent="삭제"; } },3500); } }},"삭제"))));
+    el("div",{class:"card-row"}, el("button",{type:"button",class:"small",title:"보관함에서 삭제(노션 글은 그대로, '안 쓸 소재로 뺀 것'에서 되돌릴 수 있어요)",onclick:()=>skipRow(r)},"삭제"))));
   if (!rows.length && !lateNoFile.length){ box.append(el("p",{class:"hint"},"보관함이 비어 있어요.")); return; }
   for (const p of rows){
     const s = st(p.id);
@@ -1270,12 +1270,7 @@ function renderArchive(){
       const d = dayIn.value;
       if (!d){ warn.textContent = "날짜를 먼저 골라 주세요."; return; }
       const n = blogCount(d);
-      if (n >= MAX_PER_DAY && confirmFor!==d){
-        confirmFor = d;
-        warn.textContent = md(d)+"에 블로그 글이 이미 "+n+"편 있어요. 그래도 넣으려면 한 번 더 누르세요.";
-        return;
-      }
-      btn.disabled = true; warn.textContent = "저장 중…";
+            btn.disabled = true; warn.textContent = "저장 중…";
       selected = p.id;
       await changeDay(p.id, d);
       if (st(p.id).day===d){
@@ -1529,7 +1524,7 @@ function renderViewer(force){
       el("div",{class:"actions"}, copyBtn,
         p.artifact?el("a",{class:"linkbtn",href:p.artifact,target:"_blank",rel:"noopener"},"원고 아티팩트 열기"):null,
         s.notion?el("a",{class:"linkbtn",href:notionLink(s.notion),target:"_blank",rel:"noopener"},"노션열기"):null,
-        el("button",{type:"button",class:"linkbtn",title:"보관함에서 삭제(원고 파일은 그대로, 맨 아래 '삭제한 원고'에서 되돌릴 수 있어요)",onclick:e=>{ const b=e.currentTarget; if (b.dataset.ask){ deletePost(p.id); } else { b.dataset.ask="1"; b.textContent="정말 삭제? 한 번 더 누르세요"; setTimeout(()=>{ if (b.isConnected){ delete b.dataset.ask; b.textContent="삭제"; } },3500); } }},"삭제"),
+        el("button",{type:"button",class:"linkbtn",title:"보관함에서 삭제(원고 파일은 그대로, 맨 아래 '삭제한 원고'에서 되돌릴 수 있어요)",onclick:()=>deletePost(p.id)},"삭제"),
         el("span",{class:"save-note",id:"save-note"}, dbReady?"":"저장소 연결 중…")),
       status,
       relatedBox(p)
@@ -2334,7 +2329,7 @@ function renderWhat(){
     const btn = el("button",{class:"pbtn",type:"button",style:"padding:3px 10px;font-size:12px",onclick:async()=>{
       const d = dayIn.value; if (!d){ msg.textContent = "날짜를 골라 주세요."; return; }
       const n = blogCount(d);
-      if (n >= MAX_PER_DAY && confirmFor!==d){ confirmFor = d; msg.textContent = md(d)+"에 이미 "+n+"편 있어요. 한 번 더 누르면 넣어요."; return; }
+      
       btn.disabled = true; msg.textContent = "저장 중…";
       await changeDay(it.p.id, d);
       msg.textContent = st(it.p.id).day===d ? md(d)+"로 정했어요." : "날짜를 넣지 못했어요.";
@@ -2780,7 +2775,7 @@ function unskipRow(id){ SKIP.delete(id); try{ if (db) db.doc("skip/"+id).delete(
 function skipBtn(row){
   if (!row || row.status==="게시됨") return null;
   const b = el("button",{type:"button",class:"skipx",title:"안 쓸 소재로 빼기(노션 글은 그대로 두고 캘린더에서만 숨겨요)","aria-label":"안 쓸 소재로 빼기"},"✕");
-  b.addEventListener("click",(e)=>{ e.stopPropagation(); if (b.dataset.ask){ skipRow(row); } else { b.dataset.ask="1"; b.textContent="빼기?"; b.classList.add("ask"); setTimeout(()=>{ if (b.isConnected){ delete b.dataset.ask; b.textContent="✕"; b.classList.remove("ask"); } },3000); } });
+  b.addEventListener("click",(e)=>{ e.stopPropagation(); skipRow(row); });
   return b;
 }
 function calItemsFor(d){
