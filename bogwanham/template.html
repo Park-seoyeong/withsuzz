@@ -1045,13 +1045,14 @@ function st(id){
   return {status: l.status||"todo", day: l.day||"", memo: l.memo||"", notion: l.notion||"", row: null};
 }
 function isLate(id){ const s = st(id); return (s.status==="todo" || s.status==="scheduled") && s.day && s.day < kstToday(); }
+function rowHidden(r){ if (SKIP.has(r.id)) return true; for (const id of DEL) if ((local[id]||{}).notion===r.id) return true; return false; }
 function linkedPostFor(notionId){ for (const p of POSTS) if ((local[p.id]||{}).notion===notionId) return p; return null; }
 
 // 하루 블로그 글 수: 노션 항목(인스타 제외, 빈 플랫폼 포함) + 노션에 안 이어진 원고
 function isBlog(row){ return !/인스타/.test(row.platform||""); }
 function blogCount(d){
   let n = 0;
-  for (const row of notion.values()) if (row.day===d && isBlog(row) && !SKIP.has(row.id)) n++;
+  for (const row of notion.values()) if (row.day===d && isBlog(row) && !rowHidden(row)) n++;
   for (const p of POSTS){ const s = st(p.id); if (!s.row && s.day===d && s.status!=="hold") n++; }
   return n;
 }
@@ -1119,7 +1120,7 @@ function renderWeek(){
       chips.push(el("button",{class:cls+dlClass(p),type:"button",title:p.title+(p.deadline?" (마감 "+md(p.deadline)+")":""),onclick:()=>select(p.id)},...chipWithDeadline(p)));
     }
     for (const row of notion.values()){
-      if (row.day!==d || linkedPostFor(row.id)) continue;
+      if (row.day!==d || linkedPostFor(row.id) || rowHidden(row)) continue;
       const label = (row.platform==="인스타"?"[인스타] ":"")+row.title;
       const ccls = "chip s-other"+(row.status==="게시됨"?" s-published":(row.day<today?" s-late":""));
       if (isBlog(row)) chips.push(el("button",{class:ccls,type:"button",title:"원고 파일 없음 · 눌러서 "+(writeOrderFor(row)?"작성 상태 보기":"원고 쓰기"),onclick:()=>openWriteFromCal(row)},(row.status==="게시됨" ? "✓ " : row.day<today ? "" : "✎ ")+label));
@@ -1232,7 +1233,7 @@ function planArchive(rows){
 function openArchivePlan(){
   const box = document.getElementById("arch-plan"); if (!box) return;
   if (box.firstChild){ box.replaceChildren(); return; }
-  const rows = [...POSTS.filter(p=>inArchive(p) && !st(p.id).day), ...[...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !r.day && !SKIP.has(r.id)).map(r=>({title:r.title, file:"", deadline:"", written:"", __row:r}))];
+  const rows = [...POSTS.filter(p=>inArchive(p) && !st(p.id).day), ...[...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !r.day && !rowHidden(r)).map(r=>({title:r.title, file:"", deadline:"", written:"", __row:r}))];
   if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"날짜 없는 원고가 없어요.")); return; }
   const plan = planArchive(rows), msg = el("p",{class:"warnline",role:"status"});
   const boxes = plan.map(x=>el("input",{type:"checkbox",checked:!x.over,"aria-label":x.p.title+" 넣기"}));
@@ -1255,7 +1256,7 @@ function renderArchive(){
   const rows = POSTS.filter(inArchive).sort((a,b)=>b.written.localeCompare(a.written));
   // 노션에만 있고 날짜가 지났는데 아직 게시됨이 아닌 블로그 글(원고 파일 없음)도 미발행으로 보관함에 올림
   const tdy = kstToday();
-  const lateNoFile = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && r.day && r.day>=OLD_CUT && r.day<tdy && !linkedPostFor(r.id) && !SKIP.has(r.id)).sort((a,b)=>a.day.localeCompare(b.day));
+  const lateNoFile = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && r.day && r.day>=OLD_CUT && r.day<tdy && !linkedPostFor(r.id) && !rowHidden(r)).sort((a,b)=>a.day.localeCompare(b.day));
   for (const r of lateNoFile) box.append(el("div",{class:"card"},
     el("b",{class:"card-title"}, r.title),
     el("div",{class:"card-row"}, el("span",{class:"pill late"},"날짜 지남 "+md(r.day)), el("span",{class:"pill todo"},"원고 없음 · 발행 확인 안 됨"), r.type?el("span",{class:"tag"},r.type):null),
@@ -1693,7 +1694,7 @@ async function fetchNotionPage(id){ return notionText(await mcp.callTool("Notion
 // 숫자 모음(말풍선·프로필·한 줄)
 // 미발행 = 원고 파일이 있고 아직 게시되지 않은 것(보류 제외). 홈·보관함 모두 이 함수 하나로 센다
 function unpublishedCount(){ return POSTS.filter(p=>{const s=st(p.id); return s.status==="todo"||s.status==="scheduled";}).length; }
-function todayBlogRows(){ const t = kstToday(); return [...notion.values()].filter(r=>r.day===t && isBlog(r)); }
+function todayBlogRows(){ const t = kstToday(); return [...notion.values()].filter(r=>r.day===t && isBlog(r) && !rowHidden(r)); }
 function chinaShare(ym){ let total=0, china=0; for (const r of notion.values()){ if (!r.day || r.day.slice(0,7)!==ym || !isBlog(r)) continue; total++; if (r.region==="중국") china++; } return {total, china, pct: total?Math.round(china*100/total):0, target: chinaTarget(ym)}; }
 function latestKwItems(kind){ const arr = HOME.kw && HOME.kw[kind]; if (!Array.isArray(arr) || !arr.length) return null; const key = kind==="daily"?"date":"month"; return [...arr].sort((a,b)=>String(b[key]).localeCompare(String(a[key])))[0]; }
 function urgentDeadline(){
@@ -2230,7 +2231,7 @@ function dayEditor(r){
 function renderNoPost(){
   const box = document.getElementById("nopost"); if (!box) return;
   if (box.querySelector('.wform[data-open="1"]')) return;
-  const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !(r.day && r.day<OLD_CUT) && !linkedPostFor(r.id) && !SKIP.has(r.id)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
+  const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !(r.day && r.day<OLD_CUT) && !linkedPostFor(r.id) && !rowHidden(r)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
   document.getElementById("nopost-title").textContent = "원고 파일 없는 노션 항목 "+rows.length+"편";
   if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"원고가 없는 항목이 없어요.")); return; }
   box.replaceChildren(...rows.slice(0,60).map(r=>el("div",{class:"card"},
@@ -2782,13 +2783,13 @@ function skipBtn(row){
 }
 function calItemsFor(d){
   const out = [];
-  for (const r of notion.values()){ if (r.day!==d || SKIP.has(r.id)) continue; out.push({title:r.title, status:FROM_NOTION[r.status]||"todo", china:r.region==="중국", insta:!isBlog(r), post:linkedPostFor(r.id), row:r}); }
+  for (const r of notion.values()){ if (r.day!==d || rowHidden(r)) continue; out.push({title:r.title, status:FROM_NOTION[r.status]||"todo", china:r.region==="중국", insta:!isBlog(r), post:linkedPostFor(r.id), row:r}); }
   for (const p of POSTS){ const s = st(p.id); if (s.row || s.day!==d || s.status==="hold") continue; out.push({title:p.title, status:s.status, china:isChinaPost(p), insta:false, post:p, row:null}); }
   return out;
 }
 function undatedItems(){
   const out = [];
-  for (const r of notion.values()){ if (r.day || !isBlog(r) || r.status==="게시됨" || SKIP.has(r.id)) continue; out.push({title:r.title, post:linkedPostFor(r.id), row:r, sp:r.type==="협찬"}); }
+  for (const r of notion.values()){ if (r.day || !isBlog(r) || r.status==="게시됨" || rowHidden(r)) continue; out.push({title:r.title, post:linkedPostFor(r.id), row:r, sp:r.type==="협찬"}); }
   for (const p of POSTS){ const s = st(p.id); if (s.row || s.day || s.status==="published" || s.status==="hold") continue; out.push({title:p.title, post:p, row:null, sp:false}); }
   return out;
 }
@@ -3484,7 +3485,7 @@ function itemOf(key){
 }
 function itemsOnDay(t){
   const out = [];
-  for (const r of notion.values()){ if (r.day===t && isBlog(r)) out.push(mkItem(linkedPostFor(r.id), r)); }
+  for (const r of notion.values()){ if (r.day===t && isBlog(r) && !rowHidden(r)) out.push(mkItem(linkedPostFor(r.id), r)); }
   for (const p of POSTS){ const s = st(p.id); if (!s.row && s.day===t && s.status!=="hold") out.push(mkItem(p, null)); }
   return out;
 }
@@ -3903,7 +3904,7 @@ async function autoPublish(){
   if (notionState!=="ok" || !rssItems.size) return;
   const t = kstToday(), done = [];
   const cands = [];
-  for (const r of notion.values()){ if (isBlog(r) && !SKIP.has(r.id) && r.status!=="게시됨" && r.day && r.day<=addDays(t,1)) cands.push({row:r, post:linkedPostFor(r.id), title:r.title, since:addDays(r.day,-14)}); }
+  for (const r of notion.values()){ if (isBlog(r) && !rowHidden(r) && r.status!=="게시됨" && r.day && r.day<=addDays(t,1)) cands.push({row:r, post:linkedPostFor(r.id), title:r.title, since:addDays(r.day,-14)}); }
   for (const p of POSTS){ const s = st(p.id); if (s.row || s.status==="published" || s.status==="hold") continue; cands.push({row:null, post:p, title:p.title, since:p.written||"2000-01-01"}); }
   for (const c of cands){
     const key = c.row ? "r:"+c.row.id : "p:"+c.post.id;
