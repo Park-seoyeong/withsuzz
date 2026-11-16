@@ -3467,8 +3467,11 @@ function mkItem(p, r){
   const steps = stepsOf(p);
   const aside = p ? asideState(asideOrderFor(p)) : null;
   const drafted = !!(aside && aside.state==="drafted");
-  const cur = published ? 6 : !p ? 2 : drafted ? (steps.draft ? 5 : 4) : !steps.photo ? 3 : !steps.draft ? 4 : 5;
-  return {key: p ? "p:"+p.id : "r:"+r.id, post:p, row:r, title, day, published, order, steps, cur, aside, drafted, deadline:(p&&p.deadline)||"", writing: !p && !!order};
+  const auto = published ? 6 : !p ? 2 : drafted ? (steps.draft ? 5 : 4) : !steps.photo ? 3 : !steps.draft ? 4 : 5;
+  const man = p ? Number((local[p.id]||{}).stage)||0 : 0;
+  const cur = published ? 6 : (man>=2 && man<=5 ? man : auto);
+  const manual = !published && man>=2 && man<=5;
+  return {key: p ? "p:"+p.id : "r:"+r.id, post:p, row:r, title, day, published, order, steps, cur, auto, manual, aside, drafted, deadline:(p&&p.deadline)||"", writing: !p && !!order};
 }
 // 어사이드 '원고 임시저장' 업무지시와 그 진행(하위 블록)을 읽어 상태로
 function normT(s){ return String(s||"").replace(/[\s\p{P}\p{S}]/gu,"").toLowerCase(); }
@@ -3836,6 +3839,10 @@ function renderDetail(){
   const p = it.post, r = it.row, m = matchTop5(it.title);
   const back = el("button",{class:"back",type:"button","aria-label":"뒤로",onclick:()=>showView(HOME.prevView && HOME.prevView!=="post" ? HOME.prevView : "home")},"‹");
   const topChip = it.published ? el("span",{class:"sc c-mint"},"발행 완료") : el("span",{class:"sc "+(it.cur===2&&!it.writing?"c-blue":"c-pink")}, it.cur+"단계 · "+STAGES[it.cur-1]);
+  const stageCtl = (p && !it.published) ? el("span",{style:"display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap"},
+    el("button",{class:"sbtn",type:"button",disabled:it.cur<=2?"":null,onclick:()=>saveLocal(p.id,{stage:Math.max(2,it.cur-1)}).then(renderDetail)},"‹ 이전 단계로"),
+    el("button",{class:"sbtn",type:"button",disabled:it.cur>=5?"":null,onclick:()=>saveLocal(p.id,{stage:Math.min(5,it.cur+1)}).then(renderDetail)},"다음 단계로 ›"),
+    it.manual ? el("button",{class:"sbtn",type:"button",title:"직접 정한 단계를 풀고 자동 계산으로",onclick:()=>saveLocal(p.id,{stage:0}).then(renderDetail)},"자동으로") : null) : null;
   const meta = [m&&m.main&&m.main.kw ? "메인 "+m.main.kw : "", it.day ? md(it.day)+" 발행 예정" : "날짜 미정", r&&r.type ? r.type+" 글" : "", p&&p.deadline ? "★ ~"+md(p.deadline) : ""].filter(Boolean).join(" · ");
   const msg = el("span",{class:"hint2"}, HOME.fbNote||""); HOME.fbNote = "";
   const info = {
@@ -3891,7 +3898,7 @@ function renderDetail(){
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>openPost(p)},"원고 열기"),
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>copyPost(p,msg)},"본문 복사"),
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.fb.back = HOME.cur; COACH.tab = "fb"; showView("coach"); }},"문단 피드백")), editControl(p)) : null;
-  box.replaceChildren(el("div",{class:"dtop"}, back, topChip, it.published ? null : el("button",{class:"sbtn",type:"button",style:"margin-left:auto;color:#d6336c;border-color:#d6336c;font-weight:700",title:"보관함·캘린더에서 지워요(되돌릴 수 있어요)",onclick:()=>{ if (p){ deletePost(p.id); } else if (r){ skipRow(r); } showView(HOME.prevView && HOME.prevView!=="post" ? HOME.prevView : "home"); }},"🗑 삭제")), el("div",{class:"ttl"}, it.title), el("div",{class:"meta"}, meta),
+  box.replaceChildren(el("div",{class:"dtop"}, back, topChip, stageCtl, it.published ? null : el("button",{class:"sbtn",type:"button",style:"margin-left:auto;color:#d6336c;border-color:#d6336c;font-weight:700",title:"보관함·캘린더에서 지워요(되돌릴 수 있어요)",onclick:()=>{ if (p){ deletePost(p.id); } else if (r){ skipRow(r); } showView(HOME.prevView && HOME.prevView!=="post" ? HOME.prevView : "home"); }},"🗑 삭제")), el("div",{class:"ttl"}, it.title), el("div",{class:"meta"}, meta),
     el("section",{class:"tcard"}, ...rows, msg), ...[tools, (r ? el("a",{class:"tiny",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션에서 열기 ›") : null)].filter(Boolean));
 }
 
@@ -4108,7 +4115,7 @@ selected = (visible()[0]||{}).id || null; renderList(); renderViewer();
   let first = true;
   db.collection("posts").onSnapshot(snap=>{
     clearTimeout(timer); dbReady = true;
-    for (const d of snap.docs){ if (byId.has(d.id)){ const x=d.data()||{}; local[d.id] = {status:x.status||"todo", day:x.day||"", memo:x.memo||"", notion:x.notion||"", steps:x.steps||{}}; } }
+    for (const d of snap.docs){ if (byId.has(d.id)){ const x=d.data()||{}; local[d.id] = {status:x.status||"todo", day:x.day||"", memo:x.memo||"", notion:x.notion||"", steps:x.steps||{}, stage:x.stage||0}; } }
     rerender(); if (!editing()) renderViewer();
     if (first){ first = false; loadNotion(false); }
   }, err=>{ clearTimeout(timer); note("저장소를 읽지 못했어요 ("+(err&&err.code||"오류")+")."); loadNotion(false); });
