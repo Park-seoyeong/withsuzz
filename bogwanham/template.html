@@ -3897,7 +3897,7 @@ function renderDetail(){
   const rows = STAGES.map((n,i)=>{
     const k = i+1, done = it.cur>k, now = it.cur===k;
     return el("div",{class:"vstep"+(now?"":" fold")}, el("div",{class:"dot "+(done?"d-done":now?"d-now":"d-next")+(k===popK?" pop":"")}, done?"✓":String(k)),
-      el("div",{class:"t"}, n, el("small",{}, info[k]), now && (p || k<3) && actions[k] ? el("div",{class:"vact"}, ...actions[k]().filter(Boolean)) : (now && !p && k>=3 ? el("div",{class:"vact"}, el("p",{class:"muted"},"원고 파일 없이 직접 진행 중이에요. 발행하면 노션에서 게시됨으로 바꿔 주세요.")) : null)),
+      el("div",{class:"t"}, n, el("small",{}, info[k]), now && (p || k<3) && actions[k] ? el("div",{class:"vact"}, ...actions[k]().filter(Boolean)) : (now && !p && k>=3 ? el("div",{class:"vact"}, el("p",{class:"muted"},"원고 파일 없이 직접 진행 중이에요."+(k===5?" 네이버에서 발행했다면 아래 버튼을 눌러 주세요.":"")), k===5 && r ? (()=>{ const m2 = el("span",{class:"hint2"}); const bt = el("button",{class:"tbtn",type:"button",onclick:async()=>{ bt.disabled = true; m2.textContent = "저장 중…"; try{ if (!mcp) throw {code:"notion_off"}; await updateNotion(r.id,{"상태":"게시됨","date:게시 날짜:start": r.day||kstToday(),"date:게시 날짜:is_datetime":0}); r.status = "게시됨"; if (!r.day) r.day = kstToday(); await setStage(it,0); m2.textContent = "발행 완료로 바꿨어요."; renderDetail(); }catch(e){ bt.disabled = false; m2.textContent = failText(e); } }},"발행 완료로 바꾸기"); return el("span",{},bt," ",m2); })() : null) : null)),
       now ? el("span",{class:"stepchar"}, sprite(SC[k][0], SC[k][1], 44, (it.aside && it.aside.state==="blocked" && k===3) ? "sad" : "bob")) : null);
   });
   const tools = p ? el("details",{class:"tools2"}, el("summary",{},"원고 도구"), el("div",{class:"btnrow"},
