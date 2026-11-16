@@ -872,7 +872,7 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
       <h2 id="archive-title">미발행 원고 보관함</h2>
       <span class="hint">날짜가 없거나, 날짜가 지났는데 아직 안 올린 원고예요. 날짜를 정하면 노션 게시 날짜가 들어가고 일정표로 옮겨 가요.</span>
     </div>
-    <div class="btnrow" style="margin:0 0 10px"><button class="pbtn" type="button" id="arch-suggest">날짜 없는 원고 추천 날짜 넣기</button></div>
+    <div class="btnrow" style="margin:0 0 10px"><button class="pbtn" type="button" id="arch-suggest">날짜 없는·지난 원고 추천 날짜 넣기</button> <button class="pbtn" type="button" id="arch-fix">꽉 찬 날 재조정하기</button></div>
     <div id="arch-plan"></div>
     <div class="cards" id="archive"></div>
     <details class="rules" id="del-box" hidden><summary id="del-sum"></summary><ul id="del-list"></ul></details>
@@ -1221,7 +1221,7 @@ function planArchive(rows){
     const cnt = (d)=> blogCount(d)+(load[d]||0);
     const days = []; for (let d = start; d <= end; d = addDays(d,1)) days.push(d);
     // 포스팅이 덜한 날 우선(같으면 빠른 날), 중국 글은 이웃한 날에 중국 글이 있으면 뒤로
-    const score = (d)=> cnt(d)*100 + (china && (dayHasChina(d,mine)||dayHasChina(addDays(d,-1),mine)||dayHasChina(addDays(d,1),mine)) ? 50 : 0);
+    const score = (d)=> (p.__old===d ? 1000 : 0) + cnt(d)*100 + (china && (dayHasChina(d,mine)||dayHasChina(addDays(d,-1),mine)||dayHasChina(addDays(d,1),mine)) ? 50 : 0);
     let pick = "", over = 0;
     if (days.length){ pick = days.slice().sort((x,y)=>score(x)-score(y) || x.localeCompare(y))[0]; if (cnt(pick) >= MAX_PER_DAY) over = cnt(pick); }
     else { pick = start; over = cnt(start); }
@@ -1230,15 +1230,34 @@ function planArchive(rows){
   }
   return plan;
 }
-function openArchivePlan(){
+function fillRows(){
+  const t = kstToday(), mk = (r,old)=>({title:r.title, file:"", deadline:"", written:"", __row:r, __old:old||""});
+  return [...POSTS.filter(p=>inArchive(p)),
+    ...[...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !rowHidden(r) && (!r.day || (r.day>=OLD_CUT && r.day<t))).map(r=>mk(r))];
+}
+// 꽉 찬 날(하루 MAX_PER_DAY편 초과, 오늘부터 30일) 재조정: 덜 급한 글부터 넘치는 만큼 다른 날로
+function crowdRows(){
+  const t = kstToday(), out = [];
+  for (let i=0;i<=30;i++){
+    const d = addDays(t,i), bc = blogCount(d); if (bc<=MAX_PER_DAY) continue;
+    const mv = [];
+    for (const p of POSTS){ const s2 = st(p.id); if (s2.day===d && (s2.status==="todo"||s2.status==="scheduled")) mv.push(Object.assign(p,{__old:d})); }
+    for (const r of notion.values()){ if (r.day===d && isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !rowHidden(r)) mv.push({title:r.title, file:"", deadline:"", written:"", __row:r, __old:d}); }
+    const u = (x)=>urgencyOf(x,t), ord = mv.sort((a,b2)=>{ const x=u(a), y=u(b2); return y.tier-x.tier || (y.limit||"9999").localeCompare(x.limit||"9999"); });
+    out.push(...ord.slice(0, Math.min(ord.length, bc-MAX_PER_DAY)));
+  }
+  return out;
+}
+function openArchivePlan(mode){
   const box = document.getElementById("arch-plan"); if (!box) return;
   if (box.firstChild){ box.replaceChildren(); return; }
-  const rows = [...POSTS.filter(p=>inArchive(p) && !st(p.id).day), ...[...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !r.day && !rowHidden(r)).map(r=>({title:r.title, file:"", deadline:"", written:"", __row:r}))];
-  if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"날짜 없는 원고가 없어요.")); return; }
+  const fix = mode==="fix";
+  const rows = fix ? crowdRows() : fillRows();
+  if (!rows.length){ box.replaceChildren(el("p",{class:"hint"}, fix ? "하루 "+MAX_PER_DAY+"편을 넘는 날이 없어요. 재조정할 게 없어요." : "날짜 없거나 날짜 지난 원고가 없어요.")); return; }
   const plan = planArchive(rows), msg = el("p",{class:"warnline",role:"status"});
   const boxes = plan.map(x=>el("input",{type:"checkbox",checked:!x.over,"aria-label":x.p.title+" 넣기"}));
   const apply = el("button",{class:"pbtn",type:"button"});
-  const upd = ()=>{ const n = boxes.filter(b=>b.checked).length; apply.textContent = n+"편에 이 날짜 넣기"; apply.disabled = !n; };
+  const upd = ()=>{ const n = boxes.filter(b=>b.checked).length; apply.textContent = n+"편 "+(fix?"이 날짜로 옮기기":"이 날짜 넣기"); apply.disabled = !n; };
   boxes.forEach(b=>b.addEventListener("change",upd)); upd();
   apply.addEventListener("click", async ()=>{
     apply.disabled = true; msg.textContent = "넣는 중…";
@@ -1246,8 +1265,8 @@ function openArchivePlan(){
     catch(e){ apply.disabled = false; msg.textContent = failText(e); }
   });
   const warnN = plan.filter(x=>x.over).length;
-  box.replaceChildren(el("div",{class:"card"}, el("b",{},"이렇게 넣어요 (아직 안 바꿨어요)"), el("p",{class:"hint"},"제목의 날짜·월·시즌 글을 먼저, 포스팅이 덜한 날로 띄엄띄엄 넣어요. 하루 "+MAX_PER_DAY+"편 이하, 중국 글은 이웃한 날을 피하고, 다음 달 날씨 글은 그 달 직전에 넣어요."),
-    warnN ? el("p",{class:"warnline"},"경고: "+warnN+"편은 가능한 날이 모두 꽉 차서 "+MAX_PER_DAY+"편을 넘겨요. 체크를 꺼 뒀으니 그래도 넣을 것만 체크하세요.") : null,
+  box.replaceChildren(el("div",{class:"card"}, el("b",{}, fix ? "이렇게 옮겨요: 꽉 찬 날에서 넘치는 글만 (아직 안 바꿨어요)" : "이렇게 넣어요: 날짜 없는 원고 + 날짜 지난 원고 (아직 안 바꿨어요)"), el("p",{class:"hint"},"제목의 날짜·월·시즌 글을 먼저, 포스팅이 덜한 날로 띄엄띄엄 넣어요. 하루 "+MAX_PER_DAY+"편 이하, 중국 글은 이웃한 날을 피하고, 다음 달 날씨 글은 그 달 직전에 넣어요."),
+    warnN ? el("p",{class:"warnline"},"경고: "+warnN+"편은 가능한 날이 모두 꽉 차서 "+MAX_PER_DAY+"편을 넘겨요. 체크를 꺼 뒀으니 그래도 넣을 것만 체크하세요. ", el("button",{type:"button",class:"sbtn",onclick:()=>{ box.replaceChildren(); openArchivePlan("fix"); }},"먼저 꽉 찬 날 재조정하기")) : null,
     ...plan.map((x,i)=>el("label",{class:"card-row",style:"gap:8px;cursor:pointer"}, boxes[i], el("span",{style:"flex:1"}, (x.p.__row?"[파일 없음] ":"")+x.p.title), el("b",{}, md(x.to)+"("+DAYNAMES[weekday(x.to)]+")"), el("span",{class:"hint2"}, x.over ? "⚠ 이미 "+x.over+"편, 그래도 넣기 · "+x.why : x.why))), apply, msg));
 }
 const OLD_CUT = "2026-10-01";   // 9월까지 날짜인 원고 없는 글은 이미 지난 것으로 보고 목록에서 뺌
@@ -4053,7 +4072,7 @@ renderOrderFilters(); renderTeam();
 document.getElementById("home-search").addEventListener("input", renderSearch);
 document.getElementById("home-search").addEventListener("focus", renderSearch);
 document.getElementById("bell-btn").addEventListener("click", ()=>{ const p = document.getElementById("bell-pop"); p.hidden = !p.hidden; });
-{ const sb = document.getElementById("arch-suggest"); if (sb) sb.addEventListener("click", openArchivePlan); }
+{ const sb = document.getElementById("arch-suggest"); if (sb) sb.addEventListener("click", ()=>openArchivePlan("fill")); const fb = document.getElementById("arch-fix"); if (fb) fb.addEventListener("click", ()=>openArchivePlan("fix")); }
 document.getElementById("menu-btn").addEventListener("click", ()=>showView("vault"));
 for (const [id,fn] of [["deal-btn",openDealModal],["cardnews-btn",openCardNewsModal],["compare-btn",openCompareModal]]){ const b = document.getElementById(id); if (b) b.addEventListener("click", fn); }
 (function(){ const a = document.getElementById("order-open"); if (!a) return; if (isEvening()){ a.className = "pbtn"; a.style.padding = "4px 14px"; a.style.fontSize = "13px"; a.textContent = "바로 처리"; } const t = DONGBANG.tools.find(x=>x.name==="원고 작업 스레드"); a.href = (t && t.href) || "#";
