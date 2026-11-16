@@ -3848,7 +3848,13 @@ function renderDetail(){
   const stageCtl = !it.published ? el("span",{style:"display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap"},
     el("button",{class:"sbtn",type:"button",disabled:it.cur<=2?"":null,onclick:()=>setStage(it,Math.max(2,it.cur-1)).then(renderDetail)},"‹ 이전 단계로"),
     el("button",{class:"sbtn",type:"button",disabled:it.cur>=5?"":null,onclick:()=>setStage(it,Math.min(5,it.cur+1)).then(renderDetail)},"다음 단계로 ›"),
-    it.manual ? el("button",{class:"sbtn",type:"button",title:"직접 정한 단계를 풀고 자동 계산으로",onclick:()=>setStage(it,0).then(renderDetail)},"자동으로") : null) : null;
+    it.manual ? el("button",{class:"sbtn",type:"button",title:"직접 정한 단계를 풀고 자동 계산으로",onclick:()=>setStage(it,0).then(renderDetail)},"자동으로") : null,
+    (()=>{ const m3 = el("span",{class:"hint2"}); const bt = el("button",{class:"sbtn",type:"button",style:"font-weight:700;color:#2f9e6e;border-color:#2f9e6e",title:"네이버에서 발행했다면 눌러 주세요(노션 상태가 게시됨으로 바뀌어요)",onclick:async()=>{ bt.disabled = true; m3.textContent = "저장 중…";
+        try{
+          if (it.post){ const s2 = st(it.post.id); if (s2.row){ if (!mcp) throw {code:"notion_off"}; await updateNotion(s2.notion,{"상태":"게시됨","date:게시 날짜:start": s2.row.day||kstToday(),"date:게시 날짜:is_datetime":0}); s2.row.status = "게시됨"; if (!s2.row.day) s2.row.day = kstToday(); } await saveLocal(it.post.id,{status:"published"}); }
+          else if (it.row){ if (!mcp) throw {code:"notion_off"}; await updateNotion(it.row.id,{"상태":"게시됨","date:게시 날짜:start": it.row.day||kstToday(),"date:게시 날짜:is_datetime":0}); it.row.status = "게시됨"; if (!it.row.day) it.row.day = kstToday(); }
+          try{ rerender(); }catch(e){} renderDetail();
+        }catch(e){ bt.disabled = false; m3.textContent = failText(e); } }},"✓ 발행 완료"); return el("span",{style:"display:inline-flex;gap:6px;align-items:center"}, bt, m3); })()) : null;
   const meta = [m&&m.main&&m.main.kw ? "메인 "+m.main.kw : "", it.day ? md(it.day)+" 발행 예정" : "날짜 미정", r&&r.type ? r.type+" 글" : "", p&&p.deadline ? "★ ~"+md(p.deadline) : ""].filter(Boolean).join(" · ");
   const msg = el("span",{class:"hint2"}, HOME.fbNote||""); HOME.fbNote = "";
   const info = {
