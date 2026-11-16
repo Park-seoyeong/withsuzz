@@ -3457,6 +3457,12 @@ function celebrate(title, who, sub){
 // 5단계: 키워드 · 원고 · 사진 · 임시저장 확인 · 발행. 사진·확인 단계는 써즈가 직접 눌러 표시해요(보관함 db의 steps).
 const STAGES = ["키워드","원고","사진","확인","발행"];
 const STAGE_BTN = {2:"원고 쓰기", 3:"사진 확인하러 가기", 4:"임시저장 확인하러 가기", 5:"확인하고 발행하러 가기"};
+const ROWSTAGE = new Map();
+async function setStage(it, n){
+  if (it.post){ await saveLocal(it.post.id,{stage:n}); }
+  else if (it.row){ if (n) ROWSTAGE.set(it.row.id,n); else ROWSTAGE.delete(it.row.id); try{ if (db) await db.doc("rowstage/"+it.row.id).set({n:n||0, title:it.title, at:new Date().toISOString()}); }catch(e){} }
+  try{ rerender(); }catch(e){}
+}
 function stepsOf(p){ return (p && (local[p.id]||{}).steps) || {}; }
 function mkItem(p, r){
   const s = p ? st(p.id) : null;
@@ -3468,7 +3474,7 @@ function mkItem(p, r){
   const aside = p ? asideState(asideOrderFor(p)) : null;
   const drafted = !!(aside && aside.state==="drafted");
   const auto = published ? 6 : !p ? 2 : drafted ? (steps.draft ? 5 : 4) : !steps.photo ? 3 : !steps.draft ? 4 : 5;
-  const man = p ? Number((local[p.id]||{}).stage)||0 : 0;
+  const man = p ? Number((local[p.id]||{}).stage)||0 : (r ? Number(ROWSTAGE.get(r.id))||0 : 0);
   const cur = published ? 6 : (man>=2 && man<=5 ? man : auto);
   const manual = !published && man>=2 && man<=5;
   return {key: p ? "p:"+p.id : "r:"+r.id, post:p, row:r, title, day, published, order, steps, cur, auto, manual, aside, drafted, deadline:(p&&p.deadline)||"", writing: !p && !!order};
@@ -3839,10 +3845,10 @@ function renderDetail(){
   const p = it.post, r = it.row, m = matchTop5(it.title);
   const back = el("button",{class:"back",type:"button","aria-label":"뒤로",onclick:()=>showView(HOME.prevView && HOME.prevView!=="post" ? HOME.prevView : "home")},"‹");
   const topChip = it.published ? el("span",{class:"sc c-mint"},"발행 완료") : el("span",{class:"sc "+(it.cur===2&&!it.writing?"c-blue":"c-pink")}, it.cur+"단계 · "+STAGES[it.cur-1]);
-  const stageCtl = (p && !it.published) ? el("span",{style:"display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap"},
-    el("button",{class:"sbtn",type:"button",disabled:it.cur<=2?"":null,onclick:()=>saveLocal(p.id,{stage:Math.max(2,it.cur-1)}).then(renderDetail)},"‹ 이전 단계로"),
-    el("button",{class:"sbtn",type:"button",disabled:it.cur>=5?"":null,onclick:()=>saveLocal(p.id,{stage:Math.min(5,it.cur+1)}).then(renderDetail)},"다음 단계로 ›"),
-    it.manual ? el("button",{class:"sbtn",type:"button",title:"직접 정한 단계를 풀고 자동 계산으로",onclick:()=>saveLocal(p.id,{stage:0}).then(renderDetail)},"자동으로") : null) : null;
+  const stageCtl = !it.published ? el("span",{style:"display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap"},
+    el("button",{class:"sbtn",type:"button",disabled:it.cur<=2?"":null,onclick:()=>setStage(it,Math.max(2,it.cur-1)).then(renderDetail)},"‹ 이전 단계로"),
+    el("button",{class:"sbtn",type:"button",disabled:it.cur>=5?"":null,onclick:()=>setStage(it,Math.min(5,it.cur+1)).then(renderDetail)},"다음 단계로 ›"),
+    it.manual ? el("button",{class:"sbtn",type:"button",title:"직접 정한 단계를 풀고 자동 계산으로",onclick:()=>setStage(it,0).then(renderDetail)},"자동으로") : null) : null;
   const meta = [m&&m.main&&m.main.kw ? "메인 "+m.main.kw : "", it.day ? md(it.day)+" 발행 예정" : "날짜 미정", r&&r.type ? r.type+" 글" : "", p&&p.deadline ? "★ ~"+md(p.deadline) : ""].filter(Boolean).join(" · ");
   const msg = el("span",{class:"hint2"}, HOME.fbNote||""); HOME.fbNote = "";
   const info = {
@@ -3891,7 +3897,7 @@ function renderDetail(){
   const rows = STAGES.map((n,i)=>{
     const k = i+1, done = it.cur>k, now = it.cur===k;
     return el("div",{class:"vstep"+(now?"":" fold")}, el("div",{class:"dot "+(done?"d-done":now?"d-now":"d-next")+(k===popK?" pop":"")}, done?"✓":String(k)),
-      el("div",{class:"t"}, n, el("small",{}, info[k]), now && actions[k] ? el("div",{class:"vact"}, ...actions[k]().filter(Boolean)) : null),
+      el("div",{class:"t"}, n, el("small",{}, info[k]), now && (p || k<3) && actions[k] ? el("div",{class:"vact"}, ...actions[k]().filter(Boolean)) : (now && !p && k>=3 ? el("div",{class:"vact"}, el("p",{class:"muted"},"원고 파일 없이 직접 진행 중이에요. 발행하면 노션에서 게시됨으로 바꿔 주세요.")) : null)),
       now ? el("span",{class:"stepchar"}, sprite(SC[k][0], SC[k][1], 44, (it.aside && it.aside.state==="blocked" && k===3) ? "sad" : "bob")) : null);
   });
   const tools = p ? el("details",{class:"tools2"}, el("summary",{},"원고 도구"), el("div",{class:"btnrow"},
@@ -4120,6 +4126,7 @@ selected = (visible()[0]||{}).id || null; renderList(); renderViewer();
     if (first){ first = false; loadNotion(false); }
   }, err=>{ clearTimeout(timer); note("저장소를 읽지 못했어요 ("+(err&&err.code||"오류")+")."); loadNotion(false); });
   db.collection("del").onSnapshot(snap=>{ DEL.clear(); for (const d of snap.docs) DEL.add(d.id); try{ applyDel(); rerender(); renderViewer(true); }catch(e){} }, ()=>{});
+  db.collection("rowstage").onSnapshot(snap=>{ ROWSTAGE.clear(); for (const d of snap.docs){ const n = Number((d.data()||{}).n)||0; if (n) ROWSTAGE.set(d.id,n); } try{ rerender(); renderDetail(); }catch(e){} }, ()=>{});
   db.collection("skip").onSnapshot(snap=>{ SKIP.clear(); for (const d of snap.docs) SKIP.add(d.id); try{ rerender(); }catch(e){} }, ()=>{});
   db.collection("rss").onSnapshot(snap=>{
     rssItems.clear();
