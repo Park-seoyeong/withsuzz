@@ -1056,7 +1056,7 @@ function blogCount(d){
   for (const p of POSTS){ const s = st(p.id); if (!s.row && s.day===d && s.status!=="hold") n++; }
   return n;
 }
-const MAX_PER_DAY = 2;   // 매니저와 합의한 현실 상한: 하루 2편
+const MAX_PER_DAY = 3;   // 서영 결정(11/16): 하루 3편까지 괜찮고, 3편을 넘길 때만 재조정 대상
 
 // 할인·이벤트 마감 표시: 제목 앞 ★, 제목 옆 작은 "~11/19". 마감 지나면 연한 코랄
 function titleWithDeadline(p){
