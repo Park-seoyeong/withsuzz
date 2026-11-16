@@ -1232,7 +1232,7 @@ function planArchive(rows){
 function openArchivePlan(){
   const box = document.getElementById("arch-plan"); if (!box) return;
   if (box.firstChild){ box.replaceChildren(); return; }
-  const rows = [...POSTS.filter(p=>inArchive(p) && !st(p.id).day), ...[...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !r.day).map(r=>({title:r.title, file:"", deadline:"", written:"", __row:r}))];
+  const rows = [...POSTS.filter(p=>inArchive(p) && !st(p.id).day), ...[...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !linkedPostFor(r.id) && !r.day && !SKIP.has(r.id)).map(r=>({title:r.title, file:"", deadline:"", written:"", __row:r}))];
   if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"날짜 없는 원고가 없어요.")); return; }
   const plan = planArchive(rows), msg = el("p",{class:"warnline",role:"status"});
   const boxes = plan.map(x=>el("input",{type:"checkbox",checked:!x.over,"aria-label":x.p.title+" 넣기"}));
@@ -1412,10 +1412,10 @@ function renderList(){
   if (!rows.length){ list.append(el("li",{class:"empty"}, query?"찾는 원고가 없어요.":"이 상태인 원고가 없어요.")); return; }
   for (const p of rows){
     const s = st(p.id);
-    list.append(el("li",{}, el("button",{class:"item",type:"button","aria-current":String(selected===p.id),onclick:()=>select(p.id)},
+    list.append(el("li",{style:"display:flex;gap:4px;align-items:center"}, el("button",{class:"item",style:"flex:1;min-width:0",type:"button","aria-current":String(selected===p.id),onclick:()=>select(p.id)},
       el("span",{class:"item-title"+dlClass(p)},...titleWithDeadline(p)),
       el("span",{class:"meta"}, pillFor(p.id), s.day?el("span",{},"발행 "+md(s.day)+" ("+DAYNAMES[weekday(s.day)]+")"):el("span",{},"발행일 미정"), el("span",{},"· 작성 "+md(wDay(p))), s.notion?null:el("span",{},"· 노션 미연결"), (()=>{ const c = postCat(p); return el("span",{class:"tag"}, c.area+" · "+c.kind); })())
-    )));
+    ), delBtn(p.id,"small")));
   }
 }
 
@@ -2230,7 +2230,7 @@ function dayEditor(r){
 function renderNoPost(){
   const box = document.getElementById("nopost"); if (!box) return;
   if (box.querySelector('.wform[data-open="1"]')) return;
-  const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !(r.day && r.day<OLD_CUT) && !linkedPostFor(r.id)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
+  const today = kstToday(), rows = [...notion.values()].filter(r=>isBlog(r) && r.status!=="게시됨" && !(r.day && r.day<OLD_CUT) && !linkedPostFor(r.id) && !SKIP.has(r.id)).sort((a,b)=>(a.day||"9999").localeCompare(b.day||"9999"));
   document.getElementById("nopost-title").textContent = "원고 파일 없는 노션 항목 "+rows.length+"편";
   if (!rows.length){ box.replaceChildren(el("p",{class:"hint"},"원고가 없는 항목이 없어요.")); return; }
   box.replaceChildren(...rows.slice(0,60).map(r=>el("div",{class:"card"},
@@ -3903,7 +3903,7 @@ async function autoPublish(){
   if (notionState!=="ok" || !rssItems.size) return;
   const t = kstToday(), done = [];
   const cands = [];
-  for (const r of notion.values()){ if (isBlog(r) && r.status!=="게시됨" && r.day && r.day<=addDays(t,1)) cands.push({row:r, post:linkedPostFor(r.id), title:r.title, since:addDays(r.day,-14)}); }
+  for (const r of notion.values()){ if (isBlog(r) && !SKIP.has(r.id) && r.status!=="게시됨" && r.day && r.day<=addDays(t,1)) cands.push({row:r, post:linkedPostFor(r.id), title:r.title, since:addDays(r.day,-14)}); }
   for (const p of POSTS){ const s = st(p.id); if (s.row || s.status==="published" || s.status==="hold") continue; cands.push({row:null, post:p, title:p.title, since:p.written||"2000-01-01"}); }
   for (const c of cands){
     const key = c.row ? "r:"+c.row.id : "p:"+c.post.id;
