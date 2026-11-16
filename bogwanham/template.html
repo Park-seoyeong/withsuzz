@@ -3110,7 +3110,7 @@ function bigModal(cfg){
   back.addEventListener("mousedown", e=>{ if (e.target===back) closeBtn.click(); });
   box.append(el("div",{class:"bm-head"}, el("div",{}, el("b",{class:"bm-title"}, cfg.title), cfg.sub ? el("small",{}, cfg.sub) : null), closeBtn),
     el("div",{class:"bm-body"}, ...rows),
-    el("div",{class:"bm-foot"}, sendBtn, cfg.chat ? chatBtn("클로드와 대화로 구성 잡기", ()=>cfg.chat(vals), "sbtn") : null, el("span",{class:"hint2"},"Ctrl+Enter로도 보내요"), status));
+    el("div",{class:"bm-foot"}, sendBtn, cfg.chat ? chatBtn("클로드와 대화로 구성 잡기", ()=>cfg.chat(vals), "sbtn") : null, el("span",{class:"hint2"},"Ctrl+Enter로도 보내요"), status, cfg.onDelete ? el("button",{class:"sbtn",type:"button",style:"margin-left:auto;color:#d6336c;border-color:#d6336c;font-weight:700",title:"보관함·캘린더에서 지워요(노션 글은 그대로, 되돌릴 수 있어요)",onclick:()=>{ closeBigModal(); cfg.onDelete(); }},"🗑 삭제") : null));
   back.append(box); document.body.append(back); document.body.style.overflow = "hidden";
   const first = cfg.fields.find(f=>!f.readonly && f.kind!=="text") || cfg.fields.find(f=>!f.readonly);
   if (first && first.el) setTimeout(()=>first.el.focus({preventScroll:true}), 50);
@@ -3132,6 +3132,7 @@ function openWrite(row){
   const m = matchTop5(row.title);
   const clean = (s)=>String(s||"").replace(/ · /g," ・ ").replace(/[|]/g,"/").replace(/\s*\n+\s*/g," / ").trim();
   bigModal({title:"원고 쓰기", sub:row.title, draftKey:"write."+row.id,
+    onDelete:()=>skipRow(row),
     chat:(v)=>"원고 구성 같이 잡자: "+oneLine(row.title)+" | "+(oneLine(row.region)||"-")+" | "+(oneLine(row.type)||"-")+" | 노션 항목 "+row.id+" | 지금까지 적은 구성·경험: "+(oneLine(v.flow)||"-")+" | 메인 키워드 "+(oneLine(v.main)||"-")+" | 가이드라인 "+(oneLine(v.guide)||"-")+" — 순서와 흐름을 같이 잡고, 끝나면 원고를 써 줘", doneText:autoWhen()+" 때 쓰고, 끝나면 이 항목에 원고 열기가 떠요.", afterLabel:"이 원고 보기", after:()=>openDetail("r:"+row.id),
     fields:[
       {k:"topic",label:"주제",kind:"text",value:row.title,readonly:true,hint:"노션 제목(자동)"},
@@ -3870,7 +3871,7 @@ function renderDetail(){
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>openPost(p)},"원고 열기"),
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>copyPost(p,msg)},"본문 복사"),
       el("button",{class:"tbtn ghost",type:"button",onclick:()=>{ COACH.fb.post = p; COACH.fb.back = HOME.cur; COACH.tab = "fb"; showView("coach"); }},"문단 피드백")), editControl(p)) : null;
-  box.replaceChildren(el("div",{class:"dtop"}, back, topChip), el("div",{class:"ttl"}, it.title), el("div",{class:"meta"}, meta),
+  box.replaceChildren(el("div",{class:"dtop"}, back, topChip, it.published ? null : el("button",{class:"sbtn",type:"button",style:"margin-left:auto;color:#d6336c;border-color:#d6336c;font-weight:700",title:"보관함·캘린더에서 지워요(되돌릴 수 있어요)",onclick:()=>{ if (p){ deletePost(p.id); } else if (r){ skipRow(r); } showView(HOME.prevView && HOME.prevView!=="post" ? HOME.prevView : "home"); }},"🗑 삭제")), el("div",{class:"ttl"}, it.title), el("div",{class:"meta"}, meta),
     el("section",{class:"tcard"}, ...rows, msg), ...[tools, (r ? el("a",{class:"tiny",href:notionLink(r.id),target:"_blank",rel:"noopener"},"노션에서 열기 ›") : null)].filter(Boolean));
 }
 
